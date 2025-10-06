@@ -3,9 +3,14 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "nodemon"
+  },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/morgan": "^1.9.10",
     "@types/pg": "^8.15.5",
     "ts-node-dev": "^2.0.0"
   },
@@ -13,10 +18,15 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "dotenv": "^17.2.3",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
+    "helmet": "^8.1.0",
     "inversify": "^7.10.2",
+    "morgan": "^1.10.1",
     "pg": "^8.16.3",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "winston": "^3.18.3",
+    "winston-daily-rotate-file": "^5.0.0",
+    "zod": "^4.1.12"
   }
 }

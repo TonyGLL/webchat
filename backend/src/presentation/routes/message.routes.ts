@@ -3,8 +3,9 @@ import { container } from '../inversify.config';
 import { MessageController } from '../controllers/message.controller';
 
 const router = Router();
-const messageController = container.resolve(MessageController);
+const controller = container.get<MessageController>(MessageController);
 
-router.post('/', (req, res) => messageController.create(req, res));
+router
+    .post('/', controller.create);
 
 export default router;
