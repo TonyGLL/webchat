@@ -1,6 +1,6 @@
 import { inject, injectable } from 'inversify';
-import { Message } from '../../domain/message';
-import { IMessageRepository } from '../repositories/message.repository';
+import { Message } from '../../../domain/message';
+import { IMessageRepository } from '../../repositories/message.repository';
 
 interface CreateMessageRequest {
   text: string;
@@ -12,7 +12,7 @@ interface CreateMessageRequest {
 export class CreateMessageUseCase {
   constructor(
     @inject(IMessageRepository) private messageRepository: IMessageRepository
-  ) {}
+  ) { }
 
   async execute(request: CreateMessageRequest): Promise<Message> {
     const { text, authorId, channelId } = request;
