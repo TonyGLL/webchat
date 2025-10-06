@@ -2,11 +2,13 @@ import 'reflect-metadata';
 import { Container } from 'inversify';
 import { Pool } from 'pg';
 
-import { IMessageRepository } from '../application/repositories/message.repository';
-import dbPool from '../infrastructure/database/db';
-import { PgMessageRepository } from '../infrastructure/database/repositories/pg-message.repository';
 import { TYPES } from '../types';
+import dbPool from '../infrastructure/database/db';
+import { IMessageRepository } from '../application/repositories/message.repository';
+import { PgMessageRepository } from '../infrastructure/database/repositories/pg-message.repository';
+
 import { MessageController } from './controllers/message.controller';
+
 import { CreateMessageUseCase } from '../application/use-cases/messages/create-message.use-case';
 
 const container = new Container();
