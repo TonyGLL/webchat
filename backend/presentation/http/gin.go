@@ -27,8 +27,8 @@ func InitServer(messageController *controllers.MessageController) {
 		}
 	}
 
-	fmt.Println("Server is running on port 8080")
-	if err := router.Run(":8080"); err != nil {
+	fmt.Println("Server running on port 3001")
+	if err := router.Run(":3001"); err != nil {
 		log.Fatalf("could not run server: %v", err)
 	}
 }

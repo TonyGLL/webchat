@@ -24,15 +24,19 @@ watch:
 	@echo "Watching for changes..."
 	@CONFIG_FILE=dev.env air
 
+database-up:
+	@echo "Starting PostgreSQL database..."
+	@CONFIG_FILE=dev.env docker compose up -d db
+
 # Docker-compose commands
 up-dev:
 	@echo "Starting development environment..."
-	@CONFIG_FILE=dev.env docker-compose up --build -d
+	@CONFIG_FILE=dev.env docker compose up --build -d
 
 up-prod:
 	@echo "Starting production environment..."
-	@CONFIG_FILE=prod.env docker-compose up --build -d
+	@CONFIG_FILE=prod.env docker compose up --build -d
 
 down:
-	@echo "Stopping docker-compose environment..."
-	@docker-compose down
+	@echo "Stopping docker compose environment..."
+	@docker compose down

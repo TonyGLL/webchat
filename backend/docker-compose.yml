@@ -18,12 +18,13 @@ services:
       - CONFIG_FILE=${CONFIG_FILE}
 
   db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
+    container_name: webchat_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: dev_db
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: webchat
     ports:
       - "5433:5432"
     volumes:
