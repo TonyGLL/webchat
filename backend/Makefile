@@ -22,7 +22,7 @@ watch:
 		go install github.com/air-verse/air@latest; \
 	fi
 	@echo "Watching for changes..."
-	@CONFIG_FILE=dev.env air
+	@CONFIG_FILE=local.env air
 
 database-up:
 	@echo "Starting PostgreSQL database..."
