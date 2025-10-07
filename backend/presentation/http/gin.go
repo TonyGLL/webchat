@@ -13,6 +13,13 @@ func InitServer(messageController *controllers.MessageController) {
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
+	v1.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "OK",
+		})
+	})
+
+	// Message routes
 	{
 		messages := v1.Group("/messages")
 		{
