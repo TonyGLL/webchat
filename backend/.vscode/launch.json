@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug LOCAL",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/local.env",
+      "args": [],
+      "buildFlags": "",
+      "showLog": true
+    }
+  ]
+}
