@@ -7,9 +7,11 @@ services:
       dockerfile: Dockerfile
       args:
         - CONFIG_FILE=${CONFIG_FILE}
+    image: webchat/api:0.0.1
     restart: unless-stopped
+    container_name: webchat_api
     ports:
-      - "8080:8080"
+      - "3001:3000"
     volumes:
       - .:/app
     depends_on:
