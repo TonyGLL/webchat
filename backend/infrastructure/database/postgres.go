@@ -6,32 +6,19 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/joho/godotenv"
 )
 
+// NewDBPool creates a new database connection pool.
+// It relies on environment variables being loaded beforehand.
 func NewDBPool() (*pgxpool.Pool, error) {
-	env := os.Getenv("GO_ENV")
-	if env == "" {
-		env = "development" // default to development
-	}
-
-	envFile := fmt.Sprintf("%s.env", env)
-    if env == "development" {
-        envFile = "dev.env"
-    }
-
-	err := godotenv.Load(envFile)
-	if err != nil {
-		return nil, fmt.Errorf("error loading %s file: %w", envFile, err)
-	}
-
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_DATABASE")
+	dbName := os.Getenv("DB_NAME")
 
-	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", dbUser, dbPassword, dbHost, dbPort, dbName)
+	// Use sslmode=disable for local development. This can be made configurable.
+	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
 
 	pool, err := pgxpool.Connect(context.Background(), connString)
 	if err != nil {
