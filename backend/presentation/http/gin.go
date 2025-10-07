@@ -2,11 +2,9 @@ package http
 
 import (
 	"backend/presentation/controllers"
-	"fmt"
 	"log"
 
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/secure"
 	"github.com/gin-gonic/gin"
 
 	"context"
@@ -22,8 +20,17 @@ func InitServer(messageController *controllers.MessageController) {
 	router := gin.Default()
 
 	// Middlewares
-	router.Use(cors.Default())
-	router.Use(secure.New(secure.DefaultConfig()))
+	/* CORS */
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"https://foo.com"},
+		AllowMethods:     []string{"PUT", "PATCH", "OPTIONS", "GET", "POST"},
+		AllowHeaders:     []string{"Origin"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		AllowOriginFunc: func(origin string) bool {
+			return origin == "https://github.com"
+		},
+	}))
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
@@ -43,10 +50,6 @@ func InitServer(messageController *controllers.MessageController) {
 
 	// Get port from environment variables, with a default
 	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3000"
-	}
-
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: router,
@@ -54,7 +57,7 @@ func InitServer(messageController *controllers.MessageController) {
 
 	// Run server in a goroutine
 	go func() {
-		log.Printf("Server running on port %s", port)
+		log.Printf("Server running on port: %s", port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("listen: %s\n", err)
 		}

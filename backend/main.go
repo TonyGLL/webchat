@@ -9,6 +9,8 @@ import (
 	"backend/presentation/http"
 	"log"
 	"os"
+
+	"github.com/go-playground/validator/v10"
 )
 
 func main() {
@@ -41,7 +43,8 @@ func main() {
 	createMessageUseCase := usecases.NewCreateMessageUseCase(messageRepository)
 
 	// Presentation
-	messageController := controllers.NewMessageController(createMessageUseCase)
+	validate := validator.New()
+	messageController := controllers.NewMessageController(createMessageUseCase, validate)
 
 	// Start server
 	http.InitServer(messageController)
