@@ -1,0 +1,7 @@
+# Environment variables
+*.env
+dev.env
+prod.env
+
+# Build output
+/main
