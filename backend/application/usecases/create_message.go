@@ -15,12 +15,16 @@ func NewCreateMessageUseCase(repo repositories.MessageRepository) *CreateMessage
 }
 
 type CreateMessageInputDTO struct {
-	Text      string `json:"text"`
-	AuthorID  string `json:"authorId"`
-	ChannelID string `json:"channelId"`
+	Text      string `json:"text" validate:"required"`
+	AuthorID  string `json:"authorId" validate:"required"`
+	ChannelID string `json:"channelId" validate:"required"`
 }
 
 func (uc *CreateMessageUseCase) Execute(input CreateMessageInputDTO) (*domain.Message, error) {
+	if input.Text == "" {
+		return nil, domain.ErrInvalidInput
+	}
+
 	message := &domain.Message{
 		Text:      input.Text,
 		AuthorID:  input.AuthorID,
@@ -30,7 +34,10 @@ func (uc *CreateMessageUseCase) Execute(input CreateMessageInputDTO) (*domain.Me
 
 	createdMessage, err := uc.MessageRepository.Create(message)
 	if err != nil {
-		return nil, err
+		// In a real application, you might want to check for specific database errors
+		// and map them to domain errors, e.g., a unique constraint violation
+		// could be mapped to domain.ErrConflict.
+		return nil, domain.ErrInternal
 	}
 
 	return createdMessage, nil
