@@ -3,17 +3,17 @@
 # Build the Go application
 build:
 	@echo "Building..."
-	@cd backend && go build -o ../main main.go
+	@go build -o ../main main.go
 
 # Run the Go application for development
 run:
 	@echo "Running in development mode..."
-	@cd backend && CONFIG_FILE=dev.env go run .
+	@CONFIG_FILE=dev.env go run .
 
 # Run tests
 test:
 	@echo "Testing..."
-	@cd backend && go test -v ./...
+	@go test -v ./...
 
 # Live Reload with Air for development
 watch:
@@ -22,7 +22,7 @@ watch:
 		go install github.com/air-verse/air@latest; \
 	fi
 	@echo "Watching for changes..."
-	@cd backend && CONFIG_FILE=dev.env air
+	@CONFIG_FILE=dev.env air
 
 # Docker-compose commands
 up-dev:

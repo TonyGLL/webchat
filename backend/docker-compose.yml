@@ -1,9 +1,9 @@
-version: '3.8'
+version: "3.8"
 
 services:
   app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
       args:
         - CONFIG_FILE=${CONFIG_FILE}
@@ -11,7 +11,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./backend:/app
+      - .:/app
     depends_on:
       - db
     environment:
