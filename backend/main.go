@@ -1,11 +1,8 @@
 package main
 
 import (
-	"backend/application/usecases"
 	"backend/infrastructure/config"
 	"backend/infrastructure/database"
-	"backend/infrastructure/persistence"
-	"backend/presentation/controllers"
 	"backend/presentation/http"
 	"log"
 	"os"
@@ -31,21 +28,15 @@ func main() {
 	}
 
 	// Infrastructure
-	dbPool, err := database.NewDBPool()
+	db, err := database.NewDBPool()
 	if err != nil {
 		log.Fatalf("could not initialize database connection: %s", err)
 	}
-	defer dbPool.Close()
-
-	messageRepository := persistence.NewPgMessageRepository(dbPool)
-
-	// Application
-	createMessageUseCase := usecases.NewCreateMessageUseCase(messageRepository)
+	defer db.Close()
 
 	// Presentation
 	validate := validator.New()
-	messageController := controllers.NewMessageController(createMessageUseCase, validate)
 
 	// Start server
-	http.InitServer(messageController)
+	http.InitServer(db, validate)
 }

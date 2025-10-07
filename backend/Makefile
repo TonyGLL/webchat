@@ -15,14 +15,22 @@ test:
 	@echo "Testing..."
 	@go test -v ./...
 
-# Live Reload with Air for development
+# Live Reload
 watch:
-	@if ! command -v air > /dev/null; then \
-		echo "air is not installed. Installing it now..."; \
-		go install github.com/air-verse/air@latest; \
+	@if command -v air > /dev/null; then \
+	    CONFIG_FILE=local.env air; \
+	    echo "Watching...";\
+	else \
+	    read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
+	    if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
+	        go install github.com/air-verse/air@latest; \
+	        CONFIG_FILE=local.env air; \
+	        echo "Watching...";\
+	    else \
+	        echo "You chose not to install air. Exiting..."; \
+	        exit 1; \
+	    fi; \
 	fi
-	@echo "Watching for changes..."
-	@CONFIG_FILE=local.env air
 
 database-up:
 	@echo "Starting PostgreSQL database..."

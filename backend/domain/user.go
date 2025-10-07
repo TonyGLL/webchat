@@ -15,11 +15,11 @@ type User struct {
 	LastName        string     `json:"last_name"`
 	Username        string     `json:"username"`
 	Email           string     `json:"email"`
-	Phone           string     `json:"phone"`
-	AvatarUrl       string     `json:"avatar_url"`
+	Phone           *string    `json:"phone"`
+	AvatarUrl       *string    `json:"avatar_url"`
 	LastAccess      time.Time  `json:"last_access"`
 	Deleted         bool       `json:"deleted"`
-	GoogleSub       string     `json:"google_sub"`
+	GoogleSub       *string    `json:"google_sub"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`

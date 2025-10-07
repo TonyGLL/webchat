@@ -1,22 +1,27 @@
 package http
 
 import (
-	"backend/presentation/controllers"
-	"log"
-
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-
+	"backend/presentation/controllers/auth"
+	"backend/presentation/controllers/message"
 	"context"
+	"database/sql"
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
-func InitServer(messageController *controllers.MessageController) {
+func InitServer(db *sql.DB, validate *validator.Validate) {
+	authContainer := auth.New(db, validate)
+	messageContainer := message.New(db, validate)
+
 	router := gin.Default()
 
 	// Middlewares
@@ -40,11 +45,20 @@ func InitServer(messageController *controllers.MessageController) {
 		})
 	})
 
+	// Auth Routes
+	{
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/login", authContainer.Controller.Login)
+			auth.POST("/register", authContainer.Controller.Register)
+		}
+	}
+
 	// Message routes
 	{
 		messages := v1.Group("/messages")
 		{
-			messages.POST("/", messageController.CreateMessage)
+			messages.POST("/", messageContainer.Controller.CreateMessage)
 		}
 	}
 
