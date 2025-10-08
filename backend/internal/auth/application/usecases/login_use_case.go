@@ -1,6 +1,7 @@
-package application
+package usecases
 
 import (
+	"backend/internal/auth/application/dtos"
 	"backend/internal/auth/domain"
 	shared_app "backend/internal/shared/application"
 	shared_domain "backend/internal/shared/domain"
@@ -27,7 +28,7 @@ func NewLoginUseCase(
 }
 
 // Execute handles user login. It returns the authenticated user or an error.
-func (uc *LoginUseCase) Execute(ctx context.Context, input LoginInputDTO) (*AuthResponseDTO, error) {
+func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (*dtos.AuthResponseDTO, error) {
 	user, err := uc.authRepo.GetUserByEmailOrUsername(ctx, input.User)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
@@ -64,8 +65,8 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input LoginInputDTO) (*Auth
 	return &response, nil
 }
 
-func (uc *LoginUseCase) buildLoginResponse(user *domain.User, token string) AuthResponseDTO {
-	userResponse := UserResponseDTO{
+func (uc *LoginUseCase) buildLoginResponse(user *domain.User, token string) dtos.AuthResponseDTO {
+	userResponse := dtos.UserResponseDTO{
 		ID:        user.ID,
 		Name:      user.Name,
 		LastName:  user.LastName,
@@ -76,7 +77,7 @@ func (uc *LoginUseCase) buildLoginResponse(user *domain.User, token string) Auth
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 	}
-	return AuthResponseDTO{
+	return dtos.AuthResponseDTO{
 		User:  userResponse,
 		Token: token,
 	}

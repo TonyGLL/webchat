@@ -4,7 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"backend/internal/auth/application"
+	"backend/internal/auth/application/dtos"
+	"backend/internal/auth/application/usecases"
 	shared_domain "backend/internal/shared/domain"
 
 	"github.com/gin-gonic/gin"
@@ -12,14 +13,14 @@ import (
 )
 
 type AuthController struct {
-	LoginUseCase    *application.LoginUseCase
-	RegisterUseCase *application.RegisterUseCase
+	LoginUseCase    *usecases.LoginUseCase
+	RegisterUseCase *usecases.RegisterUseCase
 	Validate        *validator.Validate
 }
 
 func NewAuthController(
-	loginUseCase *application.LoginUseCase,
-	registerUseCase *application.RegisterUseCase,
+	loginUseCase *usecases.LoginUseCase,
+	registerUseCase *usecases.RegisterUseCase,
 	validate *validator.Validate,
 ) *AuthController {
 	return &AuthController{
@@ -30,7 +31,7 @@ func NewAuthController(
 }
 
 func (ctrl *AuthController) Login(ctx *gin.Context) {
-	var input application.LoginInputDTO
+	var input dtos.LoginInputDTO
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
@@ -55,7 +56,7 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 }
 
 func (ctrl *AuthController) Register(ctx *gin.Context) {
-	var input application.RegisterInputDTO
+	var input dtos.RegisterInputDTO
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return

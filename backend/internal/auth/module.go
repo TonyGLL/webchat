@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"backend/internal/auth/application"
+	"backend/internal/auth/application/usecases"
 	"backend/internal/auth/domain"
 	"backend/internal/auth/presentation"
 	shared_app "backend/internal/shared/application"
@@ -23,8 +23,8 @@ func RegisterModule(
 	passwordService := domain.NewPasswordService()
 
 	// Initialize use cases
-	loginUseCase := application.NewLoginUseCase(authRepository, passwordService, jwtService)
-	registerUseCase := application.NewRegisterUseCase(authRepository, passwordService, jwtService, store)
+	loginUseCase := usecases.NewLoginUseCase(authRepository, passwordService, jwtService)
+	registerUseCase := usecases.NewRegisterUseCase(authRepository, passwordService, jwtService, store)
 
 	// Initialize the controller
 	authController := presentation.NewAuthController(loginUseCase, registerUseCase, validate)

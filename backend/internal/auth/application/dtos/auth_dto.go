@@ -1,4 +1,4 @@
-package application
+package dtos
 
 type LoginInputDTO struct {
 	User     string `json:"user" validate:"required"`
