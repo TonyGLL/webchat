@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"backend/application"
 	"backend/application/dtos"
 	"backend/application/usecases"
 	"backend/domain"
