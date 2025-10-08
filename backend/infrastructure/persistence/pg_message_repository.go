@@ -1,12 +1,11 @@
 package persistence
 
 import (
+	"backend/application/repositories"
+	"backend/domain"
 	"context"
 	"database/sql"
 	"errors"
-
-	"backend/application/repositories"
-	"backend/domain"
 )
 
 const (
@@ -15,25 +14,28 @@ const (
 	findByChannelIDQuery = `SELECT id, text, author_id, channel_id, created_at FROM messages WHERE channel_id = $1 ORDER BY created_at ASC;`
 )
 
+// PgMessageRepository implements the repositories.MessageRepository interface for PostgreSQL.
 type PgMessageRepository struct {
-	queries *Queries
+	db DBTX
 }
 
-func NewPgMessageRepository(db *sql.DB) repositories.MessageRepository {
-	return &PgMessageRepository{queries: New(db)}
+// NewPgMessageRepository creates a new PgMessageRepository.
+// It accepts a DBTX interface, which can be either a *sql.DB or *sql.Tx.
+func NewPgMessageRepository(db DBTX) repositories.MessageRepository {
+	return &PgMessageRepository{db: db}
 }
 
 func (r *PgMessageRepository) Create(ctx context.Context, message *domain.Message) (*domain.Message, error) {
-	err := r.queries.db.QueryRowContext(ctx, createQuery, message.Text, message.AuthorID, message.ChannelID).Scan(&message.ID, &message.CreatedAt)
+	err := r.db.QueryRowContext(ctx, createQuery, message.Text, message.AuthorID, message.ChannelID).Scan(&message.ID, &message.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return message, nil
 }
 
-func (r *PgMessageRepository) FindByID(ctx context.Context, id string) (*domain.Message, error) {
+func (r *PgMessageRepository) FindByID(ctx context.Context, id int) (*domain.Message, error) {
 	var message domain.Message
-	err := r.queries.db.QueryRowContext(ctx, findByIDQuery, id).Scan(&message.ID, &message.Text, &message.AuthorID, &message.ChannelID, &message.CreatedAt)
+	err := r.db.QueryRowContext(ctx, findByIDQuery, id).Scan(&message.ID, &message.Text, &message.AuthorID, &message.ChannelID, &message.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -43,8 +45,8 @@ func (r *PgMessageRepository) FindByID(ctx context.Context, id string) (*domain.
 	return &message, nil
 }
 
-func (r *PgMessageRepository) FindByChannelID(ctx context.Context, channelID string) ([]*domain.Message, error) {
-	rows, err := r.queries.db.QueryContext(ctx, findByChannelIDQuery, channelID)
+func (r *PgMessageRepository) FindByChannelID(ctx context.Context, channelID int) ([]*domain.Message, error) {
+	rows, err := r.db.QueryContext(ctx, findByChannelIDQuery, channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +60,10 @@ func (r *PgMessageRepository) FindByChannelID(ctx context.Context, channelID str
 			return nil, err
 		}
 		messages = append(messages, &message)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return messages, nil

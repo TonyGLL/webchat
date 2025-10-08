@@ -3,9 +3,9 @@ package domain
 import "time"
 
 type Message struct {
-	ID        string    `json:"id"`
+	ID        int       `json:"id"`
 	Text      string    `json:"text"`
-	AuthorID  string    `json:"authorId"`
-	ChannelID string    `json:"channelId"`
-	CreatedAt time.Time `json:"createdAt"`
+	AuthorID  int       `json:"author_id"`
+	ChannelID int       `json:"channel_id"`
+	CreatedAt time.Time `json:"created_at"`
 }

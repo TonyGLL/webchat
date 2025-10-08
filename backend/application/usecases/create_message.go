@@ -1,37 +1,40 @@
 package usecases
 
 import (
+	"backend/application"
 	"backend/application/dtos"
-	"backend/application/repositories"
 	"backend/domain"
 	"context"
 	"strconv"
-	"time"
 )
 
 type CreateMessageUseCase struct {
-	MessageRepository repositories.MessageRepository
+	store application.Store
 }
 
-func NewCreateMessageUseCase(repo repositories.MessageRepository) *CreateMessageUseCase {
-	return &CreateMessageUseCase{MessageRepository: repo}
+func NewCreateMessageUseCase(store application.Store) *CreateMessageUseCase {
+	return &CreateMessageUseCase{store: store}
 }
 
 // Execute creates a new message. The author's ID is passed explicitly
 // to ensure it's taken from a trusted source (like a JWT) and not from user input.
 func (uc *CreateMessageUseCase) Execute(ctx context.Context, input dtos.CreateMessageDTO, authorID int) (*domain.Message, error) {
-	message := &domain.Message{
-		Text:      input.Text,
-		AuthorID:  strconv.Itoa(authorID), // Assuming AuthorID in domain.Message is a string
-		ChannelID: input.ChannelID,
-		CreatedAt: time.Now(), // The database can also handle this with a default value
+	channelID, err := strconv.Atoi(input.ChannelID)
+	if err != nil {
+		return nil, domain.ErrInvalidInput // ChannelID should be a numeric string
 	}
 
-	createdMessage, err := uc.MessageRepository.Create(ctx, message)
+	message := &domain.Message{
+		Text:      input.Text,
+		AuthorID:  authorID,
+		ChannelID: channelID,
+		// CreatedAt is now handled by the database.
+	}
+
+	createdMessage, err := uc.store.MessageRepository().Create(ctx, message)
 	if err != nil {
-		// In a real application, you might want to check for specific database errors
-		// and map them to domain errors, e.g., a unique constraint violation
-		// could be mapped to domain.ErrConflict.
+		// In a real application, you might map specific database errors
+		// to domain errors, e.g., a foreign key violation.
 		return nil, err
 	}
 

@@ -7,6 +7,6 @@ import (
 
 type MessageRepository interface {
 	Create(ctx context.Context, message *domain.Message) (*domain.Message, error)
-	FindByID(ctx context.Context, id string) (*domain.Message, error)
-	FindByChannelID(ctx context.Context, channelID string) ([]*domain.Message, error)
+	FindByID(ctx context.Context, id int) (*domain.Message, error)
+	FindByChannelID(ctx context.Context, channelID int) ([]*domain.Message, error)
 }
