@@ -1,13 +1,13 @@
 package services
 
-import "time"
+import (
+	"backend/domain"
+	"time"
+)
 
-type Claims struct {
-	UserID    int
-	ExpiresAt time.Time
-}
-
+// JwtService defines the interface for JWT operations.
+// This allows the application layer to be independent of the specific JWT implementation.
 type JwtService interface {
-	GenerateToken(userID int, ttl time.Duration) (string, error)
-	ParseToken(token string) (*Claims, error)
+	GenerateToken(userID int, duration time.Duration) (string, error)
+	ParseToken(tokenString string) (*domain.CustomClaims, error)
 }

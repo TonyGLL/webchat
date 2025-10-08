@@ -1,9 +1,12 @@
 package repositories
 
-import "backend/domain"
+import (
+	"backend/domain"
+	"context"
+)
 
 type MessageRepository interface {
-	Create(message *domain.Message) (*domain.Message, error)
-	FindByID(id string) (*domain.Message, error)
-	FindByChannelID(channelID string) ([]*domain.Message, error)
+	Create(ctx context.Context, message *domain.Message) (*domain.Message, error)
+	FindByID(ctx context.Context, id string) (*domain.Message, error)
+	FindByChannelID(ctx context.Context, channelID string) ([]*domain.Message, error)
 }

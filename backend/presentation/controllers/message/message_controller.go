@@ -1,9 +1,9 @@
 package message
 
 import (
+	"backend/application/dtos"
 	"backend/application/usecases"
-	"backend/domain"
-	"errors"
+	"backend/presentation/http/middleware"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +23,15 @@ func NewMessageController(createMessageUseCase *usecases.CreateMessageUseCase, v
 }
 
 func (ctrl *MessageController) CreateMessage(c *gin.Context) {
-	var input usecases.CreateMessageInputDTO
+	// The Author ID is now retrieved from the context, which is set by the JWT middleware.
+	// This is a critical security improvement.
+	authorID, exists := c.Get(string(middleware.CtxUserIDKey))
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var input dtos.CreateMessageDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
@@ -34,16 +42,10 @@ func (ctrl *MessageController) CreateMessage(c *gin.Context) {
 		return
 	}
 
-	message, err := ctrl.CreateMessageUseCase.Execute(input)
+	// The controller now passes the authorID from the context to the use case.
+	message, err := ctrl.CreateMessageUseCase.Execute(c.Request.Context(), input, authorID.(int))
 	if err != nil {
-		switch {
-		case errors.Is(err, domain.ErrInvalidInput):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		case errors.Is(err, domain.ErrConflict):
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create message"})
-		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create message"})
 		return
 	}
 

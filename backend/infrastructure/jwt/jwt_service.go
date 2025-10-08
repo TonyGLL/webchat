@@ -2,6 +2,7 @@ package jwt
 
 import (
 	"backend/application/services"
+	"backend/domain"
 	"errors"
 	"os"
 	"strconv"
@@ -10,23 +11,23 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// JWTService is the infrastructure-level implementation of the JwtService interface.
 type JWTService struct {
 	secret []byte
 }
 
-func NewJWTService() services.JwtService {
-	secret := os.Getenv("JWT_SECRET")
-	return &JWTService{secret: []byte(secret)}
+// NewJWTService creates a new JWTService with the provided secret.
+func NewJWTService(secret string) (services.JwtService, error) {
+	if secret == "" {
+		return nil, errors.New("JWT secret cannot be empty")
+	}
+	return &JWTService{secret: []byte(secret)}, nil
 }
 
-type myClaims struct {
-	UserID int `json:"user_id"`
-	jwt.RegisteredClaims
-}
-
+// GenerateToken creates a new JWT for a given user ID and duration.
 func (s *JWTService) GenerateToken(userID int, ttl time.Duration) (string, error) {
 	now := time.Now()
-	claims := myClaims{
+	claims := &domain.CustomClaims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -38,8 +39,9 @@ func (s *JWTService) GenerateToken(userID int, ttl time.Duration) (string, error
 	return token.SignedString(s.secret)
 }
 
-func (s *JWTService) ParseToken(tokenStr string) (*services.Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &myClaims{}, func(t *jwt.Token) (interface{}, error) {
+// ParseToken validates a token string and returns the custom claims if valid.
+func (s *JWTService) ParseToken(tokenStr string) (*domain.CustomClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &domain.CustomClaims{}, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
@@ -48,12 +50,11 @@ func (s *JWTService) ParseToken(tokenStr string) (*services.Claims, error) {
 	if err != nil {
 		return nil, err
 	}
-	c, ok := token.Claims.(*myClaims)
+
+	claims, ok := token.Claims.(*domain.CustomClaims)
 	if !ok || !token.Valid {
 		return nil, errors.New("token invalid")
 	}
-	return &services.Claims{
-		UserID:    c.UserID,
-		ExpiresAt: c.ExpiresAt.Time,
-	}, nil
+
+	return claims, nil
 }

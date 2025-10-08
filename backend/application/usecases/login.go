@@ -4,11 +4,9 @@ import (
 	"backend/application/dtos"
 	"backend/application/repositories"
 	"backend/domain"
-	"backend/infrastructure/jwt"
-	"net/http"
-	"time"
+	"context"
+	"database/sql"
 
-	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -20,39 +18,34 @@ func NewLoginUseCase(repo repositories.AuthRepository) *LoginUseCase {
 	return &LoginUseCase{AuthRepository: repo}
 }
 
-func (uc *LoginUseCase) Execute(ctx *gin.Context, input dtos.LoginInputDTO) (*dtos.LoginResponseDTO, error) {
+// Execute handles user login. It returns the authenticated user or an error.
+// Token generation is handled by the presentation layer.
+func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (*domain.User, error) {
 	user, err := uc.AuthRepository.GetUserByEmailOrUsername(ctx, &dtos.GetUserByEmailOrUsernameDTO{User: input.User})
 	if err != nil {
-		return nil, domain.ErrInternal
-	}
-	if user == nil {
-		return nil, domain.ErrNotFound
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrInvalidCredentials // User not found
+		}
+		return nil, err
 	}
 
 	hashedPassword, err := uc.AuthRepository.ValidateUserPasword(ctx, user.ID)
 	if err != nil {
-		return nil, domain.ErrInternal
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrInvalidCredentials // Password not found for user
+		}
+		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(input.Password)); err != nil {
-		return nil, domain.ErrInternal
+		return nil, domain.ErrInvalidCredentials // Passwords do not match
 	}
 
 	if err := uc.AuthRepository.SetLastAccess(ctx, user.ID); err != nil {
-		return nil, domain.ErrInternal
+		// This error might not be critical for the login flow itself.
+		// For now, we return it, but it could also just be logged.
+		return nil, err
 	}
 
-	jwtImpl := jwt.NewJWTService()
-	token, err := jwtImpl.GenerateToken(user.ID, 24*time.Hour)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
-		return nil, domain.ErrInternal
-	}
-
-	response := dtos.LoginResponseDTO{
-		User:  *user,
-		Token: token,
-	}
-
-	return &response, nil
+	return user, nil
 }
