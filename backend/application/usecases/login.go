@@ -1,47 +1,51 @@
 package usecases
 
 import (
+	"backend/application"
 	"backend/application/dtos"
-	"backend/application/repositories"
 	"backend/domain"
 	"context"
-	"database/sql"
-
-	"golang.org/x/crypto/bcrypt"
+	"errors"
 )
 
 type LoginUseCase struct {
-	AuthRepository repositories.AuthRepository
+	store           application.Store
+	passwordService domain.PasswordService
 }
 
-func NewLoginUseCase(repo repositories.AuthRepository) *LoginUseCase {
-	return &LoginUseCase{AuthRepository: repo}
+func NewLoginUseCase(store application.Store, ps domain.PasswordService) *LoginUseCase {
+	return &LoginUseCase{
+		store:           store,
+		passwordService: ps,
+	}
 }
 
 // Execute handles user login. It returns the authenticated user or an error.
 // Token generation is handled by the presentation layer.
 func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (*domain.User, error) {
-	user, err := uc.AuthRepository.GetUserByEmailOrUsername(ctx, &dtos.GetUserByEmailOrUsernameDTO{User: input.User})
+	authRepo := uc.store.AuthRepository()
+
+	user, err := authRepo.GetUserByEmailOrUsername(ctx, input.User)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, domain.ErrNotFound) {
 			return nil, domain.ErrInvalidCredentials // User not found
 		}
 		return nil, err
 	}
 
-	hashedPassword, err := uc.AuthRepository.ValidateUserPasword(ctx, user.ID)
+	hashedPassword, err := authRepo.ValidateUserPassword(ctx, user.ID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, domain.ErrNotFound) {
 			return nil, domain.ErrInvalidCredentials // Password not found for user
 		}
 		return nil, err
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(input.Password)); err != nil {
+	if !uc.passwordService.CheckPasswordHash(input.Password, hashedPassword) {
 		return nil, domain.ErrInvalidCredentials // Passwords do not match
 	}
 
-	if err := uc.AuthRepository.SetLastAccess(ctx, user.ID); err != nil {
+	if err := authRepo.SetLastAccess(ctx, user.ID); err != nil {
 		// This error might not be critical for the login flow itself.
 		// For now, we return it, but it could also just be logged.
 		return nil, err

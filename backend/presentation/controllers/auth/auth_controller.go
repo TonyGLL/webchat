@@ -1,30 +1,31 @@
 package auth
 
 import (
+	"backend/application"
 	"backend/application/dtos"
-	"backend/application/services"
 	"backend/application/usecases"
 	"backend/domain"
+	"backend/infrastructure/jwt"
+	presentation_dtos "backend/presentation/dtos" // Correct import alias
 	"errors"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type AuthController struct {
 	LoginUseCase    *usecases.LoginUseCase
 	RegisterUseCase *usecases.RegisterUseCase
-	JwtService      services.JwtService
+	JwtService      jwt.JwtService
 	Validate        *validator.Validate
 }
 
 func NewAuthController(
 	loginUseCase *usecases.LoginUseCase,
 	registerUseCase *usecases.RegisterUseCase,
-	jwtService services.JwtService,
+	jwtService jwt.JwtService,
 	validate *validator.Validate,
 ) *AuthController {
 	return &AuthController{
@@ -47,7 +48,6 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// The controller now calls the use case with the request context.
 	user, err := ctrl.LoginUseCase.Execute(ctx.Request.Context(), input)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidCredentials) {
@@ -58,18 +58,13 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// Token generation is now a responsibility of the controller.
 	token, err := ctrl.JwtService.GenerateToken(user.ID, 24*time.Hour)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	response := dtos.LoginResponseDTO{
-		User:  *user,
-		Token: token,
-	}
-
+	response := ctrl.buildAuthResponse(user, token)
 	ctx.JSON(http.StatusOK, response)
 }
 
@@ -85,12 +80,9 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
-	// The controller calls the use case with the request context.
 	newUser, err := ctrl.RegisterUseCase.Execute(ctx.Request.Context(), input)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		// Check for a specific database error, like a unique constraint violation.
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // 23505 is unique_violation
+		if errors.Is(err, domain.ErrConflict) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "User with this email or username already exists"})
 			return
 		}
@@ -98,17 +90,31 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
-	// Token generation is handled here after successful registration.
 	token, err := ctrl.JwtService.GenerateToken(newUser.ID, 24*time.Hour)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	response := dtos.RegisterResponseDTO{
-		ID:    newUser.ID,
+	response := ctrl.buildAuthResponse(newUser, token)
+	ctx.JSON(http.StatusCreated, response)
+}
+
+// buildAuthResponse creates the unified authentication response.
+func (ctrl *AuthController) buildAuthResponse(user *domain.User, token string) presentation_dtos.AuthResponseDTO {
+	userResponse := presentation_dtos.UserResponseDTO{
+		ID:        user.ID,
+		Name:      user.Name,
+		LastName:  user.LastName,
+		Username:  user.Username,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		AvatarURL: user.AvatarUrl,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+	return presentation_dtos.AuthResponseDTO{
+		User:  userResponse,
 		Token: token,
 	}
-
-	ctx.JSON(http.StatusCreated, response)
 }
