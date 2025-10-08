@@ -24,7 +24,7 @@ func RegisterModule(
 
 	// Initialize use cases
 	loginUseCase := application.NewLoginUseCase(authRepository, passwordService, jwtService)
-	registerUseCase := application.NewRegisterUseCase(store, passwordService, jwtService)
+	registerUseCase := application.NewRegisterUseCase(authRepository, passwordService, jwtService, store)
 
 	// Initialize the controller
 	authController := presentation.NewAuthController(loginUseCase, registerUseCase, validate)
