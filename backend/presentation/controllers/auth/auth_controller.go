@@ -37,7 +37,7 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	user, err := ctrl.LoginUseCase.Execute(ctx, input)
+	response, err := ctrl.LoginUseCase.Execute(ctx, input)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidInput):
@@ -50,7 +50,7 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, user)
+	ctx.JSON(http.StatusOK, response)
 }
 
 func (ctrl *AuthController) Register(ctx *gin.Context) {
@@ -65,7 +65,7 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
-	user, err := ctrl.RegisterUseCase.Execute(input)
+	response, err := ctrl.RegisterUseCase.Execute(ctx, input)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidInput):
@@ -78,5 +78,5 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, user)
+	ctx.JSON(http.StatusCreated, response)
 }

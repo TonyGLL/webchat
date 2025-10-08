@@ -5,8 +5,6 @@ import (
 	"backend/domain"
 	"context"
 	"database/sql"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type PgAuthRepository struct {
@@ -17,10 +15,10 @@ func NewPgAuthRepository(db *sql.DB) *PgAuthRepository {
 	return &PgAuthRepository{queries: New(db)}
 }
 
-const getUserByEmailQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at FROM users u WHERE u.email = $1;`
+const getUserByEmailOrUsernameQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at FROM users u WHERE (u.email = $1 OR u.username = $1) AND u.deleted = FALSE AND u.email_verified_at IS NOT NULL;`
 
-func (r *PgAuthRepository) GetUserByEmail(ctx context.Context, arg *dtos.GetUserByEmailDTO) (*domain.User, error) {
-	row := r.queries.db.QueryRowContext(ctx, getUserByEmailQuery, arg.Email)
+func (r *PgAuthRepository) GetUserByEmailOrUsername(ctx context.Context, arg *dtos.GetUserByEmailOrUsernameDTO) (*domain.User, error) {
+	row := r.queries.db.QueryRowContext(ctx, getUserByEmailOrUsernameQuery, arg.User)
 	user := &domain.User{}
 	err := row.Scan(
 		&user.ID,
@@ -52,24 +50,35 @@ func (r *PgAuthRepository) ValidateUserPasword(ctx context.Context, id int) (str
 	return hash, nil
 }
 
-func (r *PgAuthRepository) Register(user *domain.User, password string) (*domain.User, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+const registerUserQuery = `INSERT INTO users (email, name, last_name, username, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id;`
+
+func (r *PgAuthRepository) Register(ctx context.Context, user *domain.User) (*domain.User, error) {
+	row := r.queries.db.QueryRowContext(ctx, registerUserQuery, user.Email, user.Name, user.LastName, user.Username, user.Phone)
+	newUser := &domain.User{}
+	err := row.Scan(&newUser.ID)
 	if err != nil {
 		return nil, err
 	}
-
-	// In a real application, you would insert the user and the hashed password
-	// into the database.
-	// For now, we'll just return a mock user.
-	newUser := &domain.User{
-		ID:       2,
-		Email:    user.Email,
-		Name:     user.Name,
-		LastName: user.LastName,
-	}
-
-	// This is where you would save the hashedPassword to the Password table
-	_ = hashedPassword
+	newUser.Email = user.Email
+	newUser.Name = user.Name
+	newUser.LastName = user.LastName
+	newUser.Username = user.Username
+	newUser.Phone = user.Phone
+	newUser.Deleted = false
 
 	return newUser, nil
+}
+
+const createPasswordQuery = `INSERT INTO passwords (user_id, hash) VALUES ($1, $2);`
+
+func (r *PgAuthRepository) CreatePassword(ctx context.Context, userID int, hashedPassword string) error {
+	_, err := r.queries.db.ExecContext(ctx, createPasswordQuery, userID, hashedPassword)
+	return err
+}
+
+const setLastAccessQuery = `UPDATE users SET last_access = NOW() WHERE id = $1;`
+
+func (r *PgAuthRepository) SetLastAccess(ctx context.Context, id int) error {
+	_, err := r.queries.db.ExecContext(ctx, setLastAccessQuery, id)
+	return err
 }

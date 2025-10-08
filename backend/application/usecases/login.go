@@ -4,6 +4,9 @@ import (
 	"backend/application/dtos"
 	"backend/application/repositories"
 	"backend/domain"
+	"backend/infrastructure/jwt"
+	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -17,8 +20,8 @@ func NewLoginUseCase(repo repositories.AuthRepository) *LoginUseCase {
 	return &LoginUseCase{AuthRepository: repo}
 }
 
-func (uc *LoginUseCase) Execute(ctx *gin.Context, input dtos.LoginInputDTO) (*domain.User, error) {
-	user, err := uc.AuthRepository.GetUserByEmail(ctx, &dtos.GetUserByEmailDTO{Email: input.Email})
+func (uc *LoginUseCase) Execute(ctx *gin.Context, input dtos.LoginInputDTO) (*dtos.LoginResponseDTO, error) {
+	user, err := uc.AuthRepository.GetUserByEmailOrUsername(ctx, &dtos.GetUserByEmailOrUsernameDTO{User: input.User})
 	if err != nil {
 		return nil, domain.ErrInternal
 	}
@@ -35,5 +38,21 @@ func (uc *LoginUseCase) Execute(ctx *gin.Context, input dtos.LoginInputDTO) (*do
 		return nil, domain.ErrInternal
 	}
 
-	return user, nil
+	if err := uc.AuthRepository.SetLastAccess(ctx, user.ID); err != nil {
+		return nil, domain.ErrInternal
+	}
+
+	jwtImpl := jwt.NewJWTService()
+	token, err := jwtImpl.GenerateToken(user.ID, 24*time.Hour)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
+		return nil, domain.ErrInternal
+	}
+
+	response := dtos.LoginResponseDTO{
+		User:  *user,
+		Token: token,
+	}
+
+	return &response, nil
 }

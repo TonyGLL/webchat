@@ -1,8 +1,10 @@
 package http
 
 import (
+	jwt "backend/infrastructure/jwt"
 	"backend/presentation/controllers/auth"
 	"backend/presentation/controllers/message"
+	"backend/presentation/http/middleware"
 	"context"
 	"database/sql"
 	"errors"
@@ -19,9 +21,6 @@ import (
 )
 
 func InitServer(db *sql.DB, validate *validator.Validate) {
-	authContainer := auth.New(db, validate)
-	messageContainer := message.New(db, validate)
-
 	router := gin.Default()
 
 	// Middlewares
@@ -45,6 +44,9 @@ func InitServer(db *sql.DB, validate *validator.Validate) {
 		})
 	})
 
+	authContainer := auth.New(db, validate)
+	messageContainer := message.New(db, validate)
+
 	// Auth Routes
 	{
 		auth := v1.Group("/auth")
@@ -54,6 +56,8 @@ func InitServer(db *sql.DB, validate *validator.Validate) {
 		}
 	}
 
+	jwtImpl := jwt.NewJWTService()
+	v1.Use(middleware.JWTMiddleware(jwtImpl))
 	// Message routes
 	{
 		messages := v1.Group("/messages")

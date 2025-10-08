@@ -15,7 +15,7 @@ type User struct {
 	LastName        string     `json:"last_name"`
 	Username        string     `json:"username"`
 	Email           string     `json:"email"`
-	Phone           *string    `json:"phone"`
+	Phone           string     `json:"phone"`
 	AvatarUrl       *string    `json:"avatar_url"`
 	LastAccess      time.Time  `json:"last_access"`
 	Deleted         bool       `json:"deleted"`
