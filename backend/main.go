@@ -2,6 +2,7 @@ package main
 
 import (
 	"backend/application/usecases"
+	"backend/domain"
 	"backend/infrastructure/config"
 	"backend/infrastructure/database"
 	"backend/infrastructure/jwt"
@@ -40,13 +41,13 @@ func main() {
 		log.Fatalf("Failed to create JWT service: %v", err)
 	}
 
-	authRepository := persistence.NewPgAuthRepository(db)
-	messageRepository := persistence.NewPgMessageRepository(db)
+	store := persistence.NewSQLStore(db)
+	passwordService := domain.NewPasswordService()
 
 	// Application Layer (Use Cases)
-	loginUseCase := usecases.NewLoginUseCase(authRepository)
-	registerUseCase := usecases.NewRegisterUseCase(authRepository)
-	createMessageUseCase := usecases.NewCreateMessageUseCase(messageRepository)
+	loginUseCase := usecases.NewLoginUseCase(store, passwordService)
+	registerUseCase := usecases.NewRegisterUseCase(store, passwordService)
+	createMessageUseCase := usecases.NewCreateMessageUseCase(store)
 
 	// Presentation Layer (Controllers)
 	authController := auth.NewAuthController(loginUseCase, registerUseCase, jwtService, validate)

@@ -13,6 +13,6 @@ type Config struct {
 
 // IsProduction returns true if the app environment is set to "prod" or "production".
 func (c *Config) IsProduction() bool {
-	env := Getenv("APP_ENV")
+	env := Getenv("APP_ENV", "")
 	return strings.ToLower(env) == "prod" || strings.ToLower(env) == "production"
 }

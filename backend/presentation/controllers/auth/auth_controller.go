@@ -2,9 +2,9 @@ package auth
 
 import (
 	"backend/application/dtos"
+	"backend/application/services"
 	"backend/application/usecases"
 	"backend/domain"
-	"backend/infrastructure/jwt"
 	presentation_dtos "backend/presentation/dtos" // Correct import alias
 	"errors"
 	"net/http"
@@ -17,14 +17,14 @@ import (
 type AuthController struct {
 	LoginUseCase    *usecases.LoginUseCase
 	RegisterUseCase *usecases.RegisterUseCase
-	JwtService      jwt.JwtService
+	JwtService      services.JwtService
 	Validate        *validator.Validate
 }
 
 func NewAuthController(
 	loginUseCase *usecases.LoginUseCase,
 	registerUseCase *usecases.RegisterUseCase,
-	jwtService jwt.JwtService,
+	jwtService services.JwtService,
 	validate *validator.Validate,
 ) *AuthController {
 	return &AuthController{

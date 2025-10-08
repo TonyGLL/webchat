@@ -18,13 +18,23 @@ func NewConfig(envFile string) (*Config, error) {
 
 	cfg := &Config{
 		Port:               Getenv("PORT", "8080"),
-		DatabaseURL:        Getenv("DATABASE_URL", ""), // No default, should be set
+		DatabaseURL:        Getenv("DATABASE_URL", ""),
 		JWTSecret:          Getenv("JWT_SECRET", "default-secret"),
 		CORSAllowedOrigins: parseCorsOrigins(Getenv("CORS_ALLOWED_ORIGINS", "")),
 	}
 
+	// If DATABASE_URL is not set, try to construct it from individual DB environment variables
 	if cfg.DatabaseURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL environment variable is not set")
+		dbUser := Getenv("DB_USER", "")
+		dbPassword := Getenv("DB_PASSWORD", "")
+		dbHost := Getenv("DB_HOST", "")
+		dbPort := Getenv("DB_PORT", "")
+		dbName := Getenv("DB_NAME", "")
+
+		if dbUser == "" || dbHost == "" || dbPort == "" || dbName == "" {
+			return nil, fmt.Errorf("DATABASE_URL is not set and individual DB_USER, DB_HOST, DB_PORT, DB_NAME environment variables are not fully provided")
+		}
+		cfg.DatabaseURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
 	}
 
 	return cfg, nil

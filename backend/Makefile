@@ -6,6 +6,7 @@ build:
 	@go build -o ../main main.go
 
 # Run the Go application for development
+depends-on: build
 run:
 	@echo "Running in development mode..."
 	@CONFIG_FILE=dev.env go run .
