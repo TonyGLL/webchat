@@ -9,19 +9,22 @@ import (
 )
 
 type RegisterUseCase struct {
-	store           shared_app.Store
+	authRepo        domain.AuthRepository
 	passwordService domain.PasswordService
 	jwtService      shared_app.JwtService
+	store           shared_app.Store
 }
 
 func NewRegisterUseCase(
-	store shared_app.Store,
+	authRepo domain.AuthRepository,
 	ps domain.PasswordService,
-	jwtS shared_app.JwtService) *RegisterUseCase {
+	jwtS shared_app.JwtService,
+	store shared_app.Store) *RegisterUseCase {
 	return &RegisterUseCase{
-		store:           store,
+		authRepo:        authRepo,
 		passwordService: ps,
 		jwtService:      jwtS,
+		store:           store,
 	}
 }
 
@@ -45,21 +48,19 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input RegisterInputDTO) 
 
 	// Execute the registration within a single transaction
 	err = uc.store.ExecTx(ctx, func(store shared_app.Store) error {
-		authRepo := store.AuthRepository()
-
 		// 1. Register the user
-		newUser, err := authRepo.Register(ctx, user)
+		newUser, err := uc.authRepo.Register(ctx, user)
 		if err != nil {
 			return err
 		}
 
 		// 2. Create the password entry
-		if err := authRepo.CreatePassword(ctx, newUser.ID, hashedPassword); err != nil {
+		if err := uc.authRepo.CreatePassword(ctx, newUser.ID, hashedPassword); err != nil {
 			return err
 		}
 
 		// 3. Set initial last access time
-		if err := authRepo.SetLastAccess(ctx, newUser.ID); err != nil {
+		if err := uc.authRepo.SetLastAccess(ctx, newUser.ID); err != nil {
 			// Note: Depending on business rules, this might not be a fatal error.
 			// For now, it's included in the transaction.
 			return err

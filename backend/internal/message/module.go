@@ -2,8 +2,8 @@ package message
 
 import (
 	"backend/internal/message/application"
+	"backend/internal/message/domain"
 	"backend/internal/message/presentation"
-	"backend/internal/shared/infra/db"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -11,13 +11,13 @@ import (
 
 // RegisterModule initializes the dependencies for the message module and registers its routes.
 func RegisterModule(
-	store *db.SQLStore,
+	messageRepository domain.MessageRepository,
 	router *gin.RouterGroup,
 	validate *validator.Validate,
 	authMiddleware gin.HandlerFunc,
 ) {
 	// Initialize use cases
-	createMessageUseCase := application.NewCreateMessageUseCase(store)
+	createMessageUseCase := application.NewCreateMessageUseCase(messageRepository)
 
 	// Initialize the controller
 	messageController := presentation.NewMessageController(createMessageUseCase, validate)

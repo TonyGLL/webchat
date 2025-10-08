@@ -5,11 +5,13 @@ import (
 	"os"
 
 	"backend/internal/auth"
+	auth_persistence "backend/internal/auth/persistence"
 	"backend/internal/message"
+	message_persistence "backend/internal/message/persistence"
 	"backend/internal/shared/config"
+	"backend/internal/shared/http"
 	"backend/internal/shared/infra/db"
 	"backend/internal/shared/infra/jwt"
-	"backend/internal/shared/http"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -39,14 +41,18 @@ func main() {
 		log.Fatalf("Failed to create JWT service: %v", err)
 	}
 
+	// --- Repositories ---
+	authRepository := auth_persistence.NewPgAuthRepository(database)
+	messageRepository := message_persistence.NewPgMessageRepository(database)
+
 	// --- Server Setup ---
 	server := http.NewServer(cfg)
 	apiV1 := server.Router.Group("/api/v1")
 
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
-	auth.RegisterModule(store, apiV1, validate, jwtService)
-	message.RegisterModule(store, apiV1, validate, http.JWTMiddleware(jwtService))
+	auth.RegisterModule(authRepository, apiV1, validate, jwtService, store)
+	message.RegisterModule(messageRepository, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---
 	server.Run()

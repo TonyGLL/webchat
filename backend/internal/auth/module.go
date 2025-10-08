@@ -3,10 +3,8 @@ package auth
 import (
 	"backend/internal/auth/application"
 	"backend/internal/auth/domain"
-	"backend/internal/auth/persistence"
 	"backend/internal/auth/presentation"
 	shared_app "backend/internal/shared/application"
-	"backend/internal/shared/infra/db"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -15,17 +13,17 @@ import (
 // RegisterModule initializes all the dependencies for the auth module and registers the routes.
 // It acts as the dependency injection container for this module.
 func RegisterModule(
-	store *db.SQLStore,
+	authRepository domain.AuthRepository,
 	router *gin.RouterGroup,
 	validate *validator.Validate,
 	jwtService shared_app.JwtService,
+	store shared_app.Store,
 ) {
-	// Initialize services and repositories
+	// Initialize services
 	passwordService := domain.NewPasswordService()
-	authRepository := persistence.NewPgAuthRepository(store)
 
 	// Initialize use cases
-	loginUseCase := application.NewLoginUseCase(store, passwordService, jwtService)
+	loginUseCase := application.NewLoginUseCase(authRepository, passwordService, jwtService)
 	registerUseCase := application.NewRegisterUseCase(store, passwordService, jwtService)
 
 	// Initialize the controller

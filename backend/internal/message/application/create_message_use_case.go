@@ -5,16 +5,15 @@ import (
 	"strconv"
 
 	"backend/internal/message/domain"
-	shared_app "backend/internal/shared/application"
 	shared_domain "backend/internal/shared/domain"
 )
 
 type CreateMessageUseCase struct {
-	store shared_app.Store
+	messageRepo domain.MessageRepository
 }
 
-func NewCreateMessageUseCase(store shared_app.Store) *CreateMessageUseCase {
-	return &CreateMessageUseCase{store: store}
+func NewCreateMessageUseCase(messageRepo domain.MessageRepository) *CreateMessageUseCase {
+	return &CreateMessageUseCase{messageRepo: messageRepo}
 }
 
 // Execute creates a new message. The author's ID is passed explicitly
@@ -32,7 +31,7 @@ func (uc *CreateMessageUseCase) Execute(ctx context.Context, input CreateMessage
 		// CreatedAt is now handled by the database.
 	}
 
-	createdMessage, err := uc.store.MessageRepository().Create(ctx, message)
+	createdMessage, err := uc.messageRepo.Create(ctx, message)
 	if err != nil {
 		// In a real application, you might map specific database errors
 		// to domain errors, e.g., a foreign key violation.
