@@ -2,45 +2,46 @@ package middleware
 
 import (
 	"backend/application/services"
+	"log"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-// keys usados en Gin Context
-const (
-	CtxUserIDKey = "userID"
-	CtxRolesKey  = "roles"
-)
+// contextKey is a private type for context keys to prevent collisions.
+type contextKey string
 
-// JWTMiddleware devuelve un middleware de gin que usa auth.Service
+// CtxUserIDKey is the key for the user ID in the context.
+const CtxUserIDKey = contextKey("userID")
+
+// JWTMiddleware creates a Gin middleware for JWT authentication.
 func JWTMiddleware(service services.JwtService) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		// leer header Authorization
-		authHeader := ctx.GetHeader("Authorization")
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing Authorization header"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is missing"})
 			return
 		}
+
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid Authorization header"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is not in 'Bearer {token}' format"})
 			return
 		}
 		tokenStr := parts[1]
 
-		// parsear token (interfaz application.Service)
 		claims, err := service.ParseToken(tokenStr)
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token: " + err.Error()})
+			// Log the actual error for debugging, but return a generic error to the client.
+			log.Printf("JWT parsing error: %v", err)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
 
-		// inyectar en el gin.Context para handlers posteriores
-		ctx.Set(CtxUserIDKey, claims.UserID)
+		// Set the user ID in the context for subsequent handlers.
+		c.Set(string(CtxUserIDKey), claims.UserID)
 
-		// continuar
-		ctx.Next()
+		c.Next()
 	}
 }

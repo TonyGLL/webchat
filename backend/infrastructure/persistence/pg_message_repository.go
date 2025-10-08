@@ -7,8 +7,6 @@ import (
 
 	"backend/application/repositories"
 	"backend/domain"
-
-	"github.com/jackc/pgx/v4"
 )
 
 const (
@@ -25,28 +23,28 @@ func NewPgMessageRepository(db *sql.DB) repositories.MessageRepository {
 	return &PgMessageRepository{queries: New(db)}
 }
 
-func (r *PgMessageRepository) Create(message *domain.Message) (*domain.Message, error) {
-	err := r.queries.db.QueryRowContext(context.Background(), createQuery, message.Text, message.AuthorID, message.ChannelID).Scan(&message.ID, &message.CreatedAt)
+func (r *PgMessageRepository) Create(ctx context.Context, message *domain.Message) (*domain.Message, error) {
+	err := r.queries.db.QueryRowContext(ctx, createQuery, message.Text, message.AuthorID, message.ChannelID).Scan(&message.ID, &message.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return message, nil
 }
 
-func (r *PgMessageRepository) FindByID(id string) (*domain.Message, error) {
+func (r *PgMessageRepository) FindByID(ctx context.Context, id string) (*domain.Message, error) {
 	var message domain.Message
-	err := r.queries.db.QueryRowContext(context.Background(), findByIDQuery, id).Scan(&message.ID, &message.Text, &message.AuthorID, &message.ChannelID, &message.CreatedAt)
+	err := r.queries.db.QueryRowContext(ctx, findByIDQuery, id).Scan(&message.ID, &message.Text, &message.AuthorID, &message.ChannelID, &message.CreatedAt)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
 		}
 		return nil, err
 	}
 	return &message, nil
 }
 
-func (r *PgMessageRepository) FindByChannelID(channelID string) ([]*domain.Message, error) {
-	rows, err := r.queries.db.QueryContext(context.Background(), findByChannelIDQuery, channelID)
+func (r *PgMessageRepository) FindByChannelID(ctx context.Context, channelID string) ([]*domain.Message, error) {
+	rows, err := r.queries.db.QueryContext(ctx, findByChannelIDQuery, channelID)
 	if err != nil {
 		return nil, err
 	}

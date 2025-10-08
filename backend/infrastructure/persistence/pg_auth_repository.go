@@ -50,22 +50,33 @@ func (r *PgAuthRepository) ValidateUserPasword(ctx context.Context, id int) (str
 	return hash, nil
 }
 
-const registerUserQuery = `INSERT INTO users (email, name, last_name, username, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id;`
+const registerUserQuery = `
+	INSERT INTO users (email, name, last_name, username, phone)
+	VALUES ($1, $2, $3, $4, $5)
+	RETURNING id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at;
+`
 
 func (r *PgAuthRepository) Register(ctx context.Context, user *domain.User) (*domain.User, error) {
 	row := r.queries.db.QueryRowContext(ctx, registerUserQuery, user.Email, user.Name, user.LastName, user.Username, user.Phone)
 	newUser := &domain.User{}
-	err := row.Scan(&newUser.ID)
+	err := row.Scan(
+		&newUser.ID,
+		&newUser.Name,
+		&newUser.LastName,
+		&newUser.Username,
+		&newUser.Email,
+		&newUser.Phone,
+		&newUser.AvatarUrl,
+		&newUser.LastAccess,
+		&newUser.Deleted,
+		&newUser.GoogleSub,
+		&newUser.EmailVerifiedAt,
+		&newUser.CreatedAt,
+		&newUser.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
-	newUser.Email = user.Email
-	newUser.Name = user.Name
-	newUser.LastName = user.LastName
-	newUser.Username = user.Username
-	newUser.Phone = user.Phone
-	newUser.Deleted = false
-
 	return newUser, nil
 }
 

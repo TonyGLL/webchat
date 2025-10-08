@@ -4,11 +4,8 @@ import (
 	"backend/application/dtos"
 	"backend/application/repositories"
 	"backend/domain"
-	"backend/infrastructure/jwt"
-	"net/http"
-	"time"
+	"context"
 
-	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -20,7 +17,9 @@ func NewRegisterUseCase(repo repositories.AuthRepository) *RegisterUseCase {
 	return &RegisterUseCase{AuthRepository: repo}
 }
 
-func (uc *RegisterUseCase) Execute(ctx *gin.Context, input dtos.RegisterInputDTO) (*dtos.RegisterResponseDTO, error) {
+// Execute handles user registration. It returns the newly created user or an error.
+// The responsibility of generating a JWT token is separated from this use case.
+func (uc *RegisterUseCase) Execute(ctx context.Context, input dtos.RegisterInputDTO) (*domain.User, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
@@ -34,30 +33,23 @@ func (uc *RegisterUseCase) Execute(ctx *gin.Context, input dtos.RegisterInputDTO
 		Phone:    input.Phone,
 	}
 
+	// Register the user in the database
 	newUser, err := uc.AuthRepository.Register(ctx, user)
 	if err != nil {
 		return nil, err
 	}
 
+	// Create the password entry for the new user
 	if err := uc.AuthRepository.CreatePassword(ctx, newUser.ID, string(hashedPassword)); err != nil {
 		return nil, err
 	}
 
+	// Update the last access time
 	if err := uc.AuthRepository.SetLastAccess(ctx, newUser.ID); err != nil {
-		return nil, domain.ErrInternal
+		// Note: Depending on business rules, this might not be a fatal error.
+		// For now, we propagate it.
+		return nil, err
 	}
 
-	jwtImpl := jwt.NewJWTService()
-	token, err := jwtImpl.GenerateToken(newUser.ID, 24*time.Hour)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
-		return nil, domain.ErrInternal
-	}
-
-	response := dtos.RegisterResponseDTO{
-		ID:    newUser.ID,
-		Token: token,
-	}
-
-	return &response, nil
+	return newUser, nil
 }

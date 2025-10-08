@@ -3,30 +3,25 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"os"
 
 	_ "github.com/jackc/pgx/v4/stdlib" // Standard library database driver for pgx
 )
 
-// NewDBPool creates a new database connection pool.
-// It relies on environment variables being loaded beforehand.
-func NewDBPool() (*sql.DB, error) {
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_NAME")
-
-	// Use sslmode=disable for local development. This can be made configurable.
-	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
+// NewDBPool creates a new database connection pool using the provided connection string.
+func NewDBPool(connString string) (*sql.DB, error) {
+	if connString == "" {
+		return nil, fmt.Errorf("database connection string is empty")
+	}
 
 	db, err := sql.Open("pgx", connString)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open database connection: %w", err)
 	}
 
+	// Ping the database to verify the connection is alive.
 	err = db.Ping()
 	if err != nil {
+		db.Close() // Close the connection if ping fails
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
 
