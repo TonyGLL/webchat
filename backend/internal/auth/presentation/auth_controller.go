@@ -13,20 +13,23 @@ import (
 )
 
 type AuthController struct {
-	LoginUseCase    *usecases.LoginUseCase
-	RegisterUseCase *usecases.RegisterUseCase
-	Validate        *validator.Validate
+	LoginUseCase           *usecases.LoginUseCase
+	RegisterUseCase        *usecases.RegisterUseCase
+	SendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase
+	Validate               *validator.Validate
 }
 
 func NewAuthController(
 	loginUseCase *usecases.LoginUseCase,
 	registerUseCase *usecases.RegisterUseCase,
+	sendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase,
 	validate *validator.Validate,
 ) *AuthController {
 	return &AuthController{
-		LoginUseCase:    loginUseCase,
-		RegisterUseCase: registerUseCase,
-		Validate:        validate,
+		LoginUseCase:           loginUseCase,
+		RegisterUseCase:        registerUseCase,
+		SendVerifyEmailUseCase: sendVerifyEmailUseCase,
+		Validate:               validate,
 	}
 }
 
@@ -78,4 +81,8 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, response)
+}
+
+func (ctrl *AuthController) SendVerifyEmail(ctx *gin.Context) {
+	// Implementation for sending verification email goes here
 }

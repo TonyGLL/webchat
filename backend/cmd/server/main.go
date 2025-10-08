@@ -11,7 +11,7 @@ import (
 	"backend/internal/shared/config"
 	"backend/internal/shared/http"
 	"backend/internal/shared/infra/db"
-	"backend/internal/shared/infra/jwt"
+	services "backend/internal/shared/infra/services"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -36,7 +36,7 @@ func main() {
 
 	store := db.NewSQLStore(database)
 
-	jwtService, err := jwt.NewJWTService(cfg.JWTSecret)
+	jwtService, err := services.NewJWTService(cfg.JWTSecret)
 	if err != nil {
 		log.Fatalf("Failed to create JWT service: %v", err)
 	}

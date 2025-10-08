@@ -13,3 +13,11 @@ type RegisterInputDTO struct {
 	Username string `json:"username" validate:"required,min=3,max=30"`
 	Phone    string `json:"phone" validate:"required"`
 }
+
+type SendVerifyEmailInputDTO struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+type VerifyEmailInputDTO struct {
+	Token string `json:"token" validate:"required"`
+}
