@@ -35,8 +35,8 @@ func main() {
 	}
 	defer db.Close()
 
-	validate := validator.New()
 	jwtService, err := jwt.NewJWTService(cfg.JWTSecret)
+	validate := validator.New()
 	if err != nil {
 		log.Fatalf("Failed to create JWT service: %v", err)
 	}
@@ -45,12 +45,12 @@ func main() {
 	passwordService := domain.NewPasswordService()
 
 	// Application Layer (Use Cases)
-	loginUseCase := usecases.NewLoginUseCase(store, passwordService)
-	registerUseCase := usecases.NewRegisterUseCase(store, passwordService)
+	loginUseCase := usecases.NewLoginUseCase(store, passwordService, jwtService)
+	registerUseCase := usecases.NewRegisterUseCase(store, passwordService, jwtService)
 	createMessageUseCase := usecases.NewCreateMessageUseCase(store)
 
 	// Presentation Layer (Controllers)
-	authController := auth.NewAuthController(loginUseCase, registerUseCase, jwtService, validate)
+	authController := auth.NewAuthController(loginUseCase, registerUseCase, validate)
 	messageController := message.NewMessageController(createMessageUseCase, validate)
 
 	// --- Server Initialization ---

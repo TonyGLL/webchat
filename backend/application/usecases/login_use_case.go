@@ -3,26 +3,34 @@ package usecases
 import (
 	"backend/application"
 	"backend/application/dtos"
+	"backend/application/services"
 	"backend/domain"
+	presentation_dtos "backend/presentation/dtos"
 	"context"
 	"errors"
+	"time"
 )
 
 type LoginUseCase struct {
 	store           application.Store
 	passwordService domain.PasswordService
+	jwtService      services.JwtService
 }
 
-func NewLoginUseCase(store application.Store, ps domain.PasswordService) *LoginUseCase {
+func NewLoginUseCase(
+	store application.Store,
+	ps domain.PasswordService,
+	jwtS services.JwtService) *LoginUseCase {
 	return &LoginUseCase{
 		store:           store,
 		passwordService: ps,
+		jwtService:      jwtS,
 	}
 }
 
 // Execute handles user login. It returns the authenticated user or an error.
 // Token generation is handled by the presentation layer.
-func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (*domain.User, error) {
+func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (*presentation_dtos.AuthResponseDTO, error) {
 	authRepo := uc.store.AuthRepository()
 
 	user, err := authRepo.GetUserByEmailOrUsername(ctx, input.User)
@@ -51,5 +59,30 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 		return nil, err
 	}
 
-	return user, nil
+	token, err := uc.jwtService.GenerateToken(user.ID, 24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	response := uc.buildLoginResponse(user, token)
+
+	return &response, nil
+}
+
+func (uc *LoginUseCase) buildLoginResponse(user *domain.User, token string) presentation_dtos.AuthResponseDTO {
+	userResponse := presentation_dtos.UserResponseDTO{
+		ID:        user.ID,
+		Name:      user.Name,
+		LastName:  user.LastName,
+		Username:  user.Username,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		AvatarURL: user.AvatarUrl,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+	return presentation_dtos.AuthResponseDTO{
+		User:  userResponse,
+		Token: token,
+	}
 }

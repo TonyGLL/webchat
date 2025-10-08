@@ -3,25 +3,33 @@ package usecases
 import (
 	"backend/application"
 	"backend/application/dtos"
+	"backend/application/services"
 	"backend/domain"
+	presentation_dtos "backend/presentation/dtos"
 	"context"
+	"time"
 )
 
 type RegisterUseCase struct {
 	store           application.Store
 	passwordService domain.PasswordService
+	jwtService      services.JwtService
 }
 
-func NewRegisterUseCase(store application.Store, ps domain.PasswordService) *RegisterUseCase {
+func NewRegisterUseCase(
+	store application.Store,
+	ps domain.PasswordService,
+	jwtS services.JwtService) *RegisterUseCase {
 	return &RegisterUseCase{
 		store:           store,
 		passwordService: ps,
+		jwtService:      jwtS,
 	}
 }
 
 // Execute handles user registration, ensuring all steps are performed atomically.
 // It returns the newly created user or an error.
-func (uc *RegisterUseCase) Execute(ctx context.Context, input dtos.RegisterInputDTO) (*domain.User, error) {
+func (uc *RegisterUseCase) Execute(ctx context.Context, input dtos.RegisterInputDTO) (*presentation_dtos.AuthResponseDTO, error) {
 	hashedPassword, err := uc.passwordService.HashPassword(input.Password)
 	if err != nil {
 		return nil, err
@@ -67,5 +75,30 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input dtos.RegisterInput
 		return nil, err
 	}
 
-	return createdUser, nil
+	token, err := uc.jwtService.GenerateToken(user.ID, 24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	response := uc.buildRegisterResponse(createdUser, token)
+
+	return &response, nil
+}
+
+func (uc *RegisterUseCase) buildRegisterResponse(user *domain.User, token string) presentation_dtos.AuthResponseDTO {
+	userResponse := presentation_dtos.UserResponseDTO{
+		ID:        user.ID,
+		Name:      user.Name,
+		LastName:  user.LastName,
+		Username:  user.Username,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		AvatarURL: user.AvatarUrl,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+	return presentation_dtos.AuthResponseDTO{
+		User:  userResponse,
+		Token: token,
+	}
 }
