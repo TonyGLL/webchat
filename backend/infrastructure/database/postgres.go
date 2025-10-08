@@ -13,7 +13,7 @@ func NewDBPool(connString string) (*sql.DB, error) {
 		return nil, fmt.Errorf("database connection string is empty")
 	}
 
-	db, err := sql.Open("pgx", connString)
+	db, err := sql.Open("postgres", connString)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open database connection: %w", err)
 	}
