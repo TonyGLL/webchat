@@ -38,7 +38,7 @@ func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input dtos.RefreshTo
 	}
 
 	// 2. Verify the token exists in our store (Redis)
-	storedUserID, err := uc.tokenRepo.GetUserIDByRefreshToken(ctx, claims.ID)
+	storedUserID, err := uc.tokenRepo.GetToken(ctx, "refresh_token", claims.ID)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
 			return nil, shared_domain.ErrInvalidToken // Token not found or already used
@@ -52,7 +52,7 @@ func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input dtos.RefreshTo
 	}
 
 	// 4. Delete the old refresh token to prevent reuse
-	if err := uc.tokenRepo.DeleteRefreshToken(ctx, claims.ID); err != nil {
+	if err := uc.tokenRepo.DeleteToken(ctx, "refresh_token", claims.ID); err != nil {
 		// Log the error but continue, as the user should still get a new token
 		fmt.Printf("Warning: failed to delete old refresh token: %v\n", err)
 	}
@@ -80,7 +80,7 @@ func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input dtos.RefreshTo
 	}
 
 	// 7. Store the new refresh token
-	if err := uc.tokenRepo.StoreRefreshToken(ctx, user.ID, newRefreshTokenID, RefreshTokenDuration); err != nil {
+	if err := uc.tokenRepo.StoreToken(ctx, user.ID, newRefreshTokenID, "refresh_token", RefreshTokenDuration); err != nil {
 		return nil, err
 	}
 

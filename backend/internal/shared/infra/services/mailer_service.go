@@ -26,22 +26,29 @@ func NewMailerService(config application.MailerConfig) (application.MailerServic
 }
 
 func (s *MailerService) Send(m *application.Message) error {
-	err := smtp.SendMail(fmt.Sprintf("%s:%s", s.host, s.port), s.auth, s.from, m.To, ToBytes(m))
-	if err != nil {
-		return err
-	}
-	return nil
+	addr := fmt.Sprintf("%s:%s", s.host, s.port)
+	msg := ToBytes(s.from, m)
+	return smtp.SendMail(addr, s.auth, s.from, m.To, msg)
 }
 
-func ToBytes(m *application.Message) []byte {
-	buf := bytes.NewBuffer(nil)
-	buf.WriteString(fmt.Sprintf("Subject: %s\n", m.Subject))
-	buf.WriteString(fmt.Sprintf("To: %s\n", strings.Join(m.To, ",")))
+func ToBytes(from string, m *application.Message) []byte {
+	var buf bytes.Buffer
+	crlf := "\r\n"
 
-	buf.WriteString("MIME-Version: 1.0\n")
-	buf.WriteString("Content-Type: text/plain; charset=utf-8\n")
+	// Headers (order matters)
+	buf.WriteString(fmt.Sprintf("From: %s%s", from, crlf))
+	buf.WriteString(fmt.Sprintf("To: %s%s", strings.Join(m.To, ","), crlf))
+	buf.WriteString(fmt.Sprintf("Subject: %s%s", m.Subject, crlf))
+	buf.WriteString("MIME-Version: 1.0" + crlf)
+	buf.WriteString("Content-Type: text/plain; charset=utf-8" + crlf)
+	buf.WriteString("Content-Transfer-Encoding: 7bit" + crlf)
 
+	// Blank line between headers and body
+	buf.WriteString(crlf)
+
+	// Message body
 	buf.WriteString(m.Body)
+	buf.WriteString(crlf)
 
 	return buf.Bytes()
 }

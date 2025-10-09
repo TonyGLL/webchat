@@ -24,10 +24,8 @@ func NewRedisTokenRepository(client *redis.Client) domain.TokenRepository {
 	}
 }
 
-// StoreRefreshToken stores the refresh token's ID in Redis with the user ID as the value.
-// The key is prefixed to avoid collisions and for better organization.
-func (r *RedisTokenRepository) StoreRefreshToken(ctx context.Context, userID int, tokenID string, expiresIn time.Duration) error {
-	key := r.getRedisKey(tokenID)
+func (r *RedisTokenRepository) StoreToken(ctx context.Context, userID int, tokenID string, keyIn string, expiresIn time.Duration) error {
+	key := r.getRedisKey(keyIn, tokenID)
 	err := r.client.Set(ctx, key, userID, expiresIn).Err()
 	if err != nil {
 		return fmt.Errorf("could not store refresh token in redis: %w", err)
@@ -37,8 +35,8 @@ func (r *RedisTokenRepository) StoreRefreshToken(ctx context.Context, userID int
 
 // GetUserIDByRefreshToken retrieves the user ID associated with the given refresh token ID.
 // If the token is not found in Redis, it returns a domain-specific ErrNotFound.
-func (r *RedisTokenRepository) GetUserIDByRefreshToken(ctx context.Context, tokenID string) (int, error) {
-	key := r.getRedisKey(tokenID)
+func (r *RedisTokenRepository) GetToken(ctx context.Context, keyIn string, tokenID string) (int, error) {
+	key := r.getRedisKey(keyIn, tokenID)
 	val, err := r.client.Get(ctx, key).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -56,8 +54,8 @@ func (r *RedisTokenRepository) GetUserIDByRefreshToken(ctx context.Context, toke
 }
 
 // DeleteRefreshToken removes a refresh token from Redis.
-func (r *RedisTokenRepository) DeleteRefreshToken(ctx context.Context, tokenID string) error {
-	key := r.getRedisKey(tokenID)
+func (r *RedisTokenRepository) DeleteToken(ctx context.Context, keyIn string, tokenID string) error {
+	key := r.getRedisKey(keyIn, tokenID)
 	err := r.client.Del(ctx, key).Err()
 	if err != nil {
 		return fmt.Errorf("could not delete refresh token from redis: %w", err)
@@ -66,6 +64,6 @@ func (r *RedisTokenRepository) DeleteRefreshToken(ctx context.Context, tokenID s
 }
 
 // getRedisKey creates a consistent key for storing refresh tokens in Redis.
-func (r *RedisTokenRepository) getRedisKey(tokenID string) string {
-	return fmt.Sprintf("refresh_token:%s", tokenID)
+func (r *RedisTokenRepository) getRedisKey(key string, tokenID string) string {
+	return fmt.Sprintf("%s:%s", key, tokenID)
 }

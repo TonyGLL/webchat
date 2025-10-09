@@ -73,7 +73,7 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 	}
 
 	// Store refresh token in Redis
-	if err := uc.tokenRepo.StoreRefreshToken(ctx, user.ID, refreshTokenID, RefreshTokenDuration); err != nil {
+	if err := uc.tokenRepo.StoreToken(ctx, user.ID, refreshTokenID, "verify_email_token", RefreshTokenDuration); err != nil {
 		return nil, err
 	}
 

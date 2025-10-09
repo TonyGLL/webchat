@@ -27,7 +27,7 @@ func RegisterModule(
 	// Initialize use cases
 	loginUseCase := usecases.NewLoginUseCase(authRepository, tokenRepository, passwordService, jwtService)
 	registerUseCase := usecases.NewRegisterUseCase(authRepository, passwordService, jwtService, store)
-	sendVerifyEmailUseCase := usecases.NewSendVerifyEmailUseCase(authRepository, jwtService, mailerService, store)
+	sendVerifyEmailUseCase := usecases.NewSendVerifyEmailUseCase(authRepository, tokenRepository, jwtService, mailerService, store)
 	refreshTokenUseCase := usecases.NewRefreshTokenUseCase(authRepository, tokenRepository, jwtService)
 
 	// Initialize the controller

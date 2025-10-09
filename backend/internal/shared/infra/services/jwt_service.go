@@ -24,6 +24,21 @@ func NewJWTService(secret string) (application.JwtService, error) {
 	return &JWTService{secret: []byte(secret)}, nil
 }
 
+func (s *JWTService) GenerateTokenFromClaims(claims map[string]interface{}, ttl time.Duration) (string, error) {
+	now := time.Now()
+	stdClaims := jwt.MapClaims{
+		"iat": now.Unix(),
+		"exp": now.Add(ttl).Unix(),
+	}
+
+	for k, v := range claims {
+		stdClaims[k] = v
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, stdClaims)
+	return token.SignedString([]byte(s.secret))
+}
+
 // GenerateToken creates a new JWT for a given user ID and duration.
 func (s *JWTService) GenerateToken(userID int, ttl time.Duration) (string, error) {
 	now := time.Now()
