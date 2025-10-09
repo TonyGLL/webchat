@@ -118,6 +118,11 @@ func (ctrl *AuthController) SendVerifyEmail(ctx *gin.Context) {
 		return
 	}
 
+	if err := ctx.ShouldBindUri(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		return
+	}
+
 	if err := ctrl.Validate.Struct(input); err != nil {
 		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
 		return

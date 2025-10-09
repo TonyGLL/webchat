@@ -15,7 +15,8 @@ type RegisterInputDTO struct {
 }
 
 type SendVerifyEmailInputDTO struct {
-	Email string `json:"email" validate:"required,email"`
+	Email string `form:"email" validate:"required,email"`
+	ID    int    `uri:"user_id" validate:"required,gt=0"`
 }
 
 type VerifyEmailInputDTO struct {

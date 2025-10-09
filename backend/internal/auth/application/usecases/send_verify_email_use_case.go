@@ -38,7 +38,7 @@ func NewSendVerifyEmailUseCase(
 }
 
 func (uc *SendVerifyEmailUseCase) Execute(ctx context.Context, input dtos.SendVerifyEmailInputDTO) error {
-	user, err := uc.authRepo.GetUserByEmailVerifyEmail(ctx, input.Email)
+	user, err := uc.authRepo.GetUserVerifyEmail(ctx, input.Email, input.ID)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
 			return shared_domain.ErrNotFound // User not found

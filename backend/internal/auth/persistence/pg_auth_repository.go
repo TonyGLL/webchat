@@ -81,13 +81,14 @@ func (r *PgAuthRepository) GetUserByEmailOrUsername(ctx context.Context, emailOr
 	return user, nil
 }
 
-const getUserByEmailVerifyQuery = `SELECT id FROM users u WHERE u.email = $1 AND u.deleted = FALSE AND u.email_verified_at IS NULL;`
+const getVerifyEmailQuery = `SELECT u.id, u.email FROM users u WHERE u.email = $1 AND u.id = $2 AND u.deleted = FALSE AND u.email_verified_at IS NULL;`
 
-func (r *PgAuthRepository) GetUserByEmailVerifyEmail(ctx context.Context, email string) (*domain.User, error) {
-	row := r.db.QueryRowContext(ctx, getUserByEmailVerifyQuery, email)
+func (r *PgAuthRepository) GetUserVerifyEmail(ctx context.Context, email string, userID int) (*domain.User, error) {
+	row := r.db.QueryRowContext(ctx, getVerifyEmailQuery, email, userID)
 	user := &domain.User{}
 	err := row.Scan(
 		&user.ID,
+		&user.Email,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

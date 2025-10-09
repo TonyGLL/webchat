@@ -39,6 +39,6 @@ func RegisterModule(
 		authRoutes.POST("/login", authController.Login)
 		authRoutes.POST("/register", authController.Register)
 		authRoutes.POST("/refresh-token", authController.RefreshToken)
-		authRoutes.POST("/send-verify-email", authController.SendVerifyEmail)
+		authRoutes.POST("/send-verify-email/:user_id", authController.SendVerifyEmail)
 	}
 }
