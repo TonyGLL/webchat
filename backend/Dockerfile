@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -tags musl -ldflags '-extldflags "-static"' -o /main ./cmd/server
 
-# Final: imagen mínima
+# Stage 2: final
 FROM scratch
 WORKDIR /app
 COPY --from=build /main /main
