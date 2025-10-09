@@ -1,0 +1,78 @@
+# ─────────────────────────────
+# Build and binary files
+# ─────────────────────────────
+main
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Binaries generated in subfolders (e.g., /cmd/server/main)
+**/main
+**/*.out
+
+# ─────────────────────────────
+# Dependency and build caches
+# ─────────────────────────────
+vendor/
+bin/
+build/
+dist/
+tmp/
+.cache/
+.idea/
+.vscode/
+.DS_Store
+
+# ─────────────────────────────
+# Version control and CI files
+# ─────────────────────────────
+.git
+.gitignore
+.gitattributes
+.github/
+.gitlab-ci.yml
+
+# ─────────────────────────────
+# Local and configuration files
+# ─────────────────────────────
+*.env
+.env*
+!example.env          # keep example env file
+*.local
+*.log
+*.bak
+*.swp
+*.swo
+
+# ─────────────────────────────
+# Docker and container files
+# ─────────────────────────────
+docker-compose*.yml
+Dockerfile*
+
+# ─────────────────────────────
+# OS/system files
+# ─────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+__MACOSX
+
+# ─────────────────────────────
+# Testing and coverage files
+# ─────────────────────────────
+*.cover
+*.coverprofile
+coverage.*
+*.prof
+*.pprof
+
+# ─────────────────────────────
+# Documentation (optional)
+# ─────────────────────────────
+*.md
+!README.md   # keep only main README
+docs/
