@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         - CONFIG_FILE=${CONFIG_FILE}
-    image: webchat/api:0.0.1
+    image: webchat/api:0.0.2
     restart: unless-stopped
     container_name: webchat_api
     ports:
@@ -34,11 +34,16 @@ services:
   redis:
     image: redis:alpine
     container_name: webchat_redis
-    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=s3cr3tP@ss
+      - REDIS_USERNAME=default
+      - ALLOW_EMPTY_PASSWORD=no
+      - REDIS_PORT_NUMBER=6379
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    restart: unless-stopped
 
 volumes:
   postgres_data:

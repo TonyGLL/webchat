@@ -65,15 +65,9 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 		return nil, err
 	}
 
-	// Generate Access Token
-	accessToken, err := uc.jwtService.GenerateToken(user.ID, AccessTokenDuration)
-	if err != nil {
-		return nil, err
-	}
-
 	// Generate Refresh Token
 	refreshTokenID := uuid.New().String()
-	refreshToken, err := uc.jwtService.GenerateRefreshToken(user.ID, refreshTokenID, RefreshTokenDuration)
+	token, err := uc.jwtService.GenerateRefreshToken(user.ID, refreshTokenID, RefreshTokenDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +77,7 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 		return nil, err
 	}
 
-	response := uc.buildLoginResponse(user, accessToken, refreshToken)
+	response := uc.buildLoginResponse(user, token, refreshTokenID)
 
 	return &response, nil
 }

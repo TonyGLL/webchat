@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -40,6 +41,37 @@ func NewConfig(envFile string) (*Config, error) {
 			return nil, fmt.Errorf("DATABASE_URL is not set and individual DB_USER, DB_HOST, DB_PORT, DB_NAME environment variables are not fully provided")
 		}
 		cfg.DatabaseURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
+	}
+
+	// Build REDIS_URL if not provided: support user+password or only password
+	if cfg.RedisURL == "" {
+		rHost := Getenv("REDIS_HOST", "")
+		rPort := Getenv("REDIS_PORT", "")
+		rUser := Getenv("REDIS_USER", "") // soporte para REDIS_USERNAME
+		rPass := Getenv("REDIS_PASS", "")
+		rDB := Getenv("REDIS_DB", "0")
+
+		if rHost == "" || rPort == "" {
+			return nil, fmt.Errorf("REDIS_URL is not set and REDIS_HOST/REDIS_PORT not provided")
+		}
+
+		// url-encode user and password
+		encodedUser := url.QueryEscape(rUser)
+		encodedPass := url.QueryEscape(rPass)
+
+		var redisURL string
+		if rUser != "" {
+			// usuario presente
+			redisURL = fmt.Sprintf("redis://%s:%s@%s:%s/%s", encodedUser, encodedPass, rHost, rPort, rDB)
+		} else if rPass != "" {
+			// solo password
+			redisURL = fmt.Sprintf("redis://:%s@%s:%s/%s", encodedPass, rHost, rPort, rDB)
+		} else {
+			// sin auth
+			redisURL = fmt.Sprintf("redis://%s:%s/%s", rHost, rPort, rDB)
+		}
+
+		cfg.RedisURL = redisURL
 	}
 
 	return cfg, nil
