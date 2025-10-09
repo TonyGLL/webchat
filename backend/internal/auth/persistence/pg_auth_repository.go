@@ -23,6 +23,35 @@ func NewPgAuthRepository(dbtx db.DBTX) *PgAuthRepository {
 	return &PgAuthRepository{db: dbtx}
 }
 
+const getUserByIDQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at FROM users u WHERE u.id = $1 AND u.deleted = FALSE;`
+
+func (r *PgAuthRepository) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
+	row := r.db.QueryRowContext(ctx, getUserByIDQuery, id)
+	user := &domain.User{}
+	err := row.Scan(
+		&user.ID,
+		&user.Name,
+		&user.LastName,
+		&user.Username,
+		&user.Email,
+		&user.Phone,
+		&user.AvatarUrl,
+		&user.LastAccess,
+		&user.Deleted,
+		&user.GoogleSub,
+		&user.EmailVerifiedAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, shared_domain.ErrNotFound
+		}
+		return nil, err
+	}
+	return user, nil
+}
+
 const getUserByEmailOrUsernameQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at FROM users u WHERE (u.email = $1 OR u.username = $1) AND u.deleted = FALSE AND u.email_verified_at IS NOT NULL;`
 
 func (r *PgAuthRepository) GetUserByEmailOrUsername(ctx context.Context, emailOrUsername string) (*domain.User, error) {

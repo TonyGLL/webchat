@@ -15,6 +15,7 @@ import (
 type AuthController struct {
 	LoginUseCase           *usecases.LoginUseCase
 	RegisterUseCase        *usecases.RegisterUseCase
+	RefreshTokenUseCase    *usecases.RefreshTokenUseCase
 	SendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase
 	Validate               *validator.Validate
 }
@@ -22,12 +23,14 @@ type AuthController struct {
 func NewAuthController(
 	loginUseCase *usecases.LoginUseCase,
 	registerUseCase *usecases.RegisterUseCase,
+	refreshTokenUseCase *usecases.RefreshTokenUseCase,
 	sendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase,
 	validate *validator.Validate,
 ) *AuthController {
 	return &AuthController{
 		LoginUseCase:           loginUseCase,
 		RegisterUseCase:        registerUseCase,
+		RefreshTokenUseCase:    refreshTokenUseCase,
 		SendVerifyEmailUseCase: sendVerifyEmailUseCase,
 		Validate:               validate,
 	}
@@ -52,6 +55,31 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to log in"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+func (ctrl *AuthController) RefreshToken(ctx *gin.Context) {
+	var input dtos.RefreshTokenInputDTO
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if err := ctrl.Validate.Struct(input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	response, err := ctrl.RefreshTokenUseCase.Execute(ctx.Request.Context(), input)
+	if err != nil {
+		if errors.Is(err, shared_domain.ErrInvalidToken) {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refresh token"})
 		return
 	}
 

@@ -18,6 +18,7 @@ type UserResponseDTO struct {
 
 // AuthResponseDTO is the unified response for both login and registration.
 type AuthResponseDTO struct {
-	User  UserResponseDTO `json:"user"`
-	Token string          `json:"token"`
+	User         UserResponseDTO `json:"user"`
+	Token        string          `json:"token"`
+	RefreshToken string          `json:"refreshToken"`
 }
