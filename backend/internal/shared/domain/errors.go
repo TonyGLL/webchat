@@ -12,6 +12,7 @@ var (
 	ErrConflict           = errors.New("resource conflict")
 	ErrInternal           = errors.New("internal server error")
 	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrInvalidToken       = errors.New("invalid or expired token")
 )
 
 func ErrorResponse(err error) gin.H {

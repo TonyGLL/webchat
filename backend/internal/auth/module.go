@@ -14,6 +14,7 @@ import (
 // It acts as the dependency injection container for this module.
 func RegisterModule(
 	authRepository domain.AuthRepository,
+	tokenRepository domain.TokenRepository,
 	router *gin.RouterGroup,
 	validate *validator.Validate,
 	jwtService shared_app.JwtService,
@@ -24,18 +25,20 @@ func RegisterModule(
 	passwordService := domain.NewPasswordService()
 
 	// Initialize use cases
-	loginUseCase := usecases.NewLoginUseCase(authRepository, passwordService, jwtService)
+	loginUseCase := usecases.NewLoginUseCase(authRepository, tokenRepository, passwordService, jwtService)
 	registerUseCase := usecases.NewRegisterUseCase(authRepository, passwordService, jwtService, store)
 	sendVerifyEmailUseCase := usecases.NewSendVerifyEmailUseCase(authRepository, jwtService, mailerService, store)
+	refreshTokenUseCase := usecases.NewRefreshTokenUseCase(authRepository, tokenRepository, jwtService)
 
 	// Initialize the controller
-	authController := presentation.NewAuthController(loginUseCase, registerUseCase, sendVerifyEmailUseCase, validate)
+	authController := presentation.NewAuthController(loginUseCase, registerUseCase, refreshTokenUseCase, sendVerifyEmailUseCase, validate)
 
 	// Register routes
 	authRoutes := router.Group("/auth")
 	{
 		authRoutes.POST("/login", authController.Login)
 		authRoutes.POST("/register", authController.Register)
+		authRoutes.POST("/refresh-token", authController.RefreshToken)
 		authRoutes.POST("/send-verify-email", authController.SendVerifyEmail)
 	}
 }

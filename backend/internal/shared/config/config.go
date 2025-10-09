@@ -19,6 +19,7 @@ func NewConfig(envFile string) (*Config, error) {
 	cfg := &Config{
 		Port:               Getenv("PORT", "8080"),
 		DatabaseURL:        Getenv("DATABASE_URL", ""),
+		RedisURL:           Getenv("REDIS_URL", ""),
 		JWTSecret:          Getenv("JWT_SECRET", "default-secret"),
 		CORSAllowedOrigins: parseCorsOrigins(Getenv("CORS_ALLOWED_ORIGINS", "")),
 		SMTPFrom:           Getenv("SMTP_FROM", ""),

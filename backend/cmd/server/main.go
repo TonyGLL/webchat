@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -12,6 +13,7 @@ import (
 	"backend/internal/shared/config"
 	"backend/internal/shared/http"
 	"backend/internal/shared/infra/db"
+	"backend/internal/shared/infra/redis"
 	services "backend/internal/shared/infra/services"
 
 	"github.com/go-playground/validator/v10"
@@ -19,6 +21,7 @@ import (
 
 func main() {
 	log.Println("Starting modular server...")
+	ctx := context.Background()
 
 	// --- Configuration ---
 	cfg, err := config.NewConfig(os.Getenv("CONFIG_FILE"))
@@ -34,6 +37,11 @@ func main() {
 		log.Fatalf("could not initialize database connection: %s", err)
 	}
 	defer database.Close()
+
+	redisClient, err := redis.NewClient(ctx, cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("could not initialize redis client: %s", err)
+	}
 
 	store := db.NewSQLStore(database)
 
@@ -55,6 +63,7 @@ func main() {
 
 	// --- Repositories ---
 	authRepository := auth_persistence.NewPgAuthRepository(database)
+	tokenRepository := auth_persistence.NewRedisTokenRepository(redisClient)
 	messageRepository := message_persistence.NewPgMessageRepository(database)
 
 	// --- Server Setup ---
@@ -63,7 +72,7 @@ func main() {
 
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
-	auth.RegisterModule(authRepository, apiV1, validate, jwtService, mailerService, store)
+	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store)
 	message.RegisterModule(messageRepository, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---

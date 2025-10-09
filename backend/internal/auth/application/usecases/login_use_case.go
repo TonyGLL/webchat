@@ -8,20 +8,30 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/google/uuid"
+)
+
+const (
+	AccessTokenDuration  = time.Hour * 1
+	RefreshTokenDuration = time.Hour * 24 * 7 // 7 days
 )
 
 type LoginUseCase struct {
 	authRepo        domain.AuthRepository
+	tokenRepo       domain.TokenRepository
 	passwordService domain.PasswordService
 	jwtService      shared_app.JwtService
 }
 
 func NewLoginUseCase(
 	authRepo domain.AuthRepository,
+	tokenRepo domain.TokenRepository,
 	ps domain.PasswordService,
 	jwtS shared_app.JwtService) *LoginUseCase {
 	return &LoginUseCase{
 		authRepo:        authRepo,
+		tokenRepo:       tokenRepo,
 		passwordService: ps,
 		jwtService:      jwtS,
 	}
@@ -55,17 +65,30 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 		return nil, err
 	}
 
-	token, err := uc.jwtService.GenerateToken(user.ID, 24*time.Hour)
+	// Generate Access Token
+	accessToken, err := uc.jwtService.GenerateToken(user.ID, AccessTokenDuration)
 	if err != nil {
 		return nil, err
 	}
 
-	response := uc.buildLoginResponse(user, token)
+	// Generate Refresh Token
+	refreshTokenID := uuid.New().String()
+	refreshToken, err := uc.jwtService.GenerateRefreshToken(user.ID, refreshTokenID, RefreshTokenDuration)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store refresh token in Redis
+	if err := uc.tokenRepo.StoreRefreshToken(ctx, user.ID, refreshTokenID, RefreshTokenDuration); err != nil {
+		return nil, err
+	}
+
+	response := uc.buildLoginResponse(user, accessToken, refreshToken)
 
 	return &response, nil
 }
 
-func (uc *LoginUseCase) buildLoginResponse(user *domain.User, token string) dtos.AuthResponseDTO {
+func (uc *LoginUseCase) buildLoginResponse(user *domain.User, accessToken, refreshToken string) dtos.AuthResponseDTO {
 	userResponse := dtos.UserResponseDTO{
 		ID:        user.ID,
 		Name:      user.Name,
@@ -78,7 +101,8 @@ func (uc *LoginUseCase) buildLoginResponse(user *domain.User, token string) dtos
 		UpdatedAt: user.UpdatedAt,
 	}
 	return dtos.AuthResponseDTO{
-		User:  userResponse,
-		Token: token,
+		User:         userResponse,
+		Token:        accessToken,
+		RefreshToken: refreshToken,
 	}
 }

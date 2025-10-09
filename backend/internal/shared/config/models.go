@@ -7,6 +7,7 @@ import "strings"
 type Config struct {
 	Port               string
 	DatabaseURL        string
+	RedisURL           string
 	JWTSecret          string
 	CORSAllowedOrigins []string
 	SMTPFrom           string
