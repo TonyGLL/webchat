@@ -15,6 +15,7 @@ import (
 	"backend/internal/shared/infra/db"
 	"backend/internal/shared/infra/redis"
 	services "backend/internal/shared/infra/services"
+	"backend/internal/users"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -73,6 +74,7 @@ func main() {
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store)
+	users.RegisterModule(authRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
 	message.RegisterModule(messageRepository, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---
