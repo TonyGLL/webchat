@@ -2,7 +2,6 @@ package usecases
 
 import (
 	"context"
-	"time"
 
 	"backend/internal/auth/application/dtos"
 	"backend/internal/auth/domain"
@@ -31,7 +30,7 @@ func NewRegisterUseCase(
 
 // Execute handles user registration, ensuring all steps are performed atomically.
 // It returns the newly created user or an error.
-func (uc *RegisterUseCase) Execute(ctx context.Context, input dtos.RegisterInputDTO) (*dtos.AuthResponseDTO, error) {
+func (uc *RegisterUseCase) Execute(ctx context.Context, input dtos.RegisterInputDTO) (*dtos.UserResponseDTO, error) {
 	hashedPassword, err := uc.passwordService.HashPassword(input.Password)
 	if err != nil {
 		return nil, err
@@ -75,30 +74,10 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input dtos.RegisterInput
 		return nil, err
 	}
 
-	token, err := uc.jwtService.GenerateToken(createdUser.ID, 24*time.Hour)
-	if err != nil {
-		return nil, err
+	response := dtos.UserResponseDTO{
+		ID:    createdUser.ID,
+		Email: createdUser.Email,
 	}
-
-	response := uc.buildRegisterResponse(createdUser, token)
 
 	return &response, nil
-}
-
-func (uc *RegisterUseCase) buildRegisterResponse(user *domain.User, token string) dtos.AuthResponseDTO {
-	userResponse := dtos.UserResponseDTO{
-		ID:        user.ID,
-		Name:      user.Name,
-		LastName:  user.LastName,
-		Username:  user.Username,
-		Email:     user.Email,
-		Phone:     user.Phone,
-		AvatarURL: user.AvatarUrl,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-	}
-	return dtos.AuthResponseDTO{
-		User:  userResponse,
-		Token: token,
-	}
 }
