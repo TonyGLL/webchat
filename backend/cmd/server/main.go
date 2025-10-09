@@ -44,6 +44,7 @@ func main() {
 
 	mailerConfig := application.MailerConfig{
 		SMTP_HOST:     cfg.SMTPHost,
+		SMTP_PORT:     cfg.SMTPPort,
 		SMTP_FROM:     cfg.SMTPFrom,
 		SMTP_PASSWORD: cfg.SMTPPassword,
 	}

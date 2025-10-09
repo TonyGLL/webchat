@@ -24,6 +24,7 @@ func NewConfig(envFile string) (*Config, error) {
 		SMTPFrom:           Getenv("SMTP_FROM", ""),
 		SMTPPassword:       Getenv("SMTP_PASSWORD", ""),
 		SMTPHost:           Getenv("SMTP_HOST", ""),
+		SMTPPort:           Getenv("SMTP_PORT", "587"),
 	}
 
 	// If DATABASE_URL is not set, try to construct it from individual DB environment variables

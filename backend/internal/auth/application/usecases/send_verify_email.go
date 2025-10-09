@@ -4,12 +4,10 @@ import (
 	"backend/internal/auth/application/dtos"
 	"backend/internal/auth/domain"
 	shared_app "backend/internal/shared/application"
-	"backend/internal/shared/config"
 	shared_domain "backend/internal/shared/domain"
 	"context"
 	"errors"
 	"log"
-	"os"
 )
 
 type SendVerifyEmailUseCase struct {
@@ -49,18 +47,9 @@ func (uc *SendVerifyEmailUseCase) Execute(ctx context.Context, input dtos.SendVe
 		Body:        "Please verify your email by clicking the link below.",
 		Attachments: map[string][]byte{},
 	}
-	cfg, err := config.NewConfig(os.Getenv("CONFIG_FILE"))
-	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
-	}
-	config := shared_app.MailerConfig{
-		SMTP_HOST:     cfg.SMTPHost,
-		SMTP_FROM:     cfg.SMTPFrom,
-		SMTP_PASSWORD: cfg.SMTPPassword,
-	}
-	err = uc.mailerService.Send(&message, config)
-	if err != nil {
-		log.Fatalf("Failed to send email: %v", err)
+	if err := uc.mailerService.Send(&message); err != nil {
+		log.Printf("Failed to send email: %v", err)
+		return err
 	}
 
 	return nil

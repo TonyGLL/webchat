@@ -13,15 +13,23 @@ import (
 
 type MailerService struct {
 	auth smtp.Auth
+	host string
+	port string
+	from string
 }
 
 func NewMailerService(config application.MailerConfig) (application.MailerService, error) {
 	auth := smtp.PlainAuth("", config.SMTP_FROM, config.SMTP_PASSWORD, config.SMTP_HOST)
-	return &MailerService{auth}, nil
+	return &MailerService{
+		auth: auth,
+		host: config.SMTP_HOST,
+		port: config.SMTP_PORT,
+		from: config.SMTP_FROM,
+	}, nil
 }
 
-func (s *MailerService) Send(m *application.Message, config application.MailerConfig) error {
-	return smtp.SendMail(fmt.Sprintf("%s:%s", config.SMTP_HOST, config.SMTP_PORT), s.auth, config.SMTP_FROM, m.To, ToBytes(m))
+func (s *MailerService) Send(m *application.Message) error {
+	return smtp.SendMail(fmt.Sprintf("%s:%s", s.host, s.port), s.auth, s.from, m.To, ToBytes(m))
 }
 
 func ToBytes(m *application.Message) []byte {

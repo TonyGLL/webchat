@@ -12,6 +12,7 @@ type Config struct {
 	SMTPFrom           string
 	SMTPPassword       string
 	SMTPHost           string
+	SMTPPort           string
 }
 
 // IsProduction returns true if the app environment is set to "prod" or "production".
