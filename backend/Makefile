@@ -9,7 +9,7 @@ build:
 depends-on: build
 run:
 	@echo "Running in development mode..."
-	@CONFIG_FILE=dev.env go run cmd/server/main.go
+	@CONFIG_FILE=local.env go run cmd/server/main.go
 
 # Run tests
 test:

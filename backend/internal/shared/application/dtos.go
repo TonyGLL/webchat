@@ -1,12 +1,9 @@
 package application
 
 type Message struct {
-	To          []string
-	CC          []string
-	BCC         []string
-	Subject     string
-	Body        string
-	Attachments map[string][]byte
+	To      []string
+	Subject string
+	Body    string
 }
 
 type MailerConfig struct {

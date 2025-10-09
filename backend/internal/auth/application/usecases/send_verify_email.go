@@ -40,12 +40,9 @@ func (uc *SendVerifyEmailUseCase) Execute(ctx context.Context, input dtos.SendVe
 	}
 
 	message := shared_app.Message{
-		To:          []string{user.Email},
-		CC:          []string{},
-		BCC:         []string{},
-		Subject:     "Verify your email",
-		Body:        "Please verify your email by clicking the link below.",
-		Attachments: map[string][]byte{},
+		To:      []string{user.Email},
+		Subject: "Verify your email",
+		Body:    "Please verify your email by clicking the link below.",
 	}
 	if err := uc.mailerService.Send(&message); err != nil {
 		log.Printf("Failed to send email: %v", err)

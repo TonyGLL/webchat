@@ -3,10 +3,7 @@ package services
 import (
 	"backend/internal/shared/application"
 	"bytes"
-	"encoding/base64"
 	"fmt"
-	"mime/multipart"
-	"net/http"
 	"net/smtp"
 	"strings"
 )
@@ -29,48 +26,22 @@ func NewMailerService(config application.MailerConfig) (application.MailerServic
 }
 
 func (s *MailerService) Send(m *application.Message) error {
-	return smtp.SendMail(fmt.Sprintf("%s:%s", s.host, s.port), s.auth, s.from, m.To, ToBytes(m))
+	err := smtp.SendMail(fmt.Sprintf("%s:%s", s.host, s.port), s.auth, s.from, m.To, ToBytes(m))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func ToBytes(m *application.Message) []byte {
 	buf := bytes.NewBuffer(nil)
-	withAttachments := len(m.Attachments) > 0
 	buf.WriteString(fmt.Sprintf("Subject: %s\n", m.Subject))
 	buf.WriteString(fmt.Sprintf("To: %s\n", strings.Join(m.To, ",")))
-	if len(m.CC) > 0 {
-		buf.WriteString(fmt.Sprintf("Cc: %s\n", strings.Join(m.CC, ",")))
-	}
-
-	if len(m.BCC) > 0 {
-		buf.WriteString(fmt.Sprintf("Bcc: %s\n", strings.Join(m.BCC, ",")))
-	}
 
 	buf.WriteString("MIME-Version: 1.0\n")
-	writer := multipart.NewWriter(buf)
-	boundary := writer.Boundary()
-	if withAttachments {
-		buf.WriteString(fmt.Sprintf("Content-Type: multipart/mixed; boundary=%s\n", boundary))
-		buf.WriteString(fmt.Sprintf("--%s\n", boundary))
-	} else {
-		buf.WriteString("Content-Type: text/plain; charset=utf-8\n")
-	}
+	buf.WriteString("Content-Type: text/plain; charset=utf-8\n")
 
 	buf.WriteString(m.Body)
-	if withAttachments {
-		for k, v := range m.Attachments {
-			buf.WriteString(fmt.Sprintf("\n\n--%s\n", boundary))
-			buf.WriteString(fmt.Sprintf("Content-Type: %s\n", http.DetectContentType(v)))
-			buf.WriteString("Content-Transfer-Encoding: base64\n")
-			buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=%s\n", k))
-
-			b := make([]byte, base64.StdEncoding.EncodedLen(len(v)))
-			base64.StdEncoding.Encode(b, v)
-			buf.Write(b)
-			buf.WriteString(fmt.Sprintf("\n--%s", boundary))
-		}
-
-		buf.WriteString("--")
-	}
 
 	return buf.Bytes()
 }
