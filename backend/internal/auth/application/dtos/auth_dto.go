@@ -20,5 +20,5 @@ type SendVerifyEmailInputDTO struct {
 }
 
 type VerifyEmailInputDTO struct {
-	Token string `json:"token" validate:"required"`
+	Token string `uri:"token" validate:"required"`
 }

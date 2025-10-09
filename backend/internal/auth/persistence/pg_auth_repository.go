@@ -163,3 +163,20 @@ func (r *PgAuthRepository) SetLastAccess(ctx context.Context, id int) error {
 	_, err := r.db.ExecContext(ctx, setLastAccessQuery, id)
 	return err
 }
+
+const verifyEmailQuery = `UPDATE users SET email_verified_at = NOW() WHERE id = $1;`
+
+func (r *PgAuthRepository) VerifyEmail(ctx context.Context, id int) error {
+	result, err := r.db.ExecContext(ctx, verifyEmailQuery, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return shared_domain.ErrNotFound
+	}
+	return nil
+}

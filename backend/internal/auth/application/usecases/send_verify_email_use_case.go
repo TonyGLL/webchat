@@ -58,7 +58,7 @@ func (uc *SendVerifyEmailUseCase) Execute(ctx context.Context, input dtos.SendVe
 	}
 
 	// Store the token in the store with an expiration time
-	if err := uc.tokenRepo.StoreToken(ctx, user.ID, token, "refresh_token", tokenDuration); err != nil {
+	if err := uc.tokenRepo.StoreToken(ctx, user.ID, token, "verify_email_token", tokenDuration); err != nil {
 		return err
 	}
 

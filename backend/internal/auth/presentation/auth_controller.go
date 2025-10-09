@@ -17,6 +17,7 @@ type AuthController struct {
 	RegisterUseCase        *usecases.RegisterUseCase
 	RefreshTokenUseCase    *usecases.RefreshTokenUseCase
 	SendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase
+	VerifyEmailUseCase     *usecases.VerifyEmailUseCase
 	Validate               *validator.Validate
 }
 
@@ -25,6 +26,7 @@ func NewAuthController(
 	registerUseCase *usecases.RegisterUseCase,
 	refreshTokenUseCase *usecases.RefreshTokenUseCase,
 	sendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase,
+	verifyEmailUseCase *usecases.VerifyEmailUseCase,
 	validate *validator.Validate,
 ) *AuthController {
 	return &AuthController{
@@ -32,6 +34,7 @@ func NewAuthController(
 		RegisterUseCase:        registerUseCase,
 		RefreshTokenUseCase:    refreshTokenUseCase,
 		SendVerifyEmailUseCase: sendVerifyEmailUseCase,
+		VerifyEmailUseCase:     verifyEmailUseCase,
 		Validate:               validate,
 	}
 }
@@ -138,4 +141,28 @@ func (ctrl *AuthController) SendVerifyEmail(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "Verification email sent"})
+}
+
+func (ctrl *AuthController) VerifyEmail(ctx *gin.Context) {
+	var input dtos.VerifyEmailInputDTO
+	if err := ctx.ShouldBindUri(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		return
+	}
+
+	if err := ctrl.Validate.Struct(input); err != nil {
+		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		return
+	}
+
+	if err := ctrl.VerifyEmailUseCase.Execute(ctx.Request.Context(), input); err != nil {
+		if errors.Is(err, shared_domain.ErrInvalidToken) {
+			ctx.JSON(http.StatusUnauthorized, shared_domain.ErrorResponse(err))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, shared_domain.ErrorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Email verified successfully"})
 }

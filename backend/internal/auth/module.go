@@ -29,9 +29,10 @@ func RegisterModule(
 	registerUseCase := usecases.NewRegisterUseCase(authRepository, passwordService, jwtService, store)
 	sendVerifyEmailUseCase := usecases.NewSendVerifyEmailUseCase(authRepository, tokenRepository, jwtService, mailerService, store)
 	refreshTokenUseCase := usecases.NewRefreshTokenUseCase(authRepository, tokenRepository, jwtService)
+	verifyEmailUseCase := usecases.NewVerifyEmailUseCase(authRepository, tokenRepository, jwtService, mailerService)
 
 	// Initialize the controller
-	authController := presentation.NewAuthController(loginUseCase, registerUseCase, refreshTokenUseCase, sendVerifyEmailUseCase, validate)
+	authController := presentation.NewAuthController(loginUseCase, registerUseCase, refreshTokenUseCase, sendVerifyEmailUseCase, verifyEmailUseCase, validate)
 
 	// Register routes
 	authRoutes := router.Group("/auth")
@@ -40,5 +41,6 @@ func RegisterModule(
 		authRoutes.POST("/register", authController.Register)
 		authRoutes.POST("/refresh-token", authController.RefreshToken)
 		authRoutes.POST("/send-verify-email/:user_id", authController.SendVerifyEmail)
+		authRoutes.POST("/verify-email/:token", authController.VerifyEmail)
 	}
 }

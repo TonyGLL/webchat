@@ -12,4 +12,5 @@ type AuthRepository interface {
 	Register(ctx context.Context, user *User) (*User, error)
 	SetLastAccess(ctx context.Context, id int) error
 	CreatePassword(ctx context.Context, userID int, hashedPassword string) error
+	VerifyEmail(ctx context.Context, id int) error
 }
