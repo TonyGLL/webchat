@@ -21,6 +21,9 @@ func NewConfig(envFile string) (*Config, error) {
 		DatabaseURL:        Getenv("DATABASE_URL", ""),
 		JWTSecret:          Getenv("JWT_SECRET", "default-secret"),
 		CORSAllowedOrigins: parseCorsOrigins(Getenv("CORS_ALLOWED_ORIGINS", "")),
+		SMTPFrom:           Getenv("SMTP_FROM", ""),
+		SMTPPassword:       Getenv("SMTP_PASSWORD", ""),
+		SMTPHost:           Getenv("SMTP_HOST", ""),
 	}
 
 	// If DATABASE_URL is not set, try to construct it from individual DB environment variables

@@ -9,6 +9,9 @@ type Config struct {
 	DatabaseURL        string
 	JWTSecret          string
 	CORSAllowedOrigins []string
+	SMTPFrom           string
+	SMTPPassword       string
+	SMTPHost           string
 }
 
 // IsProduction returns true if the app environment is set to "prod" or "production".

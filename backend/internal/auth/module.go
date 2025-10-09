@@ -17,6 +17,7 @@ func RegisterModule(
 	router *gin.RouterGroup,
 	validate *validator.Validate,
 	jwtService shared_app.JwtService,
+	mailerService shared_app.MailerService,
 	store shared_app.Store,
 ) {
 	// Initialize services
@@ -25,7 +26,7 @@ func RegisterModule(
 	// Initialize use cases
 	loginUseCase := usecases.NewLoginUseCase(authRepository, passwordService, jwtService)
 	registerUseCase := usecases.NewRegisterUseCase(authRepository, passwordService, jwtService, store)
-	sendVerifyEmailUseCase := usecases.NewSendVerifyEmailUseCase(authRepository, jwtService)
+	sendVerifyEmailUseCase := usecases.NewSendVerifyEmailUseCase(authRepository, jwtService, mailerService, store)
 
 	// Initialize the controller
 	authController := presentation.NewAuthController(loginUseCase, registerUseCase, sendVerifyEmailUseCase, validate)

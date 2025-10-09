@@ -1,6 +1,10 @@
 package domain
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/gin-gonic/gin"
+)
 
 var (
 	ErrInvalidInput       = errors.New("invalid input")
@@ -9,3 +13,7 @@ var (
 	ErrInternal           = errors.New("internal server error")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 )
+
+func ErrorResponse(err error) gin.H {
+	return gin.H{"error": err.Error()}
+}

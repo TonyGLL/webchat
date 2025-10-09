@@ -1,26 +1,67 @@
 package usecases
 
 import (
+	"backend/internal/auth/application/dtos"
 	"backend/internal/auth/domain"
 	shared_app "backend/internal/shared/application"
+	"backend/internal/shared/config"
+	shared_domain "backend/internal/shared/domain"
 	"context"
+	"errors"
+	"log"
+	"os"
 )
 
 type SendVerifyEmailUseCase struct {
-	authRepo   domain.AuthRepository
-	jwtService shared_app.JwtService
-	store      shared_app.Store
+	authRepo      domain.AuthRepository
+	jwtService    shared_app.JwtService
+	mailerService shared_app.MailerService
+	store         shared_app.Store
 }
 
 func NewSendVerifyEmailUseCase(
 	authRepo domain.AuthRepository,
-	jwtS shared_app.JwtService) *SendVerifyEmailUseCase {
+	jwtS shared_app.JwtService,
+	mailerService shared_app.MailerService,
+	store shared_app.Store) *SendVerifyEmailUseCase {
 	return &SendVerifyEmailUseCase{
-		authRepo:   authRepo,
-		jwtService: jwtS,
+		authRepo:      authRepo,
+		jwtService:    jwtS,
+		mailerService: mailerService,
+		store:         store,
 	}
 }
 
-func (uc *SendVerifyEmailUseCase) Execute(ctx context.Context, userID int) error {
+func (uc *SendVerifyEmailUseCase) Execute(ctx context.Context, input dtos.SendVerifyEmailInputDTO) error {
+	user, err := uc.authRepo.GetUserByEmailOrUsername(ctx, input.Email)
+	if err != nil {
+		if errors.Is(err, shared_domain.ErrNotFound) {
+			return shared_domain.ErrInvalidCredentials // User not found
+		}
+		return err
+	}
+
+	message := shared_app.Message{
+		To:          []string{user.Email},
+		CC:          []string{},
+		BCC:         []string{},
+		Subject:     "Verify your email",
+		Body:        "Please verify your email by clicking the link below.",
+		Attachments: map[string][]byte{},
+	}
+	cfg, err := config.NewConfig(os.Getenv("CONFIG_FILE"))
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	config := shared_app.MailerConfig{
+		SMTP_HOST:     cfg.SMTPHost,
+		SMTP_FROM:     cfg.SMTPFrom,
+		SMTP_PASSWORD: cfg.SMTPPassword,
+	}
+	err = uc.mailerService.Send(&message, config)
+	if err != nil {
+		log.Fatalf("Failed to send email: %v", err)
+	}
+
 	return nil
 }

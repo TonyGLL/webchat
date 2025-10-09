@@ -84,5 +84,25 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 }
 
 func (ctrl *AuthController) SendVerifyEmail(ctx *gin.Context) {
-	// Implementation for sending verification email goes here
+	var input dtos.SendVerifyEmailInputDTO
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		return
+	}
+
+	if err := ctrl.Validate.Struct(input); err != nil {
+		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		return
+	}
+
+	if err := ctrl.SendVerifyEmailUseCase.Execute(ctx.Request.Context(), input); err != nil {
+		if errors.Is(err, shared_domain.ErrNotFound) {
+			ctx.JSON(http.StatusNotFound, shared_domain.ErrorResponse(err))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, shared_domain.ErrorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Verification email sent"})
 }

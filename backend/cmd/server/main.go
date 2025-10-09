@@ -8,6 +8,7 @@ import (
 	auth_persistence "backend/internal/auth/persistence"
 	"backend/internal/message"
 	message_persistence "backend/internal/message/persistence"
+	"backend/internal/shared/application"
 	"backend/internal/shared/config"
 	"backend/internal/shared/http"
 	"backend/internal/shared/infra/db"
@@ -41,6 +42,16 @@ func main() {
 		log.Fatalf("Failed to create JWT service: %v", err)
 	}
 
+	mailerConfig := application.MailerConfig{
+		SMTP_HOST:     cfg.SMTPHost,
+		SMTP_FROM:     cfg.SMTPFrom,
+		SMTP_PASSWORD: cfg.SMTPPassword,
+	}
+	mailerService, err := services.NewMailerService(mailerConfig)
+	if err != nil {
+		log.Fatalf("Failed to create Mailer service: %v", err)
+	}
+
 	// --- Repositories ---
 	authRepository := auth_persistence.NewPgAuthRepository(database)
 	messageRepository := message_persistence.NewPgMessageRepository(database)
@@ -51,7 +62,7 @@ func main() {
 
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
-	auth.RegisterModule(authRepository, apiV1, validate, jwtService, store)
+	auth.RegisterModule(authRepository, apiV1, validate, jwtService, mailerService, store)
 	message.RegisterModule(messageRepository, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---
