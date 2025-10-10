@@ -17,12 +17,17 @@ import (
 	services "backend/internal/shared/infra/services"
 	"backend/internal/users"
 	users_persistence "backend/internal/users/persistence"
+	"backend/internal/websocket"
 
+	room_app "backend/internal/room/application"
+	room_persistence "backend/internal/room/persistence"
+
+	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
 
 func main() {
-	log.Println("Starting modular server...")
+	log.Println("Starting server...")
 	ctx := context.Background()
 
 	// --- Configuration ---
@@ -68,10 +73,25 @@ func main() {
 	usersRepository := users_persistence.NewPgUsersRepository(database)
 	tokenRepository := auth_persistence.NewRedisTokenRepository(redisClient)
 	messageRepository := message_persistence.NewPgMessageRepository(database)
+	roomRepository := room_persistence.NewPgRoomRepository(database)
+
+	// --- Websocket Hub ---
+	wsHub := websocket.NewHub()
+	go wsHub.Run()
+
+	// --- Use Cases and Adapters needed across modules ---
+	listUserRoomsUseCase := room_app.NewListUserRoomsUseCase(roomRepository)
+	roomListerAdapter := room_app.NewRoomListerAdapter(listUserRoomsUseCase)
 
 	// --- Server Setup ---
 	server := http.NewServer(cfg)
 	apiV1 := server.Router.Group("/api/v1")
+
+	// Websocket endpoint
+	// This endpoint must be authenticated to identify the user.
+	apiV1.GET("/ws", http.JWTMiddleware(jwtService), func(c *gin.Context) {
+		websocket.ServeWs(wsHub, roomListerAdapter, c)
+	})
 
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
