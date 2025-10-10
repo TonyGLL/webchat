@@ -16,6 +16,7 @@ import (
 	"backend/internal/shared/infra/redis"
 	services "backend/internal/shared/infra/services"
 	"backend/internal/users"
+	users_persistence "backend/internal/users/persistence"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -64,6 +65,7 @@ func main() {
 
 	// --- Repositories ---
 	authRepository := auth_persistence.NewPgAuthRepository(database)
+	usersRepository := users_persistence.NewPgUsersRepository(database)
 	tokenRepository := auth_persistence.NewRedisTokenRepository(redisClient)
 	messageRepository := message_persistence.NewPgMessageRepository(database)
 
@@ -74,7 +76,7 @@ func main() {
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store)
-	users.RegisterModule(authRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
+	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
 	message.RegisterModule(messageRepository, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---
