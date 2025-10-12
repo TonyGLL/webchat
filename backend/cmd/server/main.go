@@ -9,6 +9,7 @@ import (
 	auth_persistence "backend/internal/auth/persistence"
 	"backend/internal/message"
 	message_persistence "backend/internal/message/persistence"
+	"backend/internal/room"
 	"backend/internal/shared/application"
 	"backend/internal/shared/config"
 	"backend/internal/shared/http"
@@ -74,6 +75,7 @@ func main() {
 	tokenRepository := auth_persistence.NewRedisTokenRepository(redisClient)
 	messageRepository := message_persistence.NewPgMessageRepository(database)
 	roomRepository := room_persistence.NewPgRoomRepository(database)
+	memberRepository := room_persistence.NewPgRoomMemberRepository(database)
 
 	// --- Websocket Hub ---
 	wsHub := websocket.NewHub()
@@ -97,6 +99,7 @@ func main() {
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store)
 	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
+	room.RegisterModule(roomRepository, memberRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase)
 	message.RegisterModule(messageRepository, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---

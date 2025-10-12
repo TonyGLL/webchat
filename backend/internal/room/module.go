@@ -4,7 +4,6 @@ import (
 	"backend/internal/room/application"
 	"backend/internal/room/domain"
 	presentation "backend/internal/room/presentation"
-	shared_domain "backend/internal/shared/domain"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -14,14 +13,13 @@ import (
 func RegisterModule(
 	roomRepo domain.RoomRepository,
 	memberRepo domain.RoomMemberRepository,
-	txManager shared_domain.TransactionManager,
 	router *gin.RouterGroup,
 	validate *validator.Validate,
 	authMiddleware gin.HandlerFunc,
 	listUserRoomsUseCase *application.ListUserRoomsUseCase, // Pass the use case in
 ) {
 	// Initialize other use cases
-	createRoomUseCase := application.NewCreateRoomUseCase(roomRepo, memberRepo, txManager)
+	createRoomUseCase := application.NewCreateRoomUseCase(roomRepo, memberRepo)
 	joinRoomUseCase := application.NewJoinRoomUseCase(roomRepo, memberRepo)
 
 	// Initialize the controller, reusing the provided use case
