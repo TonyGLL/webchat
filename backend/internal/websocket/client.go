@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	shared_http "backend/internal/shared/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -106,15 +108,15 @@ func (c *Client) writePump() {
 }
 
 // ServeWs handles websocket requests from the peer.
-func ServeWs(hub *Hub, roomLister RoomLister, c *gin.Context) {
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+func ServeWs(hub *Hub, roomLister RoomLister, ctx *gin.Context) {
+	conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
 	// The user ID must be available in the context, set by the auth middleware.
-	userID, exists := c.Get("user_id")
+	userID, exists := ctx.Get(shared_http.CtxUserIDKey)
 	if !exists {
 		log.Println("user_id not found in context")
 		conn.Close()
@@ -133,7 +135,7 @@ func ServeWs(hub *Hub, roomLister RoomLister, c *gin.Context) {
 
 	// Subscribe the client to their rooms.
 	go func() {
-		roomIDs, err := roomLister.GetUserRoomIDs(c.Request.Context(), id)
+		roomIDs, err := roomLister.GetUserRoomIDs(ctx.Request.Context(), id)
 		if err != nil {
 			log.Printf("failed to get user rooms for client %s: %v", client.ID, err)
 			return

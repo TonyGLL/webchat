@@ -18,16 +18,16 @@ const CtxUserIDKey = contextKey("userID")
 
 // JWTMiddleware creates a Gin middleware for JWT authentication.
 func JWTMiddleware(service application.JwtService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
+	return func(ctx *gin.Context) {
+		authHeader := ctx.GetHeader("Authorization")
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is missing"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is missing"})
 			return
 		}
 
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is not in 'Bearer {token}' format"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is not in 'Bearer {token}' format"})
 			return
 		}
 		tokenStr := parts[1]
@@ -36,13 +36,13 @@ func JWTMiddleware(service application.JwtService) gin.HandlerFunc {
 		if err != nil {
 			// Log the actual error for debugging, but return a generic error to the client.
 			log.Printf("JWT parsing error: %v", err)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
 
 		// Set the user ID in the context for subsequent handlers.
-		c.Set(string(CtxUserIDKey), claims.UserID)
+		ctx.Set(string(CtxUserIDKey), claims.UserID)
 
-		c.Next()
+		ctx.Next()
 	}
 }
