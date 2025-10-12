@@ -10,11 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// contextKey is a private type for context keys to prevent collisions.
-type contextKey string
-
 // CtxUserIDKey is the key for the user ID in the context.
-const CtxUserIDKey = contextKey("userID")
+const CtxUserIDKey = "userID"
 
 // JWTMiddleware creates a Gin middleware for JWT authentication.
 func JWTMiddleware(service application.JwtService) gin.HandlerFunc {
@@ -41,7 +38,7 @@ func JWTMiddleware(service application.JwtService) gin.HandlerFunc {
 		}
 
 		// Set the user ID in the context for subsequent handlers.
-		ctx.Set(string(CtxUserIDKey), claims.UserID)
+		ctx.Set(CtxUserIDKey, claims.UserID)
 
 		ctx.Next()
 	}

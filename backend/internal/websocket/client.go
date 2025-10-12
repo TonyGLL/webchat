@@ -135,7 +135,7 @@ func ServeWs(hub *Hub, roomLister RoomLister, ctx *gin.Context) {
 
 	// Subscribe the client to their rooms.
 	go func() {
-		roomIDs, err := roomLister.GetUserRoomIDs(ctx.Request.Context(), id)
+		roomIDs, err := roomLister.GetUserRoomIDs(ctx, id)
 		if err != nil {
 			log.Printf("failed to get user rooms for client %s: %v", client.ID, err)
 			return
