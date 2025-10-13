@@ -77,6 +77,7 @@ func main() {
 	reactionRepository := message_persistence.NewPgReactionRepository(database)
 	roomRepository := room_persistence.NewPgRoomRepository(database)
 	memberRepository := room_persistence.NewPgRoomMemberRepository(database)
+	inviteRepository := room_persistence.NewPgInviteRepository(database)
 
 	// --- Websocket Hub ---
 	wsHub := websocket.NewHub()
@@ -100,7 +101,7 @@ func main() {
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store)
 	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
-	room.RegisterModule(roomRepository, memberRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase)
+	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase)
 	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---

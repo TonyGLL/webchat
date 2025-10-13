@@ -5,6 +5,7 @@ import (
 	"backend/internal/shared/http/request"
 	"backend/internal/shared/http/response"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -15,11 +16,39 @@ type MessageController struct {
 	createMessageUseCase  *application.CreateMessageUseCase
 	addReactionUseCase    *application.AddReactionUseCase
 	removeReactionUseCase *application.RemoveReactionUseCase
+	listMessagesUseCase   *application.ListMessagesUseCase
 	validate              *validator.Validate
 }
 
-func NewMessageController(createMessageUseCase *application.CreateMessageUseCase, addReactionUseCase *application.AddReactionUseCase, removeReactionUseCase *application.RemoveReactionUseCase, validate *validator.Validate) *MessageController {
-	return &MessageController{createMessageUseCase: createMessageUseCase, addReactionUseCase: addReactionUseCase, removeReactionUseCase: removeReactionUseCase, validate: validate}
+func NewMessageController(
+	createMessageUseCase *application.CreateMessageUseCase,
+	addReactionUseCase *application.AddReactionUseCase,
+	removeReactionUseCase *application.RemoveReactionUseCase,
+	listMessagesUseCase *application.ListMessagesUseCase,
+	validate *validator.Validate,
+) *MessageController {
+	return &MessageController{
+		createMessageUseCase:  createMessageUseCase,
+		addReactionUseCase:    addReactionUseCase,
+		removeReactionUseCase: removeReactionUseCase,
+		listMessagesUseCase:   listMessagesUseCase,
+		validate:              validate,
+	}
+}
+
+func (ctrl *MessageController) FetchMessages(c *gin.Context) {
+	roomID := c.Param("roomId")
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+
+	messages, err := ctrl.listMessagesUseCase.Execute(c.Request.Context(), roomID, page, pageSize)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch messages")
+		return
+	}
+
+	response.JSON(c, http.StatusOK, messages)
 }
 
 func (ctrl *MessageController) CreateMessage(c *gin.Context) {

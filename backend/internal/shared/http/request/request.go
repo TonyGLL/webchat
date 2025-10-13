@@ -25,9 +25,21 @@ func GetUserID(c *gin.Context) (int, error) {
 }
 
 // BindJSON binds the request body to a DTO and validates it.
-func BindJSON(c *gin.Context, dto interface{}, validate *validator.Validate) error {
-	if err := c.ShouldBindJSON(dto); err != nil {
+func BindJSON(ctx *gin.Context, dto interface{}, validate *validator.Validate) error {
+	if err := ctx.ShouldBindJSON(dto); err != nil {
 		return fmt.Errorf("invalid request body: %w", err)
+	}
+
+	if err := validate.Struct(dto); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
+	return nil
+}
+
+func BindURI(ctx *gin.Context, dto interface{}, validate *validator.Validate) error {
+	if err := ctx.ShouldBindUri(dto); err != nil {
+		return fmt.Errorf("invalid URI parameters: %w", err)
 	}
 
 	if err := validate.Struct(dto); err != nil {

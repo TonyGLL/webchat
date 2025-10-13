@@ -18,6 +18,7 @@ type RoomController struct {
 	createRoomUseCase    *application.CreateRoomUseCase
 	listUserRoomsUseCase *application.ListUserRoomsUseCase
 	joinRoomUseCase      *application.JoinRoomUseCase
+	createInviteUseCase  *application.CreateInviteUseCase
 	validate             *validator.Validate
 }
 
@@ -26,14 +27,39 @@ func NewRoomController(
 	createRoomUseCase *application.CreateRoomUseCase,
 	listUserRoomsUseCase *application.ListUserRoomsUseCase,
 	joinRoomUseCase *application.JoinRoomUseCase,
+	createInviteUseCase *application.CreateInviteUseCase,
 	validate *validator.Validate,
 ) *RoomController {
 	return &RoomController{
 		createRoomUseCase:    createRoomUseCase,
 		listUserRoomsUseCase: listUserRoomsUseCase,
 		joinRoomUseCase:      joinRoomUseCase,
+		createInviteUseCase:  createInviteUseCase,
 		validate:             validate,
 	}
+}
+
+func (c *RoomController) CreateInvite(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	var dto application.CreateInviteDTO
+	dto.RoomID = ctx.Param("room_id")
+	if err := request.BindJSON(ctx, &dto, c.validate); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	invite, err := c.createInviteUseCase.Execute(ctx.Request.Context(), dto, userID)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, "Failed to create invite")
+		return
+	}
+
+	response.JSON(ctx, http.StatusCreated, invite)
 }
 
 // CreateRoom handles the endpoint for POST /api/v1/rooms
@@ -85,7 +111,7 @@ func (c *RoomController) JoinRoom(ctx *gin.Context) {
 		return
 	}
 
-	roomIDStr := ctx.Param("id")
+	roomIDStr := ctx.Param("room_id")
 	roomID, err := uuid.Parse(roomIDStr)
 	if err != nil {
 		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")

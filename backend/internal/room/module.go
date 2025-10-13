@@ -13,6 +13,7 @@ import (
 func RegisterModule(
 	roomRepo domain.RoomRepository,
 	memberRepo domain.RoomMemberRepository,
+	inviteRepo domain.InviteRepository,
 	router *gin.RouterGroup,
 	validate *validator.Validate,
 	authMiddleware gin.HandlerFunc,
@@ -21,21 +22,24 @@ func RegisterModule(
 	// Initialize other use cases
 	createRoomUseCase := application.NewCreateRoomUseCase(roomRepo, memberRepo)
 	joinRoomUseCase := application.NewJoinRoomUseCase(roomRepo, memberRepo)
+	createInviteUseCase := application.NewCreateInviteUseCase(inviteRepo, roomRepo)
 
 	// Initialize the controller, reusing the provided use case
 	roomController := presentation.NewRoomController(
 		createRoomUseCase,
 		listUserRoomsUseCase,
 		joinRoomUseCase,
+		createInviteUseCase,
 		validate,
 	)
 
 	// Register routes under an authenticated group
-	roomRoutes := router.Group("/rooms")
-	roomRoutes.Use(authMiddleware)
+	roomsRoutes := router.Group("/rooms")
+	roomsRoutes.Use(authMiddleware)
 	{
-		roomRoutes.POST("/", roomController.CreateRoom)
-		roomRoutes.GET("/", roomController.GetUserRooms)
-		roomRoutes.POST("/:id/join", roomController.JoinRoom)
+		roomsRoutes.POST("", roomController.CreateRoom)
+		roomsRoutes.GET("", roomController.GetUserRooms)
+		roomsRoutes.POST("/join/:room_id", roomController.JoinRoom)
+		roomsRoutes.POST("/invite/:room_id", roomController.CreateInvite)
 	}
 }

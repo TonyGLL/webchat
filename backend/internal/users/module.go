@@ -22,14 +22,16 @@ func RegisterModule(
 ) {
 	// Initialize use cases
 	deactivateUserUseCase := usecases.NewDeactivateUserUseCase(usersRepository)
+	getUserProfileUseCase := usecases.NewGetUserProfileUseCase(usersRepository)
 
 	// Initialize the controller
-	usersController := presentation.NewUsersController(deactivateUserUseCase, validate)
+	usersController := presentation.NewUsersController(deactivateUserUseCase, getUserProfileUseCase, validate)
 
-	// Register routes
-	authRoutes := router.Group("/users")
-	authRoutes.Use(authMiddleware)
+	// Register authenticated routes
+	usersRoutes := router.Group("/users")
+	usersRoutes.Use(authMiddleware)
 	{
-		authRoutes.DELETE("/deactivate", usersController.DeactivateUser)
+		usersRoutes.GET("/:id", usersController.GetUserProfile)
+		usersRoutes.DELETE("/deactivate", usersController.DeactivateUser)
 	}
 }
