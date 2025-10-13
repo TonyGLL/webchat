@@ -13,8 +13,5 @@ WORKDIR /app
 COPY --from=build /main /main
 COPY --from=build /main /app/main
 
-ARG CONFIG_FILE=dev.env
-COPY ${CONFIG_FILE} .env
-
 EXPOSE 3000
 CMD ["/main"]
