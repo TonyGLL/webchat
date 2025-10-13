@@ -1,42 +1,39 @@
 package application
 
 import (
-	"context"
-	"strconv"
-
 	"backend/internal/message/domain"
 	shared_domain "backend/internal/shared/domain"
+	"context"
+
+	"github.com/google/uuid"
 )
 
+type CreateMessageDTO struct {
+	Content string `json:"content" validate:"required,min=1,max=4000"`
+	RoomID  string `json:"room_id" validate:"required,uuid"`
+}
+
 type CreateMessageUseCase struct {
-	messageRepo domain.MessageRepository
+	messageRepo   domain.MessageRepository
+	wsBroadcaster domain.WebsocketBroadcaster
 }
 
-func NewCreateMessageUseCase(messageRepo domain.MessageRepository) *CreateMessageUseCase {
-	return &CreateMessageUseCase{messageRepo: messageRepo}
+func NewCreateMessageUseCase(messageRepo domain.MessageRepository, wsBroadcaster domain.WebsocketBroadcaster) *CreateMessageUseCase {
+	return &CreateMessageUseCase{messageRepo: messageRepo, wsBroadcaster: wsBroadcaster}
 }
 
-// Execute creates a new message. The author's ID is passed explicitly
-// to ensure it's taken from a trusted source (like a JWT) and not from user input.
 func (uc *CreateMessageUseCase) Execute(ctx context.Context, input CreateMessageDTO, authorID int) (*domain.Message, error) {
-	channelID, err := strconv.Atoi(input.ChannelID)
+	roomID, err := uuid.Parse(input.RoomID)
 	if err != nil {
-		return nil, shared_domain.ErrInvalidInput // ChannelID should be a numeric string
+		return nil, shared_domain.ErrInvalidInput
 	}
-
-	message := &domain.Message{
-		Text:      input.Text,
-		AuthorID:  authorID,
-		ChannelID: channelID,
-		// CreatedAt is now handled by the database.
-	}
-
+	message := &domain.Message{Content: input.Content, AuthorID: authorID, RoomID: roomID}
 	createdMessage, err := uc.messageRepo.Create(ctx, message)
 	if err != nil {
-		// In a real application, you might map specific database errors
-		// to domain errors, e.g., a foreign key violation.
 		return nil, err
 	}
-
+	if uc.wsBroadcaster != nil {
+		uc.wsBroadcaster.Broadcast("new_message", createdMessage, input.RoomID)
+	}
 	return createdMessage, nil
 }

@@ -9,23 +9,23 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// RegisterModule initializes the dependencies for the message module and registers its routes.
 func RegisterModule(
 	messageRepository domain.MessageRepository,
+	reactionRepository domain.ReactionRepository,
+	wsBroadcaster domain.WebsocketBroadcaster,
 	router *gin.RouterGroup,
 	validate *validator.Validate,
 	authMiddleware gin.HandlerFunc,
 ) {
-	// Initialize use cases
-	createMessageUseCase := application.NewCreateMessageUseCase(messageRepository)
-
-	// Initialize the controller
-	messageController := presentation.NewMessageController(createMessageUseCase, validate)
-
-	// Register routes under an authenticated group
+	createMessageUseCase := application.NewCreateMessageUseCase(messageRepository, wsBroadcaster)
+	addReactionUseCase := application.NewAddReactionUseCase(reactionRepository, messageRepository, wsBroadcaster)
+	removeReactionUseCase := application.NewRemoveReactionUseCase(reactionRepository, messageRepository, wsBroadcaster)
+	messageController := presentation.NewMessageController(createMessageUseCase, addReactionUseCase, removeReactionUseCase, validate)
 	messageRoutes := router.Group("/messages")
-	messageRoutes.Use(authMiddleware) // Apply JWT middleware to all message routes
+	messageRoutes.Use(authMiddleware)
 	{
 		messageRoutes.POST("/", messageController.CreateMessage)
+		messageRoutes.POST("/:id/reactions", messageController.AddReaction)
+		messageRoutes.DELETE("/:id/reactions", messageController.RemoveReaction)
 	}
 }

@@ -1,72 +1,58 @@
 package persistence
 
 import (
-	"context"
-	"database/sql"
-	"errors"
-
 	"backend/internal/message/domain"
-	shared_domain "backend/internal/shared/domain"
 	"backend/internal/shared/infra/db"
+	"context"
+
+	"github.com/google/uuid"
 )
 
-const (
-	createQuery          = `INSERT INTO messages (text, author_id, channel_id) VALUES ($1, $2, $3) RETURNING id, created_at;`
-	findByIDQuery        = `SELECT id, text, author_id, channel_id, created_at FROM messages WHERE id = $1;`
-	findByChannelIDQuery = `SELECT id, text, author_id, channel_id, created_at FROM messages WHERE channel_id = $1 ORDER BY created_at ASC;`
-)
-
-// PgMessageRepository implements the domain.MessageRepository interface for PostgreSQL.
 type PgMessageRepository struct {
 	db db.DBTX
 }
 
-// NewPgMessageRepository creates a new PgMessageRepository.
-// It accepts a DBTX interface, which can be either a *sql.DB or *sql.Tx.
 func NewPgMessageRepository(dbtx db.DBTX) domain.MessageRepository {
 	return &PgMessageRepository{db: dbtx}
 }
 
 func (r *PgMessageRepository) Create(ctx context.Context, message *domain.Message) (*domain.Message, error) {
-	err := r.db.QueryRowContext(ctx, createQuery, message.Text, message.AuthorID, message.ChannelID).Scan(&message.ID, &message.CreatedAt)
+	query := `INSERT INTO messages (content, author_id, room_id) VALUES ($1, $2, $3) RETURNING id, created_at`
+	err := r.db.QueryRowContext(ctx, query, message.Content, message.AuthorID, message.RoomID).Scan(&message.ID, &message.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return message, nil
 }
 
-func (r *PgMessageRepository) FindByID(ctx context.Context, id int) (*domain.Message, error) {
-	var message domain.Message
-	err := r.db.QueryRowContext(ctx, findByIDQuery, id).Scan(&message.ID, &message.Text, &message.AuthorID, &message.ChannelID, &message.CreatedAt)
+func (r *PgMessageRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Message, error) {
+	query := `SELECT id, content, author_id, room_id, created_at, edited_at, deleted_at FROM messages WHERE id = $1`
+	var msg domain.Message
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&msg.ID, &msg.Content, &msg.AuthorID, &msg.RoomID, &msg.CreatedAt, &msg.EditedAt, &msg.DeletedAt)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, shared_domain.ErrNotFound
-		}
 		return nil, err
 	}
-	return &message, nil
+	return &msg, nil
 }
 
-func (r *PgMessageRepository) FindByChannelID(ctx context.Context, channelID int) ([]*domain.Message, error) {
-	rows, err := r.db.QueryContext(ctx, findByChannelIDQuery, channelID)
+func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID) ([]*domain.Message, error) {
+	query := `SELECT id, content, author_id, room_id, created_at, edited_at, deleted_at FROM messages WHERE room_id = $1 ORDER BY created_at ASC`
+	rows, err := r.db.QueryContext(ctx, query, roomID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
 	var messages []*domain.Message
 	for rows.Next() {
-		var message domain.Message
-		err := rows.Scan(&message.ID, &message.Text, &message.AuthorID, &message.ChannelID, &message.CreatedAt)
+		var msg domain.Message
+		err := rows.Scan(&msg.ID, &msg.Content, &msg.AuthorID, &msg.RoomID, &msg.CreatedAt, &msg.EditedAt, &msg.DeletedAt)
 		if err != nil {
 			return nil, err
 		}
-		messages = append(messages, &message)
+		messages = append(messages, &msg)
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return messages, nil
 }

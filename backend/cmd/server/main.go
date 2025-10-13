@@ -74,6 +74,7 @@ func main() {
 	usersRepository := users_persistence.NewPgUsersRepository(database)
 	tokenRepository := auth_persistence.NewRedisTokenRepository(redisClient)
 	messageRepository := message_persistence.NewPgMessageRepository(database)
+	reactionRepository := message_persistence.NewPgReactionRepository(database)
 	roomRepository := room_persistence.NewPgRoomRepository(database)
 	memberRepository := room_persistence.NewPgRoomMemberRepository(database)
 
@@ -100,7 +101,7 @@ func main() {
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store)
 	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
 	room.RegisterModule(roomRepository, memberRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase)
-	message.RegisterModule(messageRepository, apiV1, validate, http.JWTMiddleware(jwtService))
+	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---
 	server.Run()
