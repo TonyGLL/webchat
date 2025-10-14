@@ -10,7 +10,7 @@ import { useState } from 'react';
 import Spinner from '@/components/Spinner';
 
 const LoginSchema = z.object({
-  email: z.string().email({ message: 'Invalid email address' }),
+  user: z.string().email({ message: 'Invalid email address' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
 });
 
@@ -59,11 +59,11 @@ export default function LoginPage() {
             <input
               id="email"
               type="email"
-              {...register('email')}
+              {...register('user')}
               className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
+            {errors.user && (
+              <p className="mt-1 text-sm text-red-500">{errors.user.message}</p>
             )}
           </div>
           <div>
