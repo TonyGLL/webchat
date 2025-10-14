@@ -5,6 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import PrivateRoute from '@/components/PrivateRoute';
 import Spinner from '@/components/Spinner';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function ProfilePage() {
   const { profile, loading, deactivate } = useUser();
@@ -23,28 +25,32 @@ export default function ProfilePage() {
 
   return (
     <PrivateRoute>
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">User Profile</h1>
+      <div className="container mx-auto p-4 flex justify-center items-center h-full">
         {loading ? (
           <Spinner />
         ) : profile ? (
-          <div className="bg-white shadow-md rounded-lg p-6">
-            <p>
-              <strong>ID:</strong> {profile.id}
-            </p>
-            <p>
-              <strong>Username:</strong> {profile.username}
-            </p>
-            <p>
-              <strong>Email:</strong> {profile.email}
-            </p>
-            <button
-              onClick={handleDeactivate}
-              className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Deactivate Account
-            </button>
-          </div>
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>User Profile</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="font-semibold">ID</p>
+                <p className="text-muted-foreground">{profile.id}</p>
+              </div>
+              <div>
+                <p className="font-semibold">Username</p>
+                <p className="text-muted-foreground">{profile.username}</p>
+              </div>
+              <div>
+                <p className="font-semibold">Email</p>
+                <p className="text-muted-foreground">{profile.email}</p>
+              </div>
+              <Button variant="destructive" onClick={handleDeactivate} className="w-full">
+                Deactivate Account
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
           <p>Could not load profile.</p>
         )}
