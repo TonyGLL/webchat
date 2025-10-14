@@ -19,6 +19,7 @@ type RoomController struct {
 	listUserRoomsUseCase *application.ListUserRoomsUseCase
 	joinRoomUseCase      *application.JoinRoomUseCase
 	createInviteUseCase  *application.CreateInviteUseCase
+	acceptInviteUseCase  *application.AcceptInviteUseCase
 	validate             *validator.Validate
 }
 
@@ -28,6 +29,7 @@ func NewRoomController(
 	listUserRoomsUseCase *application.ListUserRoomsUseCase,
 	joinRoomUseCase *application.JoinRoomUseCase,
 	createInviteUseCase *application.CreateInviteUseCase,
+	acceptInviteUseCase *application.AcceptInviteUseCase,
 	validate *validator.Validate,
 ) *RoomController {
 	return &RoomController{
@@ -35,6 +37,7 @@ func NewRoomController(
 		listUserRoomsUseCase: listUserRoomsUseCase,
 		joinRoomUseCase:      joinRoomUseCase,
 		createInviteUseCase:  createInviteUseCase,
+		acceptInviteUseCase:  acceptInviteUseCase,
 		validate:             validate,
 	}
 }
@@ -132,4 +135,31 @@ func (c *RoomController) JoinRoom(ctx *gin.Context) {
 	}
 
 	response.JSON(ctx, http.StatusOK, gin.H{"message": "Successfully joined room"})
+}
+
+func (c *RoomController) AcceptInvite(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	var dto application.AcceptInviteDTO
+	if err := request.BindURI(ctx, &dto, c.validate); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	invite, err := c.acceptInviteUseCase.Execute(ctx, dto, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, application.ErrAlreadyMember):
+			response.Error(ctx, http.StatusConflict, err.Error())
+		default:
+			response.Error(ctx, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	response.JSON(ctx, http.StatusOK, invite)
 }

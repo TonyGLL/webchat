@@ -35,3 +35,13 @@ func (r *PgInviteRepository) Create(ctx context.Context, invite *domain.Invite) 
 	}
 	return invite, nil
 }
+
+func (r *PgInviteRepository) GetByCode(ctx context.Context, code string) (*domain.Invite, error) {
+	query := `SELECT id, room_id, code, expires_at, invited_by_id, email, created_at FROM invites WHERE code = $1 AND expires_at > NOW()`
+	invite := &domain.Invite{}
+	err := r.db.QueryRowContext(ctx, query, code).Scan(&invite.ID, &invite.RoomID, &invite.Code, &invite.ExpiresAt, &invite.InvitedByID, &invite.Email, &invite.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return invite, nil
+}

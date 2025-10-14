@@ -31,7 +31,7 @@ func RegisterModule(
 	usersRoutes := router.Group("/users")
 	usersRoutes.Use(authMiddleware)
 	{
-		usersRoutes.GET("/:id", usersController.GetUserProfile)
+		usersRoutes.GET("/profile", usersController.GetUserProfile)
 		usersRoutes.DELETE("/deactivate", usersController.DeactivateUser)
 	}
 }

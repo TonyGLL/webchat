@@ -2,10 +2,11 @@ package presentation
 
 import (
 	shared_domain "backend/internal/shared/domain"
+	"backend/internal/shared/http/request"
+	"backend/internal/shared/http/response"
 	"backend/internal/users/application/usecases"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -30,14 +31,13 @@ func NewUsersController(
 }
 
 func (ctrl *UsersController) GetUserProfile(ctx *gin.Context) {
-	idStr := ctx.Param("id")
-	id, err := strconv.Atoi(idStr)
+	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(errors.New("invalid user ID")))
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	userProfile, err := ctrl.GetUserProfileUseCase.Execute(ctx.Request.Context(), id)
+	userProfile, err := ctrl.GetUserProfileUseCase.Execute(ctx.Request.Context(), userID)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
 			ctx.JSON(http.StatusNotFound, shared_domain.ErrorResponse(err))

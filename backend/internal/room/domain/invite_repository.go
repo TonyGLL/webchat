@@ -1,4 +1,3 @@
-
 package domain
 
 import (
@@ -7,4 +6,5 @@ import (
 
 type InviteRepository interface {
 	Create(ctx context.Context, invite *Invite) (*Invite, error)
+	GetByCode(ctx context.Context, code string) (*Invite, error)
 }
