@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
 
 export const messageService = {
   getMessages: async (roomId: string, page: number, pageSize: number) => {
-    const response = await api.get(`/messages/room/${roomId}`, {
+    const response = await api.get(`/messages/${roomId}/messages`, {
       params: { page, pageSize },
     });
     return response.data;

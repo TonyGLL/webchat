@@ -1,4 +1,3 @@
-
 package persistence
 
 import (
@@ -37,7 +36,7 @@ func (r *PgMessageRepository) FindByID(ctx context.Context, id uuid.UUID) (*doma
 }
 
 func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID, limit, offset int) ([]*domain.Message, error) {
-	query := `SELECT id, content, author_id, room_id, created_at, edited_at, deleted_at FROM messages WHERE room_id =  ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+	query := `SELECT id, content, author_id, room_id, created_at, edited_at, deleted_at FROM messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
 	rows, err := r.db.QueryContext(ctx, query, roomID, limit, offset)
 	if err != nil {
 		return nil, err
@@ -57,4 +56,3 @@ func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID
 	}
 	return messages, nil
 }
-

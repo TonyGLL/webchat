@@ -11,7 +11,7 @@ export const useSocket = (token: string | null) => {
 
     const newSocket = io(SOCKET_URL, {
       path: '/api/v1/ws',
-      query: { token },
+      extraHeaders: { Authorization: `Bearer ${token}` },
       transports: ['websocket'],
     });
 

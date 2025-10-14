@@ -10,7 +10,7 @@ import RoomList from '@/components/RoomList';
 import CreateRoomForm from '@/components/CreateRoomForm';
 import MessageView from '@/components/MessageView';
 
-export default function ChatPage() {
+export default function DashboardPage() {
   const { rooms, loading, createRoom } = useRoom();
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const { tokens } = useAuth();
