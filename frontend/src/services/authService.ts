@@ -3,6 +3,24 @@ import { z } from 'zod';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+export interface IAuthResponse {
+  user: User;
+  token: string;
+  refreshToken: string;
+}
+
+export interface User {
+  id: number;
+  name: string;
+  lastName: string;
+  username: string;
+  email: string;
+  phone: string;
+  avatarUrl: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 const RegisterSchema = z.object({
   username: z.string().min(3),
   email: z.string().email(),
@@ -23,7 +41,7 @@ export const authService = {
     return response.data;
   },
 
-  login: async (data: LoginData) => {
+  login: async (data: LoginData): Promise<IAuthResponse> => {
     const response = await axios.post(`${API_URL}/auth/login`, data);
     return response.data;
   },

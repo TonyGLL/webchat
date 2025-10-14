@@ -26,7 +26,8 @@ export const useAuth = () => {
   }, []);
 
   const login = async (data: LoginData) => {
-    const response = await authService.login(data);
+    const { token, refreshToken } = await authService.login(data);
+    const response = { accessToken: token, refreshToken };
     setTokens(response);
     localStorage.setItem('authTokens', JSON.stringify(response));
     const profile = await userService.getProfile();
