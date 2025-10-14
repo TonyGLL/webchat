@@ -13,8 +13,6 @@ import MessageView from '@/components/MessageView';
 export default function DashboardPage() {
   const { rooms, loading, createRoom } = useRoom();
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
-  const { tokens } = useAuth();
-  const socket = useSocket(tokens?.accessToken || null);
 
   return (
     <PrivateRoute>
@@ -29,7 +27,7 @@ export default function DashboardPage() {
           <CreateRoomForm createRoom={createRoom} />
         </div>
         <div className="w-3/4">
-          <MessageView roomId={selectedRoom} socket={socket} />
+          <MessageView roomId={selectedRoom} />
         </div>
       </div>
     </PrivateRoute>

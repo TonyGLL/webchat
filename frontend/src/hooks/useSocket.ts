@@ -1,26 +1,10 @@
-import { useEffect, useState } from 'react';
-import io, { Socket } from 'socket.io-client';
+import { useContext } from 'react';
+import { SocketContext } from '@/contexts/SocketContext';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8080';
-
-export const useSocket = (token: string | null) => {
-  const [socket, setSocket] = useState<Socket | null>(null);
-
-  useEffect(() => {
-    if (!token) return;
-
-    const newSocket = io(SOCKET_URL, {
-      path: '/api/v1/ws',
-      extraHeaders: { Authorization: `Bearer ${token}` },
-      transports: ['websocket'],
-    });
-
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.disconnect();
-    };
-  }, [token]);
-
-  return socket;
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useSocket must be used within a SocketProvider');
+  }
+  return context.socket;
 };
