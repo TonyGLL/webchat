@@ -17,7 +17,7 @@ func NewPgMessageRepository(dbtx db.DBTX) domain.MessageRepository {
 }
 
 func (r *PgMessageRepository) Create(ctx context.Context, message *domain.Message) (*domain.Message, error) {
-	query := `INSERT INTO messages (content, author_id, room_id) VALUES (, $2, $3) RETURNING id, created_at`
+	query := "INSERT INTO messages (content, author_id, room_id) VALUES ($1, $2, $3) RETURNING id, created_at;"
 	err := r.db.QueryRowContext(ctx, query, message.Content, message.AuthorID, message.RoomID).Scan(&message.ID, &message.CreatedAt)
 	if err != nil {
 		return nil, err

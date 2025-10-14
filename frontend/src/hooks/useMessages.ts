@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { messageService } from '@/services/messageService';
+import { IGetRoomMessages, messageService } from '@/services/messageService';
 import { Socket } from 'socket.io-client';
 
 export const useMessages = (roomId: string | null, socket: Socket | null) => {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<IGetRoomMessages[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchMessages = useCallback(async () => {
@@ -36,17 +36,17 @@ export const useMessages = (roomId: string | null, socket: Socket | null) => {
     };
 
     const handleReaction = (reaction: any) => {
-        setMessages((prev) =>
-            prev.map((msg) => {
-                if (msg.id === reaction.message_id) {
-                    return {
-                        ...msg,
-                        reactions: reaction.reactions,
-                    };
-                }
-                return msg;
-            })
-        );
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id === reaction.message_id) {
+            return {
+              ...msg,
+              reactions: reaction.reactions,
+            };
+          }
+          return msg;
+        })
+      );
     };
 
     socket.on('new_message', handleNewMessage);

@@ -2,6 +2,14 @@ import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+export interface IGetRoomMessages {
+  id: string;
+  content: string;
+  author_id: number;
+  room_id: string;
+  created_at: Date;
+}
+
 const api = axios.create({
   baseURL: API_URL,
 });
@@ -16,7 +24,7 @@ api.interceptors.request.use((config) => {
 });
 
 export const messageService = {
-  getMessages: async (roomId: string, page: number, pageSize: number) => {
+  getMessages: async (roomId: string, page: number, pageSize: number): Promise<IGetRoomMessages[]> => {
     const response = await api.get(`/messages/${roomId}/messages`, {
       params: { page, pageSize },
     });
