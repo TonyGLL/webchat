@@ -93,7 +93,7 @@ func main() {
 
 	// Websocket endpoint
 	// This endpoint must be authenticated to identify the user.
-	apiV1.GET("/ws", http.JWTMiddleware(jwtService), func(c *gin.Context) {
+	apiV1.GET("/ws", func(c *gin.Context) {
 		websocket.ServeWs(wsHub, roomListerAdapter, c)
 	})
 
