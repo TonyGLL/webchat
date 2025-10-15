@@ -34,7 +34,7 @@ export default function LoginPage() {
     setError(null);
     try {
       await login(data);
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       setError('Invalid email or password');
       console.error(err);
