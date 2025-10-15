@@ -28,20 +28,20 @@ export default function CreateRoomForm({
         value={name}
         onChange={e => setName(e.target.value)}
         placeholder="Create a new room"
-        className="w-full p-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        className="w-full p-3 border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-whatsapp-mountain-meadow bg-whatsapp-deep-sea-green text-white placeholder-gray-400"
       />
       <div className="flex items-center space-x-2">
         <Checkbox id="public-room" checked={isPublic} onCheckedChange={() => setIsPublic(!isPublic)} />
         <label
           htmlFor="public-room"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-800 dark:text-gray-200"
+          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-white"
         >
           Public Room
         </label>
       </div>
       <Button
         type="submit"
-        className="w-full bg-blue-500 text-white rounded-full hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300"
+        className="w-full bg-whatsapp-mountain-meadow text-white rounded-full hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-whatsapp-mountain-meadow disabled:bg-opacity-50"
         disabled={!name.trim()}
       >
         Create

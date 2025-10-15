@@ -44,32 +44,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-sm p-8 space-y-4 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center text-gray-800">Welcome Back</h1>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <div className="flex items-center justify-center min-h-screen bg-whatsapp-deep-sea-green">
+      <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-lg shadow-lg">
+        <h1 className="text-3xl font-bold text-center text-whatsapp-surfie-green">
+          Welcome Back
+        </h1>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {error && <p className="text-sm text-red-500 text-center">{error}</p>}
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-600"
+              className="block text-sm font-medium text-gray-700"
             >
-              Email
+              Email Address
             </label>
             <input
               id="email"
               type="email"
               {...register('user')}
-              className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="block w-full px-4 py-3 mt-1 text-gray-900 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-whatsapp-surfie-green focus:border-whatsapp-surfie-green"
+              placeholder="you@example.com"
             />
             {errors.user && (
-              <p className="mt-1 text-sm text-red-500">{errors.user.message}</p>
+              <p className="mt-2 text-sm text-red-600">{errors.user.message}</p>
             )}
           </div>
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-gray-600"
+              className="block text-sm font-medium text-gray-700"
             >
               Password
             </label>
@@ -77,10 +80,11 @@ export default function LoginPage() {
               id="password"
               type="password"
               {...register('password')}
-              className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="block w-full px-4 py-3 mt-1 text-gray-900 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-whatsapp-surfie-green focus:border-whatsapp-surfie-green"
+              placeholder="••••••••"
             />
             {errors.password && (
-              <p className="mt-1 text-sm text-red-500">
+              <p className="mt-2 text-sm text-red-600">
                 {errors.password.message}
               </p>
             )}
@@ -88,15 +92,15 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400"
+            className="w-full flex justify-center py-3 px-4 text-sm font-medium text-white bg-whatsapp-surfie-green border border-transparent rounded-md shadow-sm hover:bg-whatsapp-deep-sea-green focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp-surfie-green disabled:bg-opacity-50"
           >
-            {loading ? <Spinner /> : 'Login'}
+            {loading ? <Spinner /> : 'Sign In'}
           </button>
         </form>
         <p className="text-sm text-center text-gray-600">
-          Don't have an account?{' '}
-          <Link href="/register" className="font-medium text-blue-600 hover:underline">
-            Register
+          Not a member?{' '}
+          <Link href="/register" className="font-medium text-whatsapp-surfie-green hover:underline">
+            Sign up
           </Link>
         </p>
       </div>

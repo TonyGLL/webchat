@@ -10,7 +10,7 @@ export default function RoomList({
   selectedRoom: string | null;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 p-2">
       {rooms.map((room) => (
         <div
           key={room.id}
@@ -18,14 +18,14 @@ export default function RoomList({
           className={cn(
             'flex items-center p-3 rounded-lg cursor-pointer transition-colors',
             selectedRoom === room.id
-              ? 'bg-blue-500 text-white'
-              : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+              ? 'bg-whatsapp-deep-sea-green'
+              : 'hover:bg-whatsapp-deep-sea-green hover:bg-opacity-50'
           )}
         >
-          <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center font-bold text-gray-600 dark:text-gray-300 mr-3">
+          <div className="w-10 h-10 rounded-full bg-whatsapp-mountain-meadow flex items-center justify-center font-bold text-white mr-3">
             {room.name.charAt(0).toUpperCase()}
           </div>
-          <p className="font-semibold text-gray-800 dark:text-gray-200">{room.name}</p>
+          <p className="font-semibold text-white">{room.name}</p>
         </div>
       ))}
     </div>

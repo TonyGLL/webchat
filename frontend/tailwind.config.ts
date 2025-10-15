@@ -19,6 +19,14 @@ const config = {
     },
     extend: {
       colors: {
+        whatsapp: {
+          'deep-sea-green': '#075e54',
+          'surfie-green': '#128c7e',
+          'mountain-meadow': '#25d366',
+          'gossip': '#dcf8c6',
+          'picton-blue': '#34b7f1',
+          'pearl-bush': '#ece5dd',
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
