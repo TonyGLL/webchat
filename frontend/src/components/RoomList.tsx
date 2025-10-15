@@ -5,22 +5,27 @@ export default function RoomList({
   onSelectRoom,
   selectedRoom,
 }: {
-  rooms: any[];
-  onSelectRoom: (roomId: string) => void;
+  rooms: { id: string; name: string }[];
+  onSelectRoom: (id: string) => void;
   selectedRoom: string | null;
 }) {
   return (
-    <div className="h-full overflow-y-auto">
-      {rooms.map(room => (
+    <div className="space-y-1 p-2">
+      {rooms.map((room) => (
         <div
           key={room.id}
           onClick={() => onSelectRoom(room.id)}
           className={cn(
-            'p-4 cursor-pointer hover:bg-accent border-b border-border',
-            selectedRoom === room.id ? 'bg-accent' : ''
+            'flex items-center p-3 rounded-lg cursor-pointer transition-colors',
+            selectedRoom === room.id
+              ? 'bg-whatsapp-deep-sea-green'
+              : 'hover:bg-whatsapp-deep-sea-green hover:bg-opacity-50'
           )}
         >
-          {room.name}
+          <div className="w-10 h-10 rounded-full bg-whatsapp-mountain-meadow flex items-center justify-center font-bold text-white mr-3">
+            {room.name.charAt(0).toUpperCase()}
+          </div>
+          <p className="font-semibold text-white">{room.name}</p>
         </div>
       ))}
     </div>
