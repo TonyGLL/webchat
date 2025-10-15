@@ -41,7 +41,7 @@ export const useMessages = (roomId: string | null) => {
         const message: WebSocketMessage = JSON.parse(event.data);
 
         if (message.type === 'new_message' && message.payload.room_id === roomId) {
-          setMessages((prev) => [...prev, message.payload]);
+          setMessages((prev) => [message.payload, ...prev]);
         }
 
         if (message.type === 'reaction_update') {
@@ -72,8 +72,13 @@ export const useMessages = (roomId: string | null) => {
     }
   };
 
-  const createMessage = (data: { room_id: string; content: string }) => {
-    sendMessage('create_message', data);
+  const createMessage = async (data: { room_id: string; content: string }) => {
+    try {
+      // Pass a single object as the argument
+      await messageService.createMessage({ room_id: data.room_id, content: data.content });
+    } catch (error) {
+      console.error('Failed to send message', error);
+    }
   };
 
   const addReaction = (messageId: string, emoji: string) => {

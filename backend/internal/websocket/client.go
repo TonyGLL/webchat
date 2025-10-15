@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"backend/internal/shared/application"
 	shared_http "backend/internal/shared/http"
 
 	"github.com/gin-gonic/gin"
@@ -108,7 +109,22 @@ func (c *Client) writePump() {
 }
 
 // ServeWs handles websocket requests from the peer.
-func ServeWs(hub *Hub, roomLister RoomLister, ctx *gin.Context) {
+func ServeWs(hub *Hub, roomLister RoomLister, jwtService application.JwtService, ctx *gin.Context) {
+	// Authenticate the user from the token in the query parameter.
+	tokenStr := ctx.Query("token")
+	if tokenStr == "" {
+		log.Println("token not found in query parameter")
+		// Note: We can't write an HTTP error response here as the connection is being hijacked.
+		// We just close the connection attempt.
+		return
+	}
+
+	claims, err := jwtService.ParseToken(tokenStr)
+	if err != nil {
+		log.Printf("JWT parsing error for websocket: %v", err)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
 		log.Println(err)
@@ -116,13 +132,8 @@ func ServeWs(hub *Hub, roomLister RoomLister, ctx *gin.Context) {
 	}
 
 	// The user ID must be available in the context, set by the auth middleware.
-	userID, exists := ctx.Get(shared_http.CtxUserIDKey)
-	if !exists {
-		log.Println("user_id not found in context")
-		conn.Close()
-		return
-	}
-	id := userID.(int)
+	ctx.Set(shared_http.CtxUserIDKey, claims.UserID)
+	id := claims.UserID
 
 	client := &Client{
 		hub:    hub,

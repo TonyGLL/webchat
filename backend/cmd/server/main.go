@@ -94,7 +94,7 @@ func main() {
 	// Websocket endpoint
 	// This endpoint must be authenticated to identify the user.
 	apiV1.GET("/ws", func(c *gin.Context) {
-		websocket.ServeWs(wsHub, roomListerAdapter, c)
+		websocket.ServeWs(wsHub, roomListerAdapter, jwtService, c)
 	})
 
 	// --- Module Registration ---

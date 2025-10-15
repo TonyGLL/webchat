@@ -12,7 +12,7 @@ export const SocketContext = createContext<IRawSocketContext>({
 });
 
 const WS_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1')
-  .replace(/^http/, 'ws') + '/ws/';
+  .replace(/^http/, 'ws') + '/ws';
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const { tokens } = useAuth();
