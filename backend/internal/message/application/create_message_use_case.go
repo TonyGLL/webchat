@@ -9,8 +9,9 @@ import (
 )
 
 type CreateMessageDTO struct {
-	Content string `json:"content" validate:"required,min=1,max=4000"`
-	RoomID  string `json:"room_id" validate:"required,uuid"`
+	Content          string  `json:"content" validate:"required,min=1,max=4000"`
+	RoomID           string  `json:"room_id" validate:"required,uuid"`
+	ReplyToMessageID *string `json:"reply_to_message_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type CreateMessageUseCase struct {

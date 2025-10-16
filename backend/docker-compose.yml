@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         - CONFIG_FILE=${CONFIG_FILE}
-    image: webchat/api:0.0.4
+    image: webchat/api:0.0.5
     restart: unless-stopped
     container_name: webchat_api
     ports:

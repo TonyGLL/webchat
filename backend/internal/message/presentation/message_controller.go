@@ -14,6 +14,7 @@ import (
 
 type MessageController struct {
 	createMessageUseCase  *application.CreateMessageUseCase
+	updateMessageUseCase  *application.UpdateMessageUseCase
 	addReactionUseCase    *application.AddReactionUseCase
 	removeReactionUseCase *application.RemoveReactionUseCase
 	listMessagesUseCase   *application.ListMessagesUseCase
@@ -22,6 +23,7 @@ type MessageController struct {
 
 func NewMessageController(
 	createMessageUseCase *application.CreateMessageUseCase,
+	updateMessageUseCase *application.UpdateMessageUseCase,
 	addReactionUseCase *application.AddReactionUseCase,
 	removeReactionUseCase *application.RemoveReactionUseCase,
 	listMessagesUseCase *application.ListMessagesUseCase,
@@ -29,6 +31,7 @@ func NewMessageController(
 ) *MessageController {
 	return &MessageController{
 		createMessageUseCase:  createMessageUseCase,
+		updateMessageUseCase:  updateMessageUseCase,
 		addReactionUseCase:    addReactionUseCase,
 		removeReactionUseCase: removeReactionUseCase,
 		listMessagesUseCase:   listMessagesUseCase,
@@ -68,6 +71,27 @@ func (ctrl *MessageController) CreateMessage(c *gin.Context) {
 		return
 	}
 	response.JSON(c, http.StatusCreated, message)
+}
+
+func (ctrl *MessageController) UpdateMessage(ctx *gin.Context) {
+	messageID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid message ID format")
+		return
+	}
+
+	var dto application.UpdateMessageDTO
+	if err := request.BindJSON(ctx, &dto, ctrl.validate); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := ctrl.updateMessageUseCase.Execute(ctx.Request.Context(), messageID, dto); err != nil {
+		response.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.JSON(ctx, http.StatusAccepted, gin.H{"message": "Message updated"})
 }
 
 func (ctrl *MessageController) AddReaction(c *gin.Context) {

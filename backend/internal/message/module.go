@@ -18,12 +18,14 @@ func RegisterModule(
 	authMiddleware gin.HandlerFunc,
 ) {
 	createMessageUseCase := application.NewCreateMessageUseCase(messageRepository, wsBroadcaster)
+	updateMessageUseCase := application.NewUpdateMessageUseCase(messageRepository, wsBroadcaster)
 	addReactionUseCase := application.NewAddReactionUseCase(reactionRepository, messageRepository, wsBroadcaster)
 	removeReactionUseCase := application.NewRemoveReactionUseCase(reactionRepository, messageRepository, wsBroadcaster)
 	listMessagesUseCase := application.NewListMessagesUseCase(messageRepository)
 
 	messageController := presentation.NewMessageController(
 		createMessageUseCase,
+		updateMessageUseCase,
 		addReactionUseCase,
 		removeReactionUseCase,
 		listMessagesUseCase,
@@ -36,6 +38,7 @@ func RegisterModule(
 	{
 		messageRoutes.GET("/:roomId/messages", messageController.FetchMessages)
 		messageRoutes.POST("", messageController.CreateMessage)
+		messageRoutes.PATCH("/:id", messageController.UpdateMessage)
 		messageRoutes.POST("/:id/reactions", messageController.AddReaction)
 		messageRoutes.DELETE("/:id/reactions", messageController.RemoveReaction)
 	}
