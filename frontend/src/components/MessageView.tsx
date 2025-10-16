@@ -2,9 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import Spinner from './Spinner';
 import { useUser } from '@/hooks/useUser';
+import dayjs from 'dayjs';
+import isToday from 'dayjs/plugin/isToday';
+dayjs.extend(isToday);
+import Reaction from './Reaction';
 
 export default function MessageView({ roomId }: { roomId: string | null }) {
-  const { messages, loading, createMessage } = useMessages(roomId);
+  const { messages, loading, createMessage, addReaction, removeReaction } = useMessages(roomId);
   const { profile } = useUser();
   const [content, setContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -26,11 +30,19 @@ export default function MessageView({ roomId }: { roomId: string | null }) {
   };
 
   const formatTimestamp = (date: Date) => {
-    return new Date(date).toLocaleTimeString('en-US', {
+    let options: Intl.DateTimeFormatOptions = {
       hour: 'numeric',
       minute: 'numeric',
       hour12: true,
-    });
+    }
+
+    if (!dayjs(date).isToday()) {
+      options.day = 'numeric';
+      options.month = 'short';
+      options.year = 'numeric';
+    }
+
+    return new Date(date).toLocaleTimeString('en-US', options);
   };
 
   if (!roomId) {
@@ -54,21 +66,30 @@ export default function MessageView({ roomId }: { roomId: string | null }) {
             </div>
           )}
           {!loading &&
-            messages.map(msg => {
+            messages?.slice().reverse().map(msg => {
               const isCurrentUser = msg.author_id === profile?.id;
               return (
-                <div key={msg.id} className={`flex items-end ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                  <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
-                      isCurrentUser
-                        ? 'bg-whatsapp-gossip text-gray-800'
-                        : 'bg-white text-gray-800 shadow-md'
-                    }`}
-                  >
-                    <p className="text-sm">{msg.content}</p>
-                    <p className={`text-xs mt-1 text-right ${isCurrentUser ? 'text-gray-500' : 'text-gray-400'}`}>
-                      {formatTimestamp(msg.created_at)}
-                    </p>
+                <div key={msg.id} className={`flex flex-col gap-1 ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+                  <div className="flex flex-col gap-1">
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${isCurrentUser
+                          ? 'bg-whatsapp-gossip text-gray-800'
+                          : 'bg-white text-gray-800 shadow-md'
+                        }`}>
+                      <p className="text-sm">{msg.content}</p>
+                      <p className={`text-xs text-right ${isCurrentUser ? 'text-gray-500' : 'text-gray-400'}`}>
+                        {formatTimestamp(msg.created_at)}
+                      </p>
+                    </div>
+                    {msg.reactions && profile && (
+                      <Reaction
+                        messageId={msg.id}
+                        reactions={msg.reactions}
+                        onAddReaction={addReaction}
+                        onRemoveReaction={removeReaction}
+                        currentUserId={profile.id}
+                      />
+                    )}
                   </div>
                 </div>
               );

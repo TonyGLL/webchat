@@ -20,7 +20,7 @@ export const useRoom = () => {
     fetchRooms();
   }, []);
 
-  const createRoom = async (data: { name: string; is_public: boolean }) => {
+  const createRoom = async (data: { name: string; is_public: boolean, topic: string }) => {
     await roomService.createRoom(data);
     fetchRooms();
   };

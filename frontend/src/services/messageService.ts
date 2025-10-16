@@ -2,12 +2,18 @@ import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+export interface IReaction {
+  user_id: number;
+  emoji: string;
+}
+
 export interface IGetRoomMessages {
   id: string;
   content: string;
   author_id: number;
   room_id: string;
   created_at: Date;
+  reactions?: IReaction[];
 }
 
 const api = axios.create({

@@ -16,7 +16,7 @@ api.interceptors.request.use((config) => {
 });
 
 export const roomService = {
-  createRoom: async (data: { name: string; is_public: boolean }) => {
+  createRoom: async (data: { name: string; is_public: boolean, topic: string }) => {
     const response = await api.post('/rooms', data);
     return response.data;
   },

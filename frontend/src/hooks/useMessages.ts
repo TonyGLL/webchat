@@ -4,7 +4,7 @@ import { useSocket } from './useSocket';
 
 // Assuming a structure for messages sent from the server
 interface WebSocketMessage {
-  type: 'new_message' | 'reaction_update';
+  type: 'new_message' | 'update_message' | 'add_reaction' | 'update_reaction' | 'remove_reaction';
   payload: any;
 }
 
@@ -36,7 +36,7 @@ export const useMessages = (roomId: string | null) => {
   useEffect(() => {
     if (!socket) return;
 
-    socket.onmessage = (event) => {
+    const handleMessage = (event: MessageEvent) => {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
 
@@ -44,13 +44,46 @@ export const useMessages = (roomId: string | null) => {
           setMessages((prev) => [message.payload, ...prev]);
         }
 
-        if (message.type === 'reaction_update') {
+        if (message.type === 'update_message') {
           setMessages((prev) =>
             prev.map((msg) => {
               if (msg.id === message.payload.message_id) {
                 return {
                   ...msg,
-                  reactions: message.payload.reactions,
+                  content: message.payload.content,
+                  is_edited: true,
+                };
+              }
+              return msg;
+            })
+          );
+        }
+
+        if (message.type === 'add_reaction') {
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === message.payload.message_id) {
+                const newReactions = msg.reactions ? [...msg.reactions, message.payload] : [message.payload];
+                return {
+                  ...msg,
+                  reactions: newReactions,
+                };
+              }
+              return msg;
+            })
+          );
+        }
+
+        if (message.type === 'remove_reaction') {
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === message.payload.message_id) {
+                const newReactions = msg.reactions?.filter(
+                  (r) => !(r.emoji === message.payload.emoji && r.user_id === message.payload.user_id)
+                );
+                return {
+                  ...msg,
+                  reactions: newReactions,
                 };
               }
               return msg;
@@ -62,31 +95,35 @@ export const useMessages = (roomId: string | null) => {
       }
     };
 
-  }, [socket, roomId]);
+    socket.addEventListener('message', handleMessage);
 
-  const sendMessage = (type: string, payload: any) => {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type, payload }));
-    } else {
-      console.error('Socket is not open. Cannot send message.');
-    }
-  };
+    return () => {
+      socket.removeEventListener('message', handleMessage);
+    };
+  }, [socket, roomId]);
 
   const createMessage = async (data: { room_id: string; content: string }) => {
     try {
-      // Pass a single object as the argument
       await messageService.createMessage({ room_id: data.room_id, content: data.content });
     } catch (error) {
       console.error('Failed to send message', error);
     }
   };
 
-  const addReaction = (messageId: string, emoji: string) => {
-    sendMessage('add_reaction', { message_id: messageId, emoji });
+  const addReaction = async (messageId: string, emoji: string) => {
+    try {
+      await messageService.addReaction(messageId, { emoji });
+    } catch (error) {
+      console.error('Failed to add reaction', error);
+    }
   };
 
-  const removeReaction = (messageId: string, emoji: string) => {
-    sendMessage('remove_reaction', { message_id: messageId, emoji });
+  const removeReaction = async (messageId: string, emoji: string) => {
+    try {
+      await messageService.removeReaction(messageId, { emoji });
+    } catch (error) {
+      console.error('Failed to remove reaction', error);
+    }
   };
 
   return { messages, loading, createMessage, addReaction, removeReaction, setMessages };

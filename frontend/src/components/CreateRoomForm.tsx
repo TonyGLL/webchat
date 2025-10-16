@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 export default function CreateRoomForm({
   createRoom,
 }: {
-  createRoom: (data: { name: string; is_public: boolean }) => void;
+  createRoom: (data: { name: string; is_public: boolean, topic: string }) => void;
 }) {
   const [name, setName] = useState('');
   const [isPublic, setIsPublic] = useState(true);
@@ -16,7 +16,7 @@ export default function CreateRoomForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
-      createRoom({ name, is_public: isPublic });
+      createRoom({ name, is_public: isPublic, topic: 'Games' });
       setName('');
     }
   };
