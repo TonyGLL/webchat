@@ -33,7 +33,7 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: webchat_redis
+    container_name: redis
     environment:
       - REDIS_PASSWORD=s3cr3tP@ss
       - REDIS_USERNAME=default
