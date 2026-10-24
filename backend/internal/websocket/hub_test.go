@@ -1,6 +1,8 @@
 package websocket
 
 import (
+	"context"
+	"sync"
 	"testing"
 	"time"
 )
@@ -101,5 +103,59 @@ func TestDisconnectedClientIsNotAddedToRooms(t *testing.T) {
 	defer hub.mu.Unlock()
 	if len(hub.rooms) != 0 {
 		t.Fatal("a disconnected client must not be added to a room")
+	}
+}
+
+// memBus is an in-memory Bus shared by several hubs, simulating Redis pub/sub between instances.
+type memBus struct {
+	mu   sync.Mutex
+	subs []chan Event
+}
+
+func (b *memBus) Publish(_ context.Context, e Event) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, s := range b.subs {
+		s <- e
+	}
+	return nil
+}
+
+func (b *memBus) Subscribe(context.Context) (<-chan Event, error) {
+	ch := make(chan Event, 16)
+	b.mu.Lock()
+	b.subs = append(b.subs, ch)
+	b.mu.Unlock()
+	return ch, nil
+}
+
+func TestEventsCrossInstancesThroughTheBus(t *testing.T) {
+	bus := &memBus{}
+	newInstance := func(clients ...*Client) *Hub {
+		hub := startHub(t, clients...)
+		hub.UseBus(bus)
+		if err := hub.StartBus(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		return hub
+	}
+	onA, onB := newTestClient(1, 4), newTestClient(2, 4)
+	instanceA := newInstance(onA)
+	instanceB := newInstance(onB)
+
+	// user 2 is connected to instance B only; a command issued on A must still reach them
+	instanceA.SubscribeUser(2, "room")
+	time.Sleep(50 * time.Millisecond)
+	instanceA.AddClientToRoom(onA, "room")
+
+	// a broadcast issued on B reaches the client connected to A, and the one on B
+	instanceB.Broadcast("new_message", map[string]int{"n": 1}, "room")
+
+	want := `{"type":"new_message","payload":{"n":1}}`
+	if got := string(receive(t, onA)); got != want {
+		t.Fatalf("instance A client got %s", got)
+	}
+	if got := string(receive(t, onB)); got != want {
+		t.Fatalf("instance B client got %s", got)
 	}
 }

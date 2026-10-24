@@ -91,7 +91,12 @@ func main() {
 	// --- Websocket Hub ---
 	wsHub := websocket.NewHub()
 	wsUpgrader := websocket.NewUpgrader(cfg.CORSAllowedOrigins)
+	// Events are relayed through Redis so several backend instances can serve the same rooms.
+	wsHub.UseBus(websocket.NewRedisBus(redisClient))
 	go wsHub.Run()
+	if err := wsHub.StartBus(ctx); err != nil {
+		log.Fatalf("could not start websocket event bus: %s", err)
+	}
 
 	// --- Use Cases and Adapters needed across modules ---
 	listUserRoomsUseCase := room_app.NewListUserRoomsUseCase(roomRepository)

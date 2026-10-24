@@ -43,11 +43,6 @@ Plantilla para añadir uno nuevo:
 
 ### Datos y rendimiento
 
-### H-032 Hub de WebSocket en memoria
-- **Severidad:** 🟡 · **Fase:** 5 · **Área:** backend · **Verificación:** Confirmado
-- **Descripción:** el estado de salas y clientes vive en un solo proceso; no se puede escalar horizontalmente.
-- **Propuesta:** Redis pub/sub entre instancias.
-
 ### Operación y documentación
 
 ### H-051 Contraseñas escritas directamente en docker-compose.yml
@@ -73,6 +68,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-032 | Hub de WebSocket multi-instancia: los eventos y las suscripciones viajan por Redis pub/sub, así que varias instancias del backend pueden servir las mismas salas (probado con un bus en memoria entre dos hubs y en vivo con Redis) | 2026-10-23 | _(este commit)_ |
 | H-031 | Historial por cursor (`before` = id del mensaje más antiguo) en vez de página/offset, que duplicaba mensajes con tráfico en vivo; oculta mensajes borrados; botón "Load older messages" que conserva el scroll | 2026-10-23 | 555e434 |
 | H-030 | Migraciones versionadas con golang-migrate, aplicadas al arrancar; las bases creadas a mano se adoptan como versión 1 | 2026-10-23 | 42e1b61 |
 | H-033 | Hub de WebSocket: se bloqueaba para siempre con un cliente lento (re-tomaba su propio candado), el canal de eventos no tenía búfer y había una carrera al registrar clientes. Reescrito y probado con `-race` | 2026-10-23 | a7758b5 |

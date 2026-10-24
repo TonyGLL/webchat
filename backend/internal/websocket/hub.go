@@ -2,6 +2,7 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"sync"
@@ -18,6 +19,9 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
+
+	// bus, when set, relays events between backend instances (see UseBus).
+	bus Bus
 
 	// mu protects clients and rooms, which are touched by the hub loop and by other goroutines.
 	mu sync.Mutex
@@ -125,8 +129,20 @@ func (h *Hub) addToRoomLocked(client *Client, roomID string) {
 }
 
 // SubscribeUser subscribes every open connection of a user to a room, so rooms
-// created or joined after connecting start receiving events immediately.
+// created or joined after connecting start receiving events immediately. With a bus
+// configured the command reaches every instance, since the user's connections may be anywhere.
 func (h *Hub) SubscribeUser(userID int, roomID string) {
+	if h.bus != nil {
+		err := h.bus.Publish(context.Background(), Event{Kind: eventSubscribe, RoomID: roomID, UserID: userID})
+		if err == nil {
+			return
+		}
+		log.Printf("websocket bus unavailable, subscribing locally: %v", err)
+	}
+	h.subscribeUserLocal(userID, roomID)
+}
+
+func (h *Hub) subscribeUserLocal(userID int, roomID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -137,11 +153,43 @@ func (h *Hub) SubscribeUser(userID int, roomID string) {
 	}
 }
 
-// Broadcast sends a message to be processed by the hub.
-func (h *Hub) Broadcast(messageType string, payload interface{}, roomID string) {
-	h.broadcast <- &Message{
-		Type:    messageType,
-		Payload: payload,
-		RoomID:  roomID,
+// UseBus makes the hub share events with other backend instances. Call before StartBus.
+func (h *Hub) UseBus(bus Bus) { h.bus = bus }
+
+// StartBus consumes events from the bus until ctx is cancelled. Without a bus it does nothing.
+func (h *Hub) StartBus(ctx context.Context) error {
+	if h.bus == nil {
+		return nil
 	}
+	events, err := h.bus.Subscribe(ctx)
+	if err != nil {
+		return err
+	}
+	go func() {
+		for e := range events {
+			switch e.Kind {
+			case eventBroadcast:
+				h.broadcast <- &Message{Type: e.Type, Payload: e.Payload, RoomID: e.RoomID}
+			case eventSubscribe:
+				h.subscribeUserLocal(e.UserID, e.RoomID)
+			}
+		}
+	}()
+	return nil
+}
+
+// Broadcast publishes an event for the clients of a room. With a bus it goes through it
+// (so clients on other instances get it too); if the bus fails it is delivered locally.
+func (h *Hub) Broadcast(messageType string, payload interface{}, roomID string) {
+	if h.bus != nil {
+		data, err := json.Marshal(payload)
+		if err == nil {
+			err = h.bus.Publish(context.Background(), Event{Kind: eventBroadcast, Type: messageType, Payload: data, RoomID: roomID})
+		}
+		if err == nil {
+			return
+		}
+		log.Printf("websocket bus unavailable, broadcasting locally: %v", err)
+	}
+	h.broadcast <- &Message{Type: messageType, Payload: payload, RoomID: roomID}
 }
