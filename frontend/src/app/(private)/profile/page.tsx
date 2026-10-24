@@ -18,13 +18,16 @@ export default function ProfilePage() {
   const router = useRouter();
   const { t } = useT();
 
+  const [deactivatePassword, setDeactivatePassword] = useState('');
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
+
   const handleDeactivate = async () => {
     try {
-      await deactivate();
+      await deactivate(deactivatePassword);
       logout();
       router.push('/login');
-    } catch (error) {
-      console.error('Failed to deactivate account', error);
+    } catch {
+      setMessage(t('profile.deactivateError'));
     }
   };
 
@@ -90,9 +93,25 @@ export default function ProfilePage() {
               <p className="text-sm text-muted-foreground">
                 {t('profile.deactivateBody')}
               </p>
-              <Button variant="destructive" onClick={handleDeactivate} className="w-full">
-                {t('profile.deactivate')}
-              </Button>
+              {confirmingDeactivate ? (
+                <div className="space-y-2">
+                  <input
+                    type="password"
+                    value={deactivatePassword}
+                    onChange={(e) => setDeactivatePassword(e.target.value)}
+                    placeholder={t('profile.confirmPassword')}
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    autoComplete="current-password"
+                  />
+                  <Button variant="destructive" disabled={!deactivatePassword} onClick={handleDeactivate} className="w-full">
+                    {t('profile.deactivate')}
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="destructive" onClick={() => setConfirmingDeactivate(true)} className="w-full">
+                  {t('profile.deactivate')}
+                </Button>
+              )}
               <hr />
               <p className="text-sm text-muted-foreground">
                 {t('profile.deleteBody')}

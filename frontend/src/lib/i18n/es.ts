@@ -17,6 +17,7 @@ const es: Record<MessageKey, string> = {
   'validation.lastNameRequired': 'El apellido es obligatorio',
   'validation.usernameMin': 'El usuario debe tener al menos {min} caracteres',
   'validation.usernameMax': 'El usuario debe tener como máximo {max} caracteres',
+  'validation.usernameChars': 'El usuario solo puede tener letras, números, "_", "." y "-"',
   'validation.phoneRequired': 'El teléfono es obligatorio',
 
   'validation.passwordMatch': 'Las contraseñas no coinciden',
@@ -231,6 +232,7 @@ const es: Record<MessageKey, string> = {
   'profile.dangerTitle': 'Zona de peligro',
   'profile.deactivateBody': 'Desactivar tu cuenta cierra tu sesión y deshabilita tu acceso.',
   'profile.deactivate': 'Desactivar cuenta',
+  'profile.deactivateError': 'Contraseña incorrecta, o no se pudo desactivar la cuenta.',
   'profile.deleteBody':
     'Eliminar es permanente. Las salas de las que eres propietario pasan a otro miembro (o se borran si estás solo); tus mensajes se conservan y aparecen como “usuario eliminado”.',
   'profile.confirmPassword': 'Confirma con tu contraseña',

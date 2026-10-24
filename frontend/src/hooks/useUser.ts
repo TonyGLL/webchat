@@ -5,8 +5,8 @@ import { userService } from '@/services/userService';
 export const useUser = () => {
   const { user, loading } = useAuth();
 
-  const deactivate = async () => {
-    await userService.deactivate();
+  const deactivate = async (password: string) => {
+    await userService.deactivate(password);
   };
 
   return { profile: user, loading, deactivate };
