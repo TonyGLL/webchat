@@ -8,7 +8,7 @@ export const useRoom = () => {
   const fetchRooms = async () => {
     try {
       const data = await roomService.getUserRooms();
-      setRooms(data);
+      setRooms(data ?? []);
     } catch (error) {
       console.error('Failed to fetch rooms', error);
     } finally {

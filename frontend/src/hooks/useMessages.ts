@@ -21,7 +21,7 @@ export const useMessages = (roomId: string | null) => {
     setLoading(true);
     try {
       const data = await messageService.getMessages(roomId, 1, 50);
-      setMessages(data);
+      setMessages(data ?? []);
     } catch (error) {
       console.error('Failed to fetch messages', error);
     } finally {

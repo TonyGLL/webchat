@@ -77,7 +77,7 @@ func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID
 		return nil, err
 	}
 	defer rows.Close()
-	var messages []*domain.Message
+	messages := []*domain.Message{}
 	for rows.Next() {
 		var msg domain.Message
 		var reactionsJSON []byte

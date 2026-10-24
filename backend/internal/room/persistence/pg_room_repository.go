@@ -42,7 +42,7 @@ func (r *PgRoomRepository) FindRoomsByUserID(ctx context.Context, userID int) ([
 		return nil, err
 	}
 	defer rows.Close()
-	var rooms []*domain.Room
+	rooms := []*domain.Room{}
 	for rows.Next() {
 		room := &domain.Room{}
 		err := rows.Scan(&room.ID, &room.OwnerID, &room.Name, &room.Topic, &room.IsPrivate, &room.CreatedAt, &room.UpdatedAt)
