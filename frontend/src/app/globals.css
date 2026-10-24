@@ -32,9 +32,10 @@
     --accent-foreground: 222 22% 10%;
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 98%;
-    --success: 142 76% 36%;
+    --success: 142 76% 28%;
+    --presence-offline: 216 11% 54%;
     --border: 220 13% 91%;
-    --input: 220 13% 86%;
+    --input: 220 9% 54%;
     --ring: 243 75% 59%;
     --radius: 0.5rem;
   }
@@ -57,11 +58,12 @@
     --muted-foreground: 217 13% 64%;
     --accent: 220 21% 17%;
     --accent-foreground: 217 24% 94%;
-    --destructive: 0 63% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 63% 64%;
+    --destructive-foreground: 236 27% 8%;
     --success: 142 69% 58%;
+    --presence-offline: 217 13% 50%;
     --border: 220 19% 18%;
-    --input: 220 19% 24%;
+    --input: 220 12% 46%;
     --ring: 242 100% 77%;
   }
 
@@ -71,5 +73,17 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* Honour "reduce motion": drop non-essential animation and transitions everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
