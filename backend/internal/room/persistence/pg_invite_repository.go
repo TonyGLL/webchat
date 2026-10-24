@@ -11,7 +11,7 @@ import (
 	"context"
 )
 
-// Invites live in the `invites` table (see migrations/schema.sql).
+// Invites live in the `invites` table (see migrations/000001_init.up.sql).
 // You should create a migration with the following SQL:
 // CREATE TABLE invites (
 //     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

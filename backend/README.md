@@ -42,7 +42,7 @@ Prefijo `/api/v1`, excepto `/health` y `/ready`. Salvo registro, login, refresh 
 | `POST /rooms/join/:room_id` | Unirse a una sala pública |
 | `POST /rooms/invite/:room_id` | Crear invitación (solo dueño o admin) |
 | `POST /rooms/accept-invite/:code` | Aceptar una invitación |
-| `GET /messages/:roomId/messages` | Historial (`page`, `pageSize`); solo miembros |
+| `GET /messages/:roomId/messages` | Historial paginado por cursor (`limit`, `before`=id del mensaje más antiguo cargado); solo miembros |
 | `POST /messages` · `PATCH /messages/:id` | Enviar · editar (solo el autor) |
 | `POST/DELETE /messages/:id/reactions` | Añadir · quitar reacción |
 | `POST /ws-ticket` → `GET /ws?ticket=` | Ticket de un solo uso (30 s) y conexión WebSocket |

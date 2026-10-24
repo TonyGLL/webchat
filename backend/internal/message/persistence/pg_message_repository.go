@@ -57,7 +57,7 @@ func (r *PgMessageRepository) IsRoomMember(ctx context.Context, roomID uuid.UUID
 	return isMember, err
 }
 
-func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID, limit, offset int) ([]*domain.Message, error) {
+func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID, limit int, before *uuid.UUID) ([]*domain.Message, error) {
 	query := `
 		SELECT 
 			m.id, 
@@ -79,11 +79,13 @@ func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID
 		FROM messages m
 		LEFT JOIN reactions r ON m.id = r.message_id
 		WHERE m.room_id = $1
+		  AND m.deleted_at IS NULL
+		  AND ($2::uuid IS NULL OR (m.created_at, m.id) < (SELECT created_at, id FROM messages WHERE id = $2))
 		GROUP BY m.id
-		ORDER BY m.created_at DESC
-		LIMIT $2 OFFSET $3
+		ORDER BY m.created_at DESC, m.id DESC
+		LIMIT $3
 	`
-	rows, err := r.db.QueryContext(ctx, query, roomID, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, roomID, before, limit)
 	if err != nil {
 		return nil, err
 	}

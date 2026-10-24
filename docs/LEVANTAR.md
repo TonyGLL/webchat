@@ -6,7 +6,7 @@ Guía completa para correr el proyecto en tu máquina sin ayuda externa. Si algo
 
 ```
 1. Docker:      cd backend && docker compose up -d db redis
-2. Tablas:      docker exec -i webchat-db psql -U root -d webchat < migrations/schema.sql
+2. Tablas:      (automático al arrancar el backend)
 3. Backend:     crear backend/.env.local  →  make watch      (http://localhost:8081)
 4. Frontend:    crear frontend/.env.local →  bun dev        (http://localhost:3100)
 ```

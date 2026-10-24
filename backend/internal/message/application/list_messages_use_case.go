@@ -21,7 +21,7 @@ func NewListMessagesUseCase(messageRepo domain.MessageRepository) *ListMessagesU
 	return &ListMessagesUseCase{messageRepo: messageRepo}
 }
 
-func (uc *ListMessagesUseCase) Execute(ctx context.Context, roomIDStr string, userID int, page, pageSize int) ([]*domain.Message, error) {
+func (uc *ListMessagesUseCase) Execute(ctx context.Context, roomIDStr string, userID int, limit int, beforeStr string) ([]*domain.Message, error) {
 	roomID, err := uuid.Parse(roomIDStr)
 	if err != nil {
 		return nil, shared_domain.ErrInvalidInput
@@ -31,17 +31,20 @@ func (uc *ListMessagesUseCase) Execute(ctx context.Context, roomIDStr string, us
 		return nil, err
 	}
 
-	if pageSize <= 0 {
-		pageSize = defaultMessageLimit
-	} else if pageSize > maxMessageLimit {
-		pageSize = maxMessageLimit
+	if limit <= 0 {
+		limit = defaultMessageLimit
+	} else if limit > maxMessageLimit {
+		limit = maxMessageLimit
 	}
 
-	if page <= 0 {
-		page = 1
+	var before *uuid.UUID
+	if beforeStr != "" {
+		id, err := uuid.Parse(beforeStr)
+		if err != nil {
+			return nil, shared_domain.ErrInvalidInput
+		}
+		before = &id
 	}
 
-	offset := (page - 1) * pageSize
-
-	return uc.messageRepo.FindByRoomID(ctx, roomID, pageSize, offset)
+	return uc.messageRepo.FindByRoomID(ctx, roomID, limit, before)
 }

@@ -30,16 +30,40 @@ const formatTimestamp = (date: string | Date) => {
 };
 
 export default function MessageView({ roomId, roomName, onBack }: MessageViewProps) {
-  const { messages, loading, createMessage, addReaction, removeReaction } = useMessages(roomId);
+  const { messages, loading, loadingMore, hasMore, loadMore, createMessage, addReaction, removeReaction } =
+    useMessages(roomId);
   const { profile } = useUser();
   const [content, setContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const newestIdRef = useRef<string | null>(null);
+  const heightBeforeLoadRef = useRef<number | null>(null);
   // The API returns newest first; the chat shows oldest first.
   const ordered = useMemo(() => messages?.slice().reverse() ?? [], [messages]);
 
+  // Follow the conversation only when a newer message arrives; when older ones are
+  // prepended, keep the reader where they were.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = scrollRef.current;
+    const newestId = ordered[ordered.length - 1]?.id ?? null;
+
+    if (heightBeforeLoadRef.current !== null && container) {
+      container.scrollTop = container.scrollHeight - heightBeforeLoadRef.current;
+      heightBeforeLoadRef.current = null;
+    } else if (newestId !== newestIdRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    newestIdRef.current = newestId;
   }, [ordered]);
+
+  useEffect(() => {
+    newestIdRef.current = null; // a different room: jump to its latest message
+  }, [roomId]);
+
+  const handleLoadMore = async () => {
+    heightBeforeLoadRef.current = scrollRef.current?.scrollHeight ?? null;
+    await loadMore();
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,13 +91,20 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
         <h2 className="truncate text-sm font-medium">{roomName ?? 'Room'}</h2>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
         {loading ? (
           <div className="py-8">
             <Spinner />
           </div>
         ) : (
           <ul className="mx-auto flex max-w-2xl flex-col gap-3">
+            {hasMore && (
+              <li className="flex justify-center">
+                <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
+                  {loadingMore ? 'Loading…' : 'Load older messages'}
+                </Button>
+              </li>
+            )}
             {ordered.map((msg) => {
               const isCurrentUser = msg.author_id === profile?.id;
               return (

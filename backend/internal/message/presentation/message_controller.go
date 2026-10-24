@@ -51,10 +51,11 @@ func (ctrl *MessageController) FetchMessages(c *gin.Context) {
 	}
 	roomID := c.Param("roomId")
 
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
+	// Cursor pagination: ?limit=50&before=<id of the oldest message already loaded>
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	before := c.Query("before")
 
-	messages, err := ctrl.listMessagesUseCase.Execute(c.Request.Context(), roomID, userID, page, pageSize)
+	messages, err := ctrl.listMessagesUseCase.Execute(c.Request.Context(), roomID, userID, limit, before)
 	if err != nil {
 		respondError(c, err, "Failed to fetch messages")
 		return

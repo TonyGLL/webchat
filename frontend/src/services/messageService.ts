@@ -17,9 +17,10 @@ export interface IGetRoomMessages {
 }
 
 export const messageService = {
-  getMessages: async (roomId: string, page: number, pageSize: number): Promise<IGetRoomMessages[] | null> => {
+  /** Newest first. Pass `before` (id of the oldest loaded message) to get the previous page. */
+  getMessages: async (roomId: string, limit: number, before?: string): Promise<IGetRoomMessages[] | null> => {
     const response = await api.get(`/messages/${roomId}/messages`, {
-      params: { page, pageSize },
+      params: { limit, before },
     });
     return response.data;
   },

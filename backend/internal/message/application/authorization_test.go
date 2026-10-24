@@ -44,7 +44,7 @@ func (f *fakeRepo) FindByID(_ context.Context, id uuid.UUID) (*domain.Message, e
 	}
 	return nil, domain.ErrMessageNotFound
 }
-func (f *fakeRepo) FindByRoomID(context.Context, uuid.UUID, int, int) ([]*domain.Message, error) {
+func (f *fakeRepo) FindByRoomID(context.Context, uuid.UUID, int, *uuid.UUID) ([]*domain.Message, error) {
 	return []*domain.Message{}, nil
 }
 func (f *fakeRepo) IsRoomMember(_ context.Context, room uuid.UUID, user int) (bool, error) {
@@ -86,10 +86,10 @@ func TestListMessagesRequiresMembership(t *testing.T) {
 	repo, room, _ := setup()
 	uc := NewListMessagesUseCase(repo)
 
-	if _, err := uc.Execute(context.Background(), room.String(), outsiderID, 1, 50); !errors.Is(err, shared_domain.ErrForbidden) {
+	if _, err := uc.Execute(context.Background(), room.String(), outsiderID, 50, ""); !errors.Is(err, shared_domain.ErrForbidden) {
 		t.Fatalf("outsider: err = %v, want ErrForbidden", err)
 	}
-	if _, err := uc.Execute(context.Background(), room.String(), memberID, 1, 50); err != nil {
+	if _, err := uc.Execute(context.Background(), room.String(), memberID, 50, ""); err != nil {
 		t.Fatalf("member: unexpected err %v", err)
 	}
 }

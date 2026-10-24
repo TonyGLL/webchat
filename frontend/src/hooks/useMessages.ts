@@ -9,10 +9,14 @@ type WebSocketMessage =
   | { type: 'reaction_added'; payload: IReaction & { message_id: string } }
   | { type: 'reaction_removed'; payload: IReaction & { message_id: string } };
 
+const PAGE_SIZE = 50;
+
 export const useMessages = (roomId: string | null) => {
   const socket = useSocket();
   const [messages, setMessages] = useState<IGetRoomMessages[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
 
   const fetchMessages = useCallback(async () => {
     if (!roomId) {
@@ -21,8 +25,9 @@ export const useMessages = (roomId: string | null) => {
     }
     setLoading(true);
     try {
-      const data = await messageService.getMessages(roomId, 1, 50);
+      const data = await messageService.getMessages(roomId, PAGE_SIZE);
       setMessages(data ?? []);
+      setHasMore((data?.length ?? 0) === PAGE_SIZE);
     } catch (error) {
       console.error('Failed to fetch messages', error);
     } finally {
@@ -99,6 +104,22 @@ export const useMessages = (roomId: string | null) => {
     };
   }, [socket, roomId]);
 
+  // Messages are kept newest first, so the last one is the oldest loaded.
+  const loadMore = async () => {
+    const oldest = messages[messages.length - 1];
+    if (!roomId || !oldest || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const older = (await messageService.getMessages(roomId, PAGE_SIZE, oldest.id)) ?? [];
+      setMessages((prev) => [...prev, ...older.filter((o) => !prev.some((m) => m.id === o.id))]);
+      setHasMore(older.length === PAGE_SIZE);
+    } catch (error) {
+      console.error('Failed to load older messages', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const createMessage = async (data: { room_id: string; content: string }) => {
     try {
       await messageService.createMessage({ room_id: data.room_id, content: data.content });
@@ -123,5 +144,5 @@ export const useMessages = (roomId: string | null) => {
     }
   };
 
-  return { messages, loading, createMessage, addReaction, removeReaction, setMessages };
+  return { messages, loading, loadingMore, hasMore, loadMore, createMessage, addReaction, removeReaction, setMessages };
 };
