@@ -73,7 +73,6 @@ export const useMessages = (roomId: string | null) => {
 
   useEffect(() => {
     fetchMessages();
-    setPending([]); // unconfirmed messages belong to the room they were typed in
   }, [fetchMessages]);
 
   // Events sent while the connection was down are lost: reload the latest page after a reconnect.

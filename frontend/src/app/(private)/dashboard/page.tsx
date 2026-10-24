@@ -27,10 +27,7 @@ export default function DashboardPage() {
   const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
-    if (debouncedSearch.length < 2) {
-      setResults(null);
-      return;
-    }
+    if (debouncedSearch.length < 2) return; // results are hidden while the query is too short
     let cancelled = false;
     setSearchLoading(true);
     messageService
@@ -102,7 +99,9 @@ export default function DashboardPage() {
           </div>
         </aside>
         <main className={cn('min-w-0 flex-1 flex-col md:flex', selectedRoom ? 'flex' : 'hidden')}>
+          {/* key: every room starts with fresh state (draft, reply, pins, members, pending sends) */}
           <MessageView
+            key={selectedRoom ?? 'none'}
             roomId={selectedRoom}
             roomName={room?.name}
             isDirect={room?.is_direct}

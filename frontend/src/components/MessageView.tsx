@@ -84,13 +84,7 @@ export default function MessageView({ roomId, roomName, canPin = false, isDirect
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
     newestIdRef.current = newestId;
-  }, [ordered, pending.length]);
-
-  useEffect(() => {
-    newestIdRef.current = null; // a different room: jump to its latest message
-    setReplyingTo(null);
-    setLeaveError(null);
-  }, [roomId]);
+  }, [ordered, pending]);
 
   const handleLeave = async () => {
     if (!window.confirm(`Leave ${roomName ?? 'this room'}?`)) return;
