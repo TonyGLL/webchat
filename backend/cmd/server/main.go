@@ -5,6 +5,8 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"backend/api"
@@ -34,7 +36,10 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+	// ctx is cancelled on SIGINT/SIGTERM: the hub's bus consumer stops with it and server.Run
+	// starts its ordered shutdown, after which the deferred closes below still run.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	// --- Configuration ---
 	cfg, err := config.NewConfig(os.Getenv("CONFIG_FILE"))
@@ -67,6 +72,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not initialize redis client: %s", err)
 	}
+	defer redisClient.Close()
 
 	store := db.NewSQLStore(database)
 
@@ -98,7 +104,8 @@ func main() {
 	invitationRepository := room_persistence.NewPgInvitationRepository(database)
 
 	// Rejects access tokens of deactivated accounts and of sessions revoked after they were issued.
-	authMiddleware := http.JWTMiddleware(jwtService, auth_persistence.NewSessionGuard(tokenRepository, authRepository))
+	sessionGuard := auth_persistence.NewSessionGuard(tokenRepository, authRepository)
+	authMiddleware := http.JWTMiddleware(jwtService, sessionGuard)
 
 	// --- Websocket Hub ---
 	wsHub := websocket.NewHub()
@@ -130,6 +137,24 @@ func main() {
 		{Method: "DELETE", Path: "/api/v1/users/deactivate", Limit: 5, Window: time.Hour},
 		{Method: "DELETE", Path: "/api/v1/users/me", Limit: 5, Window: time.Hour},
 		{Method: "GET", Path: "/api/v1/messages/search", Limit: 60, Window: time.Minute},
+		// Per client IP and per route; generous for normal use, a brake on scripts.
+		{Method: "POST", Path: "/api/v1/messages/:id/reactions", Limit: 120, Window: time.Minute},
+		{Method: "DELETE", Path: "/api/v1/messages/:id/reactions", Limit: 120, Window: time.Minute},
+		{Method: "PATCH", Path: "/api/v1/messages/:id", Limit: 60, Window: time.Minute},
+		{Method: "DELETE", Path: "/api/v1/messages/:id", Limit: 60, Window: time.Minute},
+		{Method: "PUT", Path: "/api/v1/messages/:id/pin", Limit: 60, Window: time.Minute},
+		{Method: "DELETE", Path: "/api/v1/messages/:id/pin", Limit: 60, Window: time.Minute},
+		{Method: "POST", Path: "/api/v1/rooms", Limit: 10, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/rooms/direct/:user_id", Limit: 30, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/rooms/join/:room_id", Limit: 30, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/rooms/invite-user/:room_id", Limit: 30, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/rooms/invite/:room_id", Limit: 30, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/rooms/accept-invite/:code", Limit: 30, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/rooms/invitations/:id/accept", Limit: 30, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/rooms/invitations/:id/decline", Limit: 30, Window: 10 * time.Minute},
+		{Method: "GET", Path: "/api/v1/rooms/discover", Limit: 60, Window: time.Minute},
+		{Method: "GET", Path: "/api/v1/users/directory", Limit: 120, Window: time.Minute},
+		{Method: "POST", Path: "/api/v1/moderation/messages/:message_id/report", Limit: 10, Window: 10 * time.Minute},
 	}))
 
 	// Websocket endpoints: an authenticated call to /ws-ticket returns a short-lived,
@@ -138,7 +163,7 @@ func main() {
 	presence := websocket.NewRedisPresence(redisClient)
 	apiV1.POST("/ws-ticket", authMiddleware, websocket.IssueTicket(wsTickets))
 	apiV1.GET("/ws", func(c *gin.Context) {
-		websocket.ServeWs(wsHub, wsUpgrader, wsTickets, roomListerAdapter, presence, c)
+		websocket.ServeWs(wsHub, wsUpgrader, wsTickets, roomListerAdapter, presence, sessionGuard, c)
 	})
 
 	http.RegisterHealthRoutes(server.Router, map[string]http.Pinger{
@@ -151,7 +176,7 @@ func main() {
 
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
-	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL, cfg.IsProduction(), authMiddleware)
+	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL, cfg.IsProduction(), authMiddleware, wsHub)
 	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, authMiddleware, wsHub, presence, tokenRepository)
 	moderationRepository := moderation_persistence.NewPgRepository(database)
 	room.RegisterModule(roomRepository, memberRepository, inviteRepository, invitationRepository, apiV1, validate, authMiddleware, listUserRoomsUseCase, wsHub, presence, moderationRepository)
@@ -159,7 +184,11 @@ func main() {
 	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, authMiddleware, moderationRepository)
 
 	// --- Start Server ---
-	server.Run()
+	// On SIGINT/SIGTERM: tell websocket clients to reconnect (close 1012), then drain HTTP.
+	if err := server.Run(ctx, wsHub.Shutdown); err != nil {
+		slog.Error("server stopped with an error", "error", err)
+		return // deferred closes run; os.Exit/log.Fatal would skip them
+	}
 }
 
 // setupLogging sends every log line (including the standard `log` package) through

@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"backend/internal/shared/config"
@@ -28,14 +26,21 @@ func NewServer(config *config.Config) *Server {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	router := gin.New()
-	router.Use(RequestLogger(), gin.Recovery())
+	router.Use(RequestLogger(), SafeRecovery())
 	server := &Server{
 		config: config,
 		Router: router,
 	}
-	// Trust no proxy headers: the client IP is the TCP peer, so X-Forwarded-For
-	// cannot be spoofed to dodge rate limits. Configure trusted proxies when deploying behind one.
-	_ = router.SetTrustedProxies(nil)
+	// By default trust no proxy headers: the client IP is the TCP peer, so X-Forwarded-For
+	// cannot be spoofed to dodge rate limits. Behind a load balancer set TRUSTED_PROXIES, or
+	// every user would share one rate-limit bucket.
+	var trusted []string
+	if len(config.TrustedProxies) > 0 {
+		trusted = config.TrustedProxies
+	}
+	if err := router.SetTrustedProxies(trusted); err != nil {
+		log.Fatalf("invalid TRUSTED_PROXIES: %v", err)
+	}
 	server.setupMiddleware()
 	return server
 }
@@ -48,34 +53,71 @@ func (s *Server) setupMiddleware() {
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))
+	// After CORS so a 413 still carries the CORS headers the browser needs to read it.
+	s.Router.Use(MaxBodySize(DefaultMaxBodyBytes))
 }
 
-// Run starts the HTTP server and handles graceful shutdown.
-func (s *Server) Run() {
-	port := s.config.Port
-	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: s.Router,
+// Limits on the underlying http.Server. Hijacked connections (the websocket at /ws) are not
+// subject to them: gorilla/websocket clears the deadlines the server set when it upgrades.
+const (
+	readHeaderTimeout = 10 * time.Second
+	readTimeout       = 30 * time.Second
+	writeTimeout      = 60 * time.Second
+	idleTimeout       = 120 * time.Second
+	maxHeaderBytes    = 1 << 16
+	// shutdownTimeout bounds the whole stop sequence (shutdown hooks, then draining requests).
+	shutdownTimeout = 15 * time.Second
+)
+
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+		MaxHeaderBytes:    maxHeaderBytes,
 	}
+}
 
-	go func() {
-		log.Printf("Server running on port: %s", port)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("listen: %s\n", err)
+// Run serves HTTP until ctx is cancelled (main ties it to SIGINT/SIGTERM) and then stops in order:
+// the onShutdown hooks run first, while the listener still answers (e.g. the websocket hub sends
+// its close frames), then the server drains in-flight requests. It returns the listen error, or
+// the shutdown error if draining timed out; it never exits the process, so the caller's deferred
+// cleanups (database, Redis) still run.
+func (s *Server) Run(ctx context.Context, onShutdown ...func(context.Context)) error {
+	ln, err := net.Listen("tcp", ":"+s.config.Port)
+	if err != nil {
+		return err
+	}
+	log.Printf("Server running on port: %s", s.config.Port)
+	return serve(ctx, newHTTPServer(ln.Addr().String(), s.Router), ln, onShutdown)
+}
+
+func serve(ctx context.Context, srv *http.Server, ln net.Listener, onShutdown []func(context.Context)) error {
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Serve(ln) }()
+
+	select {
+	case err := <-errCh:
+		if !errors.Is(err, http.ErrServerClosed) {
+			return err
 		}
-	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+		return nil
+	case <-ctx.Done():
+	}
 	log.Println("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
-
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
+	for _, hook := range onShutdown {
+		hook(shutdownCtx)
 	}
-
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		_ = srv.Close()
+		return err
+	}
 	log.Println("Server exiting")
+	return nil
 }

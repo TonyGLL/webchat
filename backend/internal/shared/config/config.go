@@ -33,6 +33,7 @@ func NewConfig(envFile string) (*Config, error) {
 		SMTPPassword:       Getenv("SMTP_PASSWORD", ""),
 		SMTPHost:           Getenv("SMTP_HOST", ""),
 		SMTPPort:           Getenv("SMTP_PORT", "587"),
+		TrustedProxies:     parseList(Getenv("TRUSTED_PROXIES", "")),
 	}
 
 	if len(cfg.JWTSecret) < minJWTSecretLength {
@@ -110,6 +111,17 @@ func parseCorsOrigins(s string) []string {
 		origins[i] = strings.TrimSpace(origins[i])
 	}
 	return origins
+}
+
+// parseList splits a comma-separated list, trimming spaces and dropping empty entries.
+func parseList(s string) []string {
+	var out []string
+	for _, item := range strings.Split(s, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // LoadConfig is kept for compatibility but the main entry point is NewConfig.
