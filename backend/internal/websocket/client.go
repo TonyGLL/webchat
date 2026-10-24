@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,10 @@ const (
 	maxMessageSize = 512
 	// typingInterval limits how often one client may announce typing in the same room.
 	typingInterval = 2 * time.Second
+	// redisOpTimeout bounds presence calls so a stalled Redis cannot hold up connection cleanup.
+	redisOpTimeout = 2 * time.Second
+	// roomLookupTimeout bounds the room lookups made right after connecting.
+	roomLookupTimeout = 5 * time.Second
 )
 
 // NewUpgrader builds the websocket upgrader. Browser connections are only accepted
@@ -74,6 +79,39 @@ type Client struct {
 	presence PresenceStore
 	// lastTyping is only touched by readPump.
 	lastTyping map[string]time.Time
+	// rooms is the set of rooms the client is subscribed to. It is owned by the hub (guarded by Hub.mu).
+	rooms map[string]struct{}
+
+	// sendMu makes closing send safe against concurrent non-blocking sends from the hub fan-out.
+	sendMu     sync.RWMutex
+	sendClosed bool
+	touchLog   limitedLog
+}
+
+// trySend queues a message without blocking. It returns false only when the buffer is full
+// (a stuck consumer); sending to an already closed client is a harmless no-op.
+func (c *Client) trySend(data []byte) bool {
+	c.sendMu.RLock()
+	defer c.sendMu.RUnlock()
+	if c.sendClosed {
+		return true
+	}
+	select {
+	case c.send <- data:
+		return true
+	default:
+		return false
+	}
+}
+
+// closeSend closes the outbound channel once, which tells writePump to hang up.
+func (c *Client) closeSend() {
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	if !c.sendClosed {
+		c.sendClosed = true
+		close(c.send)
+	}
 }
 
 // clientEvent is what a client may send over the socket.
@@ -106,7 +144,10 @@ func (c *Client) handleClientEvent(data []byte, now time.Time) {
 func (c *Client) readPump() {
 	defer func() {
 		c.announceOffline()
-		c.hub.unregister <- c
+		select {
+		case c.hub.unregister <- c:
+		case <-c.hub.done: // hub stopped: Shutdown already removes every client
+		}
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -114,7 +155,11 @@ func (c *Client) readPump() {
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(pongWait))
 		if c.presence != nil {
-			_ = c.presence.Touch(context.Background(), c.UserID, c.ID)
+			ctx, cancel := context.WithTimeout(context.Background(), redisOpTimeout)
+			defer cancel()
+			if err := c.presence.Touch(ctx, c.UserID, c.ID); err != nil {
+				c.touchLog.Printf("presence heartbeat failed for client %s: %v", c.ID, err)
+			}
 		}
 		return nil
 	})
@@ -137,7 +182,9 @@ func (c *Client) announceOnline(roomIDs []string) {
 	if c.presence == nil {
 		return
 	}
-	first, err := c.presence.Connect(context.Background(), c.UserID, c.ID)
+	ctx, cancel := context.WithTimeout(context.Background(), redisOpTimeout)
+	defer cancel()
+	first, err := c.presence.Connect(ctx, c.UserID, c.ID)
 	if err != nil {
 		log.Printf("presence connect failed: %v", err)
 		return
@@ -153,7 +200,9 @@ func (c *Client) announceOffline() {
 		return
 	}
 	rooms := c.hub.RoomsOf(c)
-	last, err := c.presence.Disconnect(context.Background(), c.UserID, c.ID)
+	ctx, cancel := context.WithTimeout(context.Background(), redisOpTimeout)
+	defer cancel()
+	last, err := c.presence.Disconnect(ctx, c.UserID, c.ID)
 	if err != nil {
 		log.Printf("presence disconnect failed: %v", err)
 		return
@@ -213,6 +262,10 @@ func (c *Client) writePump() {
 // ServeWs handles websocket requests from the peer. The user authenticates with a
 // single-use ticket (see IssueTicket) so the JWT never travels in the URL.
 func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLister RoomLister, presence PresenceStore, ctx *gin.Context) {
+	if hub.isDone() {
+		ctx.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "Server is restarting"})
+		return
+	}
 	ticket := ctx.Query("ticket")
 	if ticket == "" {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "ticket is required"})
@@ -222,7 +275,10 @@ func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLi
 	id, err := tickets.Redeem(ctx.Request.Context(), ticket)
 	if err != nil {
 		if !errors.Is(err, ErrInvalidTicket) {
+			// The store is failing, not the ticket: tell the client to retry instead of re-authenticating.
 			log.Printf("websocket ticket error: %v", err)
+			ctx.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "Service unavailable, try again"})
+			return
 		}
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired ticket"})
 		return
@@ -244,22 +300,52 @@ func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLi
 	}
 	hub.Register(client)
 
-	// Subscribe the client to their rooms.
+	// Subscribe the client to their rooms. The lookups use a detached context: gin recycles
+	// the request context once the handler returns.
+	lookupCtx, cancel := context.WithTimeout(context.Background(), roomLookupTimeout)
 	go func() {
-		roomIDs, err := roomLister.GetUserRoomIDs(ctx, id)
-		if err != nil {
-			log.Printf("failed to get user rooms for client %s: %v", client.ID, err)
-			return
-		}
-		for _, roomID := range roomIDs {
-			hub.AddClientToRoom(client, roomID)
-		}
-		client.announceOnline(roomIDs)
-		log.Printf("Client %s subscribed to %d rooms", client.ID, len(roomIDs))
+		defer cancel()
+		subscribeToUserRooms(lookupCtx, hub, client, roomLister)
 	}()
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
 	go client.writePump()
 	go client.readPump()
+}
+
+// subscribeToUserRooms subscribes a fresh client to the rooms its user belongs to and announces
+// it online. Membership is looked up again after subscribing: a kick or ban that landed between
+// the first lookup and the subscription would otherwise leave the socket in a room it was removed
+// from. (A removal that lands after the second lookup reaches the hub as an UnsubscribeUser.)
+func subscribeToUserRooms(ctx context.Context, hub *Hub, client *Client, roomLister RoomLister) {
+	roomIDs, err := roomLister.GetUserRoomIDs(ctx, client.UserID)
+	if err != nil {
+		log.Printf("failed to get user rooms for client %s: %v", client.ID, err)
+		return
+	}
+	for _, roomID := range roomIDs {
+		hub.AddClientToRoom(client, roomID)
+	}
+
+	if current, err := roomLister.GetUserRoomIDs(ctx, client.UserID); err == nil {
+		still := make(map[string]struct{}, len(current))
+		for _, roomID := range current {
+			still[roomID] = struct{}{}
+		}
+		kept := make([]string, 0, len(roomIDs))
+		for _, roomID := range roomIDs {
+			if _, ok := still[roomID]; ok {
+				kept = append(kept, roomID)
+			} else {
+				hub.RemoveClientFromRoom(client, roomID)
+			}
+		}
+		roomIDs = kept
+	}
+
+	// If the socket already closed, announcing it online would leave a ghost until the TTL.
+	if hub.isRegistered(client) {
+		client.announceOnline(roomIDs)
+	}
 }
