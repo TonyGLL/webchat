@@ -1,10 +1,14 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { ArrowLeft, LogOut, UserPlus, Shield, Users, MessageSquare, Pin, Reply, X } from 'lucide-react';
 import { IGetRoomMessages } from '@/services/messageService';
 import { useMessages } from '@/hooks/useMessages';
 import { useRoomActivity } from '@/hooks/useRoomActivity';
 import { typingLabel } from '@/lib/typing';
+import { ANNOUNCE_WINDOW_MS, announcementText, incomingSince } from '@/lib/announce';
+import { isValidBanDuration } from '@/lib/banDuration';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { moderationService } from '@/services/moderationService';
 import { RANK, assignableRoles, canDeleteAnyMessage, canModerate, canPin as rankCanPin, rankOf, RoomRole } from '@/lib/permissions';
 import Spinner from './Spinner';
@@ -12,6 +16,7 @@ import { useUser } from '@/hooks/useUser';
 import Avatar from './Avatar';
 import MessageItem, { RoleLabel } from './MessageItem';
 import MessageComposer from './MessageComposer';
+import ConfirmDialog, { type ConfirmSpec } from './ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { followBehavior, isNearBottom } from '@/lib/scroll';
@@ -21,6 +26,35 @@ import { useT } from '@/lib/i18n/useT';
 // Opened on demand from the header: not needed for the first paint.
 const ModerationPanel = dynamic(() => import('./ModerationPanel'));
 const InviteUsers = dynamic(() => import('./InviteUsers'));
+
+/** Members side panel. Below the lg breakpoint it overlays the chat, so it takes focus, traps Tab and closes on Escape. */
+function MembersPanel({ label, count, onClose, children }: { label: string; count: number; onClose: () => void; children: ReactNode }) {
+  const overlay = !useMediaQuery('(min-width: 1024px)');
+  const panel = useRef<HTMLElement>(null);
+  // Declared before the focus effect so it records the opener (header button) before focus moves.
+  useFocusTrap(panel, overlay);
+  useEffect(() => {
+    if (overlay) panel.current?.focus();
+  }, [overlay]);
+
+  return (
+    <aside
+      ref={panel}
+      tabIndex={-1}
+      aria-label={label}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+      className="absolute inset-y-0 right-0 z-20 w-72 overflow-y-auto border-l bg-card p-4 shadow-lg focus-visible:outline-none lg:static lg:z-auto lg:shrink-0 lg:shadow-none"
+    >
+      <div className="mb-3 flex items-baseline justify-between">
+        <h3 className="text-[13px] font-semibold">{label}</h3>
+        <span className="font-mono text-[11px] text-muted-foreground">{count}</span>
+      </div>
+      {children}
+    </aside>
+  );
+}
 
 interface MessageViewProps {
   roomId: string | null;
@@ -63,6 +97,8 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   const canPin = rankCanPin(myRank);
   const [showModeration, setShowModeration] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<ConfirmSpec | null>(null);
+  const [announcement, setAnnouncement] = useState('');
   const [memberError, setMemberError] = useState<string | null>(null);
   const manage = async (action: () => Promise<void>) => {
     setMemberError(null);
@@ -72,16 +108,22 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
       setMemberError(t('chat.actionNotAllowed'));
     }
   };
-  const reportMessage = useStableCallback(async (messageId: string) => {
-    const reason = window.prompt(t('chat.reportPrompt'));
-    if (!reason?.trim()) return;
-    try {
-      await moderationService.report(messageId, reason.trim());
-      setNotice(t('chat.reportSent'));
-    } catch {
-      setNotice(t('chat.reportFailed'));
-    }
-  });
+  const reportMessage = useStableCallback((messageId: string) =>
+    setDialog({
+      title: t('chat.reportTitle'),
+      description: t('chat.reportPrompt'),
+      confirmLabel: t('chat.report'),
+      fields: [{ name: 'reason', label: t('chat.reasonLabel'), validate: (v) => (v.trim() ? null : t('chat.reasonRequired')) }],
+      run: async ({ reason }) => {
+        try {
+          await moderationService.report(messageId, reason.trim());
+          setNotice(t('chat.reportSent'));
+        } catch {
+          setNotice(t('chat.reportFailed'));
+        }
+      },
+    })
+  );
   const onlineCount = members.filter((m) => m.online).length;
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -117,14 +159,20 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
     newestIdRef.current = newestId;
   }, [ordered, pending, profile?.id]);
 
-  const handleLeave = async () => {
-    if (!window.confirm(t('chat.leaveConfirm', { room: roomName ?? t('chat.thisRoom') }))) return;
-    try {
-      await onLeave();
-    } catch {
-      setLeaveError(t('chat.leaveError'));
-    }
-  };
+  const handleLeave = () =>
+    setDialog({
+      title: t('chat.leave'),
+      description: t('chat.leaveConfirm', { room: roomName ?? t('chat.thisRoom') }),
+      confirmLabel: t('chat.leave'),
+      destructive: true,
+      run: async () => {
+        try {
+          await onLeave();
+        } catch {
+          setLeaveError(t('chat.leaveError'));
+        }
+      },
+    });
 
   const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
   const [showInvite, setShowInvite] = useState(false);
@@ -137,6 +185,46 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   };
   // In a direct conversation the other member is who the header is about.
   const peer = isDirect ? members.find((m) => m.user_id !== profile?.id) : undefined;
+  // Screen-reader announcements for messages from other people that arrive while the room is open.
+  // The list is not a live region (history would be read out); a hidden status element gets one
+  // coalesced sentence per window instead.
+  const announcedNewestRef = useRef<string | null>(null);
+  const buffered = useRef<string[]>([]);
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFlush = useRef(0);
+  useEffect(() => {
+    announcedNewestRef.current = null;
+    buffered.current = [];
+    if (flushTimer.current) clearTimeout(flushTimer.current);
+    flushTimer.current = null;
+  }, [roomId]);
+  useEffect(() => {
+    if (loading) return;
+    const { known, fresh } = incomingSince(messages, announcedNewestRef.current);
+    announcedNewestRef.current = messages[0]?.id ?? null;
+    if (!known) return;
+    for (const m of fresh) if (m.author_id !== profile?.id) buffered.current.push(authorName(m.author_id));
+    if (buffered.current.length === 0 || flushTimer.current) return;
+    const wait = Math.max(0, lastFlush.current + ANNOUNCE_WINDOW_MS - Date.now());
+    flushTimer.current = setTimeout(() => {
+      flushTimer.current = null;
+      lastFlush.current = Date.now();
+      setAnnouncement(announcementText(buffered.current, t));
+      buffered.current = [];
+      // Emptied again before the next window so an identical sentence is announced again.
+      clearTimer.current = setTimeout(() => setAnnouncement(''), ANNOUNCE_WINDOW_MS * 0.9);
+    }, wait);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, loading]);
+  useEffect(
+    () => () => {
+      if (flushTimer.current) clearTimeout(flushTimer.current);
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+    },
+    []
+  );
+
   const handleLoadMore = async () => {
     heightBeforeLoadRef.current = scrollRef.current?.scrollHeight ?? null;
     await loadMore();
@@ -152,10 +240,12 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   const openDirectFromRow = useStableCallback((userId: number) => void onOpenDirect(userId));
   const replyTo = useStableCallback((msg: IGetRoomMessages) => setReplyingTo(msg));
   const pinFromRow = useStableCallback((messageId: string, pin: boolean) => void togglePin(messageId, pin));
-  const deleteFromRow = useStableCallback((messageId: string) => {
-    if (window.confirm(t('chat.deleteConfirm'))) void deleteMessage(messageId);
+  const deleteFromRow = useStableCallback((messageId: string) =>
+    setDialog({ title: t('chat.delete'), description: t('chat.deleteConfirm'), confirmLabel: t('chat.delete'), destructive: true, run: () => void deleteMessage(messageId) })
+  );
+  const addReactionFromRow = useStableCallback((messageId: string, emoji: string) => {
+    addReaction(messageId, emoji).catch(() => setNotice(t('chat.reactionFailed')));
   });
-  const addReactionFromRow = useStableCallback((messageId: string, emoji: string) => void addReaction(messageId, emoji));
   const removeReactionFromRow = useStableCallback((messageId: string, emoji: string) => void removeReaction(messageId, emoji));
   const canDeleteAny = canDeleteAnyMessage(myRank);
 
@@ -213,19 +303,38 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                     <button
                       type="button"
                       className="hover:text-destructive hover:underline"
-                      onClick={() => window.confirm(t('chat.removeConfirm', { name: m.name })) && manage(() => kickMember(m.user_id))}
+                      onClick={() =>
+                        setDialog({
+                          title: t('chat.remove'),
+                          description: t('chat.removeConfirm', { name: m.name }),
+                          confirmLabel: t('chat.remove'),
+                          destructive: true,
+                          run: () => manage(() => kickMember(m.user_id)),
+                        })
+                      }
                     >
                       {t('chat.remove')}
                     </button>
                     <button
                       type="button"
                       className="hover:text-destructive hover:underline"
-                      onClick={() => {
-                        const reason = window.prompt(t('chat.banPrompt', { name: m.name }));
-                        if (reason === null) return;
-                        const duration = window.prompt(t('chat.banDurationPrompt')) ?? '';
-                        manage(() => banMember(m.user_id, reason, duration));
-                      }}
+                      onClick={() =>
+                        setDialog({
+                          title: t('chat.banTitle', { name: m.name }),
+                          confirmLabel: t('chat.ban'),
+                          destructive: true,
+                          fields: [
+                            { name: 'reason', label: t('chat.reasonLabel') },
+                            {
+                              name: 'duration',
+                              label: t('chat.banDurationLabel'),
+                              hint: t('chat.banDurationHint'),
+                              validate: (v) => (isValidBanDuration(v) ? null : t('chat.banDurationInvalid')),
+                            },
+                          ],
+                          run: ({ reason, duration }) => manage(() => banMember(m.user_id, reason, duration)),
+                        })
+                      }
                     >
                       {t('chat.ban')}
                     </button>
@@ -259,8 +368,9 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                   role="img"
                   aria-label={peer.online ? t('chat.online') : t('chat.offline')}
                   className={cn(
-                    'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card',
-                    peer.online ? 'bg-success' : 'bg-presence-offline'
+                    // Online is a filled dot, offline a hollow one: not only a colour difference.
+                    'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2',
+                    peer.online ? 'border-card bg-success' : 'border-presence-offline bg-card'
                   )}
                 />
               )}
@@ -451,13 +561,21 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
 
         {replyingTo && (
           <div className="flex shrink-0 items-center gap-2 border-t bg-soft px-4 py-2 text-xs md:px-6">
-            <Reply className="h-3 w-3 shrink-0 text-primary" />
+            <Reply className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
             <p className="min-w-0 flex-1 truncate">{t('chat.replyingTo', { content: replyingTo.content })}</p>
-            <button type="button" onClick={() => setReplyingTo(null)} aria-label={t('chat.cancelReply')}>
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              aria-label={t('chat.cancelReply')}
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-accent"
+            >
               <X className="h-3 w-3" />
             </button>
           </div>
         )}
+        <p className="sr-only" role="status" aria-live="polite">
+          {announcement}
+        </p>
         <p className="h-5 shrink-0 px-4 text-xs text-muted-foreground md:px-6" aria-live="polite">
           {typingLabel(typingNames, t)}
         </p>
@@ -465,17 +583,11 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
       </div>
 
       {showMembers && !isDirect && (
-        <aside
-          aria-label={t('chat.members')}
-          className="absolute inset-y-0 right-0 z-20 w-72 overflow-y-auto border-l bg-card p-4 shadow-lg lg:static lg:z-auto lg:shrink-0 lg:shadow-none"
-        >
-          <div className="mb-3 flex items-baseline justify-between">
-            <h3 className="text-[13px] font-semibold">{t('chat.members')}</h3>
-            <span className="font-mono text-[11px] text-muted-foreground">{members.length}</span>
-          </div>
+        <MembersPanel label={t('chat.members')} count={members.length} onClose={() => setShowMembers(false)}>
           {membersList}
-        </aside>
+        </MembersPanel>
       )}
+      {dialog && <ConfirmDialog spec={dialog} onClose={() => setDialog(null)} />}
     </div>
   );
 }
