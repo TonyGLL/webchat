@@ -116,12 +116,12 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
-| H-061 | Login devolvía un "access token" de 7 días (en realidad un refresh token) y un refresh token que era solo un UUID: la renovación nunca funcionó. Ahora access 1 h + refresh JWT de un solo uso, guardado en Redis; los refresh tokens ya no sirven como access tokens | 2026-10-23 | _(este commit)_ |
-| H-023 | Estado de auth duplicado por hook: ahora un único `AuthContext` (un solo pedido de perfil para toda la app) | 2026-10-23 | _(este commit)_ |
-| H-024 | Renovación automática del token: cliente axios único con interceptor que renueva una vez y reintenta | 2026-10-23 | _(este commit)_ |
-| H-050 | Rutas del frontend que no coincidían con el backend (refresh, verify, rooms join/invite/accept, users/deactivate) y eventos WebSocket con otros nombres (reacciones y edición no llegaban en vivo) | 2026-10-23 | _(este commit)_ |
-| H-022 | Tipado del frontend: sin `any` en código propio; tipos de User, Room, mensajes y eventos WebSocket | 2026-10-23 | _(este commit)_ |
-| H-054 | Script `lint` del frontend: ahora `eslint .` con ESLint 9 + eslint-config-next; 0 errores | 2026-10-23 | _(este commit)_ |
+| H-061 | Login devolvía un "access token" de 7 días (en realidad un refresh token) y un refresh token que era solo un UUID: la renovación nunca funcionó. Ahora access 1 h + refresh JWT de un solo uso, guardado en Redis; los refresh tokens ya no sirven como access tokens | 2026-10-23 | 4a81494 |
+| H-023 | Estado de auth duplicado por hook: ahora un único `AuthContext` (un solo pedido de perfil para toda la app) | 2026-10-23 | 4a81494 |
+| H-024 | Renovación automática del token: cliente axios único con interceptor que renueva una vez y reintenta | 2026-10-23 | 4a81494 |
+| H-050 | Rutas del frontend que no coincidían con el backend (refresh, verify, rooms join/invite/accept, users/deactivate) y eventos WebSocket con otros nombres (reacciones y edición no llegaban en vivo) | 2026-10-23 | 4a81494 |
+| H-022 | Tipado del frontend: sin `any` en código propio; tipos de User, Room, mensajes y eventos WebSocket | 2026-10-23 | 4a81494 |
+| H-054 | Script `lint` del frontend: ahora `eslint .` con ESLint 9 + eslint-config-next; 0 errores | 2026-10-23 | 4a81494 |
 | H-005 | Sin rate limiting: ahora login (10/min), registro (20/10 min), refresh (30/min), reenvío de verificación (5/10 min), ws-ticket y mensajes, por IP, con Redis y respuesta 429 | 2026-10-23 | 9870410 |
 | H-009 | Política de contraseña: 8–72 caracteres, rechaza contraseñas comunes y las que contienen tu usuario o email (validado en backend y frontend) | 2026-10-23 | 9870410 |
 | H-007 | Salas y acceso: unirse a salas públicas fallaba con 500; las salas "privadas" del frontend quedaban públicas (`is_public` vs `is_private`); cualquiera podía crear invitaciones de salas ajenas (ahora solo dueño/admin); invitaciones repetidas/inexistentes dan 409/404 | 2026-10-23 | 7cada01 |
