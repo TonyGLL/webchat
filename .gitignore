@@ -5,3 +5,5 @@ prod.env
 
 # Build output
 /main
+# Claude Code worktrees and local state
+.claude/
