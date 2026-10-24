@@ -3,6 +3,8 @@ package websocket
 import (
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"backend/internal/shared/application"
@@ -20,14 +22,37 @@ const (
 	maxMessageSize = 512
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		// Allow all connections for now.
-		// In production, you should check the origin.
-		return true
-	},
+// NewUpgrader builds the websocket upgrader. Browser connections are only accepted
+// from the allowed origins (the same list used for CORS).
+func NewUpgrader(allowedOrigins []string) *websocket.Upgrader {
+	return &websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin:     originChecker(allowedOrigins),
+	}
+}
+
+// originChecker returns a CheckOrigin function for the given allow-list.
+//   - No Origin header (non-browser clients such as curl): allowed; they still need a valid JWT.
+//   - Empty allow-list: only same-origin requests are accepted.
+func originChecker(allowedOrigins []string) func(r *http.Request) bool {
+	allowed := make(map[string]struct{}, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		allowed[strings.TrimRight(o, "/")] = struct{}{}
+	}
+
+	return func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		if len(allowed) == 0 {
+			u, err := url.Parse(origin)
+			return err == nil && strings.EqualFold(u.Host, r.Host)
+		}
+		_, ok := allowed[strings.TrimRight(origin, "/")]
+		return ok
+	}
 }
 
 // Client is a middleman between the websocket connection and the hub.
@@ -109,19 +134,18 @@ func (c *Client) writePump() {
 }
 
 // ServeWs handles websocket requests from the peer.
-func ServeWs(hub *Hub, roomLister RoomLister, jwtService application.JwtService, ctx *gin.Context) {
+func ServeWs(hub *Hub, upgrader *websocket.Upgrader, roomLister RoomLister, jwtService application.JwtService, ctx *gin.Context) {
 	// Authenticate the user from the token in the query parameter.
 	tokenStr := ctx.Query("token")
 	if tokenStr == "" {
-		log.Println("token not found in query parameter")
-		// Note: We can't write an HTTP error response here as the connection is being hijacked.
-		// We just close the connection attempt.
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token is required"})
 		return
 	}
 
 	claims, err := jwtService.ParseToken(tokenStr)
 	if err != nil {
 		log.Printf("JWT parsing error for websocket: %v", err)
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 		return
 	}
 

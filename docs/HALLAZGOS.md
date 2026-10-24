@@ -23,12 +23,6 @@ Plantilla para añadir uno nuevo:
 
 ### Seguridad
 
-### H-002 WebSocket acepta cualquier origen
-- **Severidad:** 🟠 · **Fase:** 1 · **Área:** backend · **Verificación:** Confirmado
-- **Descripción:** `CheckOrigin` devuelve siempre `true` (comentario en el código: "in production, you should check the origin").
-- **Ubicación:** `backend/internal/websocket/client.go`
-- **Propuesta:** validar contra `CORS_ALLOWED_ORIGINS`.
-
 ### H-003 Token JWT en la URL del WebSocket
 - **Severidad:** 🟠 · **Fase:** 1 · **Área:** front + back · **Verificación:** Confirmado
 - **Descripción:** el token se envía como `?token=...`, queda en logs de proxies y en el historial.
@@ -178,6 +172,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-002 | WebSocket aceptaba cualquier origen; ahora solo los de `CORS_ALLOWED_ORIGINS` (y respuesta 401 clara sin token) | 2026-10-23 | _(este commit)_ |
 | H-055 | Registro dejaba usuarios huérfanos sin contraseña (el escaneo de `last_access` NULL fallaba y la "transacción" no usaba la conexión transaccional) | 2026-10-23 | 8e79c4c |
 | H-052 | El registro del frontend no enviaba los campos que exige el backend (name, last_name, phone, contraseña de 8+); además nunca se pedía el envío del correo de verificación | 2026-10-23 | 71d50fb |
 | H-053 | Enlace de verificación de email sin dominio; ahora usa `FRONTEND_URL/verify/<token>` y la página llama a la ruta correcta del backend | 2026-10-23 | 71d50fb |

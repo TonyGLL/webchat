@@ -81,6 +81,7 @@ func main() {
 
 	// --- Websocket Hub ---
 	wsHub := websocket.NewHub()
+	wsUpgrader := websocket.NewUpgrader(cfg.CORSAllowedOrigins)
 	go wsHub.Run()
 
 	// --- Use Cases and Adapters needed across modules ---
@@ -94,7 +95,7 @@ func main() {
 	// Websocket endpoint
 	// This endpoint must be authenticated to identify the user.
 	apiV1.GET("/ws", func(c *gin.Context) {
-		websocket.ServeWs(wsHub, roomListerAdapter, jwtService, c)
+		websocket.ServeWs(wsHub, wsUpgrader, roomListerAdapter, jwtService, c)
 	})
 
 	// --- Module Registration ---
