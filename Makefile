@@ -11,12 +11,17 @@ FRONTEND := frontend
 PNPM_VERSION := $(shell node -p "require('./$(FRONTEND)/package.json').packageManager.split('@')[1]" 2>/dev/null)
 PNPM := $(or $(shell command -v pnpm),npx --yes pnpm@$(PNPM_VERSION))
 
+# `make dev` starts the frontend only once the backend answers /health (it compiles first, and a
+# browser tab that is already open would otherwise hit "Network Error" in that gap).
+BACKEND_URL ?= http://localhost:8081
+WAIT_BACKEND_TIMEOUT ?= 120
+
 # Throwaway services for `make test-integration` (host ports chosen not to clash with the dev stack).
 IT_PG_PORT    ?= 55432
 IT_REDIS_PORT ?= 56379
 
 .PHONY: help setup infra-up infra-down infra-ps infra-logs dev backend-run backend-watch \
-        frontend-dev build test test-integration lint fmt check up-dev up-prod down \
+        wait-backend frontend-dev frontend-dev-after-backend build test test-integration lint fmt check up-dev up-prod down \
         admin-list admin-grant admin-revoke clean
 
 help: ## Show this help
@@ -42,8 +47,21 @@ infra-ps: ## Show the state of the containers
 infra-logs: ## Follow the Postgres and Redis logs
 	cd $(BACKEND) && docker compose logs -f db redis
 
-dev: infra-up ## Start everything: Postgres + Redis, backend with live reload and frontend
-	@$(MAKE) --no-print-directory -j2 --output-sync=target backend-watch frontend-dev
+dev: infra-up ## Start everything: Postgres + Redis, backend with live reload, then the frontend once the backend is up
+	@$(MAKE) --no-print-directory -j2 backend-watch frontend-dev-after-backend
+
+frontend-dev-after-backend: wait-backend frontend-dev
+
+wait-backend: ## Wait until the backend answers /health (up to WAIT_BACKEND_TIMEOUT seconds)
+	@if ! command -v curl >/dev/null 2>&1; then echo "curl not found: not waiting for the backend"; exit 0; fi; \
+	echo "Waiting for the backend at $(BACKEND_URL)/health ..."; \
+	i=0; until curl -fs -o /dev/null -m 2 $(BACKEND_URL)/health; do \
+	  i=$$((i+1)); \
+	  if [ $$i -ge $(WAIT_BACKEND_TIMEOUT) ]; then \
+	    echo "The backend did not answer in $(WAIT_BACKEND_TIMEOUT)s (is it compiling, or did it fail?). Starting the frontend anyway."; exit 0; \
+	  fi; \
+	  sleep 1; \
+	done; echo "Backend is up."
 
 backend-run: ## Run the backend once, without live reload (http://localhost:8081)
 	$(MAKE) -C $(BACKEND) run
