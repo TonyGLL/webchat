@@ -173,5 +173,5 @@ _(nada por ahora)_
 
 | ID | Título | Fecha | Commit / PR |
 |----|--------|-------|-------------|
-| H-001 | Secreto JWT con valor por defecto | 2026-10-23 | _(sin commit aún)_ |
+| H-001 | Secreto JWT con valor por defecto | 2026-10-23 | 8e8d3ce |
 | H-000 | Falta `CLAUDE.md` con guía del repositorio | 2026-10-23 | 8b94309 |
