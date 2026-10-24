@@ -199,6 +199,8 @@ export const useMessages = (roomId: string | null) => {
       await messageService.addReaction(messageId, { emoji });
     } catch (error) {
       logError('Failed to add reaction', error);
+      // The caller tells the user (the server refuses past its reaction limits).
+      throw error;
     }
   };
 

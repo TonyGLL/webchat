@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SmilePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/useT';
@@ -20,13 +20,26 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+
+  // Keyboard users land on the first option when the menu opens.
+  useEffect(() => {
+    if (open) menu.current?.querySelector('button')?.focus();
+  }, [open]);
+
+  /** Closes the menu and the full picker and returns focus to the button that opened them. */
+  const closeAll = () => {
+    setOpen(false);
+    setFull(false);
+    trigger.current?.focus();
+  };
 
   const toggle = (emoji: string) => {
     const mine = reactions.some((r) => r.emoji === emoji && r.user_id === currentUserId);
     if (mine) onRemoveReaction(messageId, emoji);
     else onAddReaction(messageId, emoji);
-    setOpen(false);
-    setFull(false);
+    closeAll();
   };
 
   const grouped = reactions.reduce(
@@ -52,6 +65,8 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
             key={reaction.emoji}
             type="button"
             onClick={() => toggle(reaction.emoji)}
+            aria-pressed={mine}
+            aria-label={t(reaction.count === 1 ? 'chat.reactionCount.one' : 'chat.reactionCount.other', { emoji: reaction.emoji, count: reaction.count })}
             className={cn(
               'h-6 rounded-full border bg-card px-2 text-xs transition-colors hover:bg-accent',
               mine && 'border-primary bg-soft font-medium text-primary hover:bg-soft'
@@ -63,15 +78,16 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
         );
       })}
       <button
+        ref={trigger}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-          // With no reactions yet the button only shows on hover (always on touch screens).
-          grouped.length === 0 && 'md:opacity-0 md:focus:opacity-100 md:group-hover:opacity-100'
+          // With no reactions yet the button only shows on hover (always on devices without hover).
+          grouped.length === 0 && '[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:focus:opacity-100 [@media(hover:hover)]:group-hover:opacity-100'
         )}
         aria-label={t('chat.react')}
-        aria-expanded={open}
+        aria-expanded={open || full}
         title={t('chat.react')}
       >
         <SmilePlus className="h-4 w-4" />
@@ -80,6 +96,21 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
           <div
+            ref={menu}
+            role="group"
+            aria-label={t('chat.quickReactions')}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                closeAll();
+              }
+            }}
+            onBlur={(e) => {
+              // Focus moving to another element (not into the full picker) dismisses the menu. A null
+              // relatedTarget (clicks in Safari, which does not focus buttons) is left to the backdrop.
+              const next = e.relatedTarget as Node | null;
+              if (!full && next && !e.currentTarget.contains(next)) setOpen(false);
+            }}
             className={cn(
               'absolute bottom-full z-20 mb-1 flex items-center gap-0.5 rounded-full border bg-card p-1 shadow-lg',
               alignRight ? 'right-0' : 'left-0'
@@ -90,6 +121,7 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
                 key={emoji}
                 type="button"
                 onClick={() => toggle(emoji)}
+                aria-label={t('chat.reactWith', { emoji })}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-lg transition-colors hover:bg-accent"
               >
                 {emoji}
@@ -107,7 +139,7 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
           </div>
         </>
       )}
-      {full && <EmojiPicker onSelect={toggle} onClose={() => setFull(false)} />}
+      {full && <EmojiPicker onSelect={toggle} onClose={closeAll} />}
     </div>
   );
 }
