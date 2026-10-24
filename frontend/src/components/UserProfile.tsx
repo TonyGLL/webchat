@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import Avatar from '@/components/Avatar';
 import AlertSettings from '@/components/AlertSettings';
 
+/** Touch-sized on small screens, compact from md up. */
+const iconButton = 'h-10 w-10 md:h-8 md:w-8';
+
 export default function UserProfile({ onHelp }: { onHelp?: () => void }) {
   const { logout } = useAuth();
   const { profile } = useUser();
@@ -32,16 +35,16 @@ export default function UserProfile({ onHelp }: { onHelp?: () => void }) {
           <p className="text-[11px] text-muted-foreground">{t('nav.online')}</p>
         </div>
       </Link>
-      <div className="flex shrink-0 items-center [&_button]:h-8 [&_button]:w-8">
+      <div className="flex shrink-0 items-center">
       {onHelp && (
-        <Button variant="ghost" size="icon" onClick={onHelp} aria-label={t('onboarding.help')} title={t('onboarding.help')}>
+        <Button variant="ghost" size="icon" className={iconButton} onClick={onHelp} aria-label={t('onboarding.help')} title={t('onboarding.help')}>
           <CircleHelp className="h-4 w-4" />
         </Button>
       )}
-      <AlertSettings />
-      <LanguageToggle />
-      <ThemeToggle />
-      <Button variant="ghost" size="icon" onClick={handleLogout} aria-label={t('nav.logOut')} title={t('nav.logOut')}>
+      <AlertSettings className={iconButton} />
+      <LanguageToggle className={iconButton} />
+      <ThemeToggle className={iconButton} />
+      <Button variant="ghost" size="icon" className={iconButton} onClick={handleLogout} aria-label={t('nav.logOut')} title={t('nav.logOut')}>
         <LogOut className="h-4 w-4" />
       </Button>
       </div>
