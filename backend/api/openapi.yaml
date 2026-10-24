@@ -24,7 +24,13 @@ info:
     ## Errors
 
     Failures answer with `{ "error": "message" }`. A rate-limited request answers `429` with a
-    `Retry-After` header (seconds).
+    `Retry-After` header (seconds). Besides authentication, limits apply per client IP to message
+    edits and deletes, pins, reactions, reports, room creation, joining, direct messages,
+    invitations, room discovery, the people directory and `/ws-ticket`.
+
+    A request body larger than 1 MiB answers `413` (`{ "error": "Request body too large" }`) when
+    its declared length is over the limit; a chunked body over the limit fails to parse and
+    answers `400`.
 
     ## Roles
 
@@ -1225,6 +1231,11 @@ components:
       schema: { type: string, format: uuid }
 
   responses:
+    PayloadTooLarge:
+      description: The request body is larger than 1 MiB.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
     BadRequest:
       description: Invalid input.
       content:
