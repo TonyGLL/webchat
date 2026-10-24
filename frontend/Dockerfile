@@ -16,7 +16,7 @@ COPY . .
 RUN bun run build
 
 # Stage 3: minimal runtime, non-root. Next's standalone output only needs Node.
-FROM node:22-alpine AS runtime
+FROM node:25-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
