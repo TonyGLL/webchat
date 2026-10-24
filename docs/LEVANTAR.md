@@ -7,7 +7,7 @@ Guía completa para correr el proyecto en tu máquina sin ayuda externa. Si algo
 ```
 1. Docker:      cd backend && docker compose up -d db redis
 2. Tablas:      docker exec -i webchat-db psql -U root -d webchat < migrations/schema.sql
-3. Backend:     crear backend/local.env  →  make watch      (http://localhost:8081)
+3. Backend:     crear backend/.env.local  →  make watch      (http://localhost:8081)
 4. Frontend:    crear frontend/.env.local →  bun dev        (http://localhost:3100)
 ```
 
@@ -73,35 +73,27 @@ docker compose up -d db redis
 
 ## Paso 3: Configurar y levantar el backend
 
-### 3.1 Crear `backend/local.env`
+### 3.1 Crear `backend/.env.local`
 
-`make watch` y `make run` cargan `local.env`. El archivo está en `.gitignore`, no se sube al repositorio. Plantilla (reemplaza los valores entre `<...>`):
+Convención de archivos de entorno (todos, salvo `.env.example`, están en `.gitignore` y no se suben al repositorio):
 
-```env
-PORT=8081
-JWT_SECRET=<salida de: openssl rand -hex 32>
-CORS_ALLOWED_ORIGINS=http://localhost:3100
+| Archivo | Para qué | Quién lo carga |
+|---|---|---|
+| `backend/.env.example` | Plantilla con todas las variables y comentarios. **Se versiona.** | Nadie (solo se copia) |
+| `backend/.env.local` | Backend corriendo en tu máquina | `make run`, `make watch` |
+| `backend/.env.dev` | Backend dentro de Docker | `make up-dev`, `make database-up` |
+| `backend/.env.prod` | Producción | `make up-prod` |
+| `frontend/.env.example` | Plantilla del frontend. **Se versiona.** | Nadie (solo se copia) |
+| `frontend/.env.local` | Frontend en desarrollo | `bun dev` (Next.js lo carga solo) |
 
-# Postgres (el del contenedor webchat-db)
-DB_HOST=localhost
-DB_PORT=5433
-DB_USER=root
-DB_PASSWORD=<POSTGRES_PASSWORD del docker-compose.yml>
-DB_NAME=webchat
+Crea el tuyo copiando la plantilla y reemplazando todo lo que diga `<...>`:
 
-# Redis (el del contenedor webchat-redis)
-REDIS_HOST=localhost
-REDIS_PORT=6380
-REDIS_USER=default
-REDIS_PASS=<REDIS_PASSWORD del docker-compose.yml>
-REDIS_DB=0
-
-# Correo (solo para verificación de email)
-SMTP_HOST=<ej. smtp.gmail.com>
-SMTP_PORT=587
-SMTP_FROM=<tu correo>
-SMTP_PASSWORD=<contraseña de aplicación>
+```bash
+cd backend
+cp .env.example .env.local
 ```
+
+La plantilla `backend/.env.example` es la fuente de verdad de las variables: ahí están todas, con su explicación. Si añades una variable nueva al código, agrégala también a la plantilla.
 
 Notas sobre cada variable:
 
@@ -121,9 +113,9 @@ Notas sobre cada variable:
 
 ```bash
 cd backend
-make watch      # con recarga automática; usa local.env
+make watch      # con recarga automática; usa .env.local
 # o bien
-make run        # sin recarga; usa local.env
+make run        # sin recarga; usa .env.local
 ```
 
 Deberías ver `Server running on port: 8081`.
@@ -136,7 +128,7 @@ make test
 
 ### Alternativa: backend dentro de Docker
 
-Usa `dev.env` (o `prod.env`) en lugar de `local.env`. **Dentro de Docker los hosts y puertos son los internos**, no los de tu máquina:
+Usa `.env.dev` (o `.env.prod`) en lugar de `.env.local`. **Dentro de Docker los hosts y puertos son los internos**, no los de tu máquina:
 
 ```env
 DB_HOST=db
@@ -157,9 +149,12 @@ make down       # detiene todo
 
 ### 4.1 Crear `frontend/.env.local`
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8081/api/v1
+```bash
+cd frontend
+cp .env.example .env.local
 ```
+
+Contiene una sola variable: `NEXT_PUBLIC_API_URL=http://localhost:8081/api/v1`.
 
 (`.env*.local` está en `.gitignore`.) Si no lo creas, el WebSocket usa ese mismo valor por defecto, pero las llamadas REST no lo tienen y fallarán.
 
@@ -237,12 +232,12 @@ Para el backend y el frontend locales: `Ctrl+C` en cada terminal.
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| `JWT_SECRET must be set and at least 32 characters long` | Falta el secreto o es corto | Ponlo en `local.env` (`openssl rand -hex 32`). |
-| `DATABASE_URL is not set and individual DB_...` | `local.env` no existe o no se cargó | Ejecuta `make watch` desde `backend/` y revisa el nombre del archivo. |
+| `JWT_SECRET must be set and at least 32 characters long` | Falta el secreto o es corto | Ponlo en `.env.local` (`openssl rand -hex 32`). |
+| `DATABASE_URL is not set and individual DB_...` | `.env.local` no existe o no se cargó | Ejecuta `make watch` desde `backend/` y revisa el nombre del archivo. |
 | `unable to connect to database` | Contenedor apagado, puerto o contraseña errónea | `docker compose ps`; usa el puerto **5433** en local. |
 | Error de Redis al arrancar | Puerto o contraseña erróneos | Usa el puerto **6380** en local y `REDIS_PASS` igual al del compose. |
 | `bind: address already in use` | Otro proyecto usa el puerto | `ss -ltnp | grep <puerto>`; cambia el puerto del servicio (y actualiza esta guía). |
-| El frontend carga pero no hay datos o error CORS | `CORS_ALLOWED_ORIGINS` no incluye `http://localhost:3100` | Corrígelo en `local.env` y reinicia el backend. |
+| El frontend carga pero no hay datos o error CORS | `CORS_ALLOWED_ORIGINS` no incluye `http://localhost:3100` | Corrígelo en `.env.local` y reinicia el backend. |
 | Las peticiones del frontend van a `undefined/...` | Falta `frontend/.env.local` | Créalo y reinicia `bun dev`. |
 | `air: command not found` | `~/go/bin` no está en el `PATH` | `export PATH=$PATH:$(go env GOPATH)/bin` |
 | No llega el correo de verificación | SMTP sin configurar | Usa el atajo SQL del paso 5.2. |

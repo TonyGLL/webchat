@@ -40,7 +40,7 @@ tmp/
 # ─────────────────────────────
 *.env
 .env*
-!example.env          # keep example env file
+!.env.example
 *.local
 *.log
 *.bak

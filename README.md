@@ -61,9 +61,9 @@ WebChat is a modern, real-time chat application featuring a backend built with G
         ```
     *   Create a local environment file from the example:
         ```bash
-        cp dev.env.example dev.env
+        cp .env.example .env.local
         ```
-    *   Update the `dev.env` file with your PostgreSQL and Redis connection details.
+    *   Update the `.env.local` file with your PostgreSQL and Redis connection details.
 
 3.  **Frontend Setup:**
 

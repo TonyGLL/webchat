@@ -9,7 +9,7 @@ build:
 depends-on: build
 run:
 	@echo "Running in development mode..."
-	@CONFIG_FILE=local.env go run cmd/server/main.go
+	@CONFIG_FILE=.env.local go run cmd/server/main.go
 
 # Run tests
 test:
@@ -19,13 +19,13 @@ test:
 # Live Reload
 watch:
 	@if command -v air > /dev/null; then \
-	    CONFIG_FILE=local.env air; \
+	    CONFIG_FILE=.env.local air; \
 	    echo "Watching...";\
 	else \
 	    read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
 	    if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
 	        go install github.com/air-verse/air@latest; \
-	        CONFIG_FILE=local.env air; \
+	        CONFIG_FILE=.env.local air; \
 	        echo "Watching...";\
 	    else \
 	        echo "You chose not to install air. Exiting..."; \
@@ -35,16 +35,16 @@ watch:
 
 database-up:
 	@echo "Starting PostgreSQL database..."
-	@CONFIG_FILE=dev.env docker compose up -d db
+	@CONFIG_FILE=.env.dev docker compose up -d db
 
 # Docker-compose commands
 up-dev:
 	@echo "Starting development environment..."
-	@CONFIG_FILE=dev.env docker compose up --build -d
+	@CONFIG_FILE=.env.dev docker compose up --build -d
 
 up-prod:
 	@echo "Starting production environment..."
-	@CONFIG_FILE=prod.env docker compose up --build -d
+	@CONFIG_FILE=.env.prod docker compose up --build -d
 
 down:
 	@echo "Stopping docker compose environment..."

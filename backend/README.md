@@ -12,9 +12,9 @@ Este es el backend de la aplicación, desarrollado en Go utilizando el framework
 
 1.  Crea un archivo de entorno para el desarrollo local. Puedes copiar el de ejemplo:
     ```bash
-    cp dev.env.example dev.env
+    cp .env.example .env.local
     ```
-2.  Abre el archivo `dev.env` y ajusta las variables de entorno según sea necesario. Como mínimo, deberás configurar las credenciales de la base de datos PostgreSQL. También puedes configurar la variable `PORT` para cambiar el puerto en el que se ejecuta la aplicación (el valor predeterminado es `8081`).
+2.  Abre el archivo `.env.local` y ajusta las variables de entorno según sea necesario. Como mínimo, deberás configurar las credenciales de la base de datos PostgreSQL. También puedes configurar la variable `PORT` para cambiar el puerto en el que se ejecuta la aplicación (el valor predeterminado es `8081`).
 
 ## Cómo ejecutar la aplicación
 

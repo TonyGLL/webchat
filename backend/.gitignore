@@ -3,6 +3,7 @@
 
 # Environment variables
 *.env*
+!.env.example
 
 # Build output
 /dist
