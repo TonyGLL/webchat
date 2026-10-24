@@ -145,8 +145,8 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
-| H-005 | Sin rate limiting: ahora login (10/min), registro (20/10 min), refresh (30/min), reenvío de verificación (5/10 min), ws-ticket y mensajes, por IP, con Redis y respuesta 429 | 2026-10-23 | _(este commit)_ |
-| H-009 | Política de contraseña: 8–72 caracteres, rechaza contraseñas comunes y las que contienen tu usuario o email (validado en backend y frontend) | 2026-10-23 | _(este commit)_ |
+| H-005 | Sin rate limiting: ahora login (10/min), registro (20/10 min), refresh (30/min), reenvío de verificación (5/10 min), ws-ticket y mensajes, por IP, con Redis y respuesta 429 | 2026-10-23 | 9870410 |
+| H-009 | Política de contraseña: 8–72 caracteres, rechaza contraseñas comunes y las que contienen tu usuario o email (validado en backend y frontend) | 2026-10-23 | 9870410 |
 | H-007 | Salas y acceso: unirse a salas públicas fallaba con 500; las salas "privadas" del frontend quedaban públicas (`is_public` vs `is_private`); cualquiera podía crear invitaciones de salas ajenas (ahora solo dueño/admin); invitaciones repetidas/inexistentes dan 409/404 | 2026-10-23 | 7cada01 |
 | H-006 | Autorización por sala: enviar, leer, editar y reaccionar exigen ser miembro; editar exige ser el autor (403 si no). Verificado en vivo y con tests | 2026-10-23 | 8d991fd |
 | H-003 | Token JWT en la URL del WebSocket; ahora se canjea por un ticket de un solo uso (30 s) vía `POST /ws-ticket` | 2026-10-23 | b1ca39e |
