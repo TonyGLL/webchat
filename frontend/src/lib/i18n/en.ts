@@ -238,6 +238,15 @@ const en = {
   'profile.delete': 'Delete account',
   'profile.deleteError': 'Wrong password, or the account could not be deleted.',
   'discover.loadMore': 'Show more rooms',
+
+  'title.login': 'Sign in',
+  'title.register': 'Create account',
+  'title.forgot': 'Reset password',
+  'title.reset': 'New password',
+  'title.verifyEmail': 'Check your inbox',
+  'title.verify': 'Verify email',
+  'title.dashboard': 'Chats',
+  'title.profile': 'Your profile',
 } as const;
 
 export type MessageKey = keyof typeof en;

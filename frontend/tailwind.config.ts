@@ -34,6 +34,7 @@ const config = {
         },
         soft: "hsl(var(--soft))",
         success: "hsl(var(--success))",
+        "presence-offline": "hsl(var(--presence-offline))",
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",

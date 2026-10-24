@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useT } from '@/lib/i18n/useT';
+import { logError } from '@/lib/logError';
 
 export default function CreateRoomForm({
   createRoom,
@@ -27,7 +28,7 @@ export default function CreateRoomForm({
       setName('');
       setOpen(false);
     } catch (err) {
-      console.error('Failed to create room', err);
+      logError('Failed to create room', err);
     } finally {
       setSubmitting(false);
     }

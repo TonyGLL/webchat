@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import Spinner from '@/components/Spinner';
+import { logError } from '@/lib/logError';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -35,7 +36,7 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err) {
       setError(t('login.invalid'));
-      console.error(err);
+      logError('Login failed', err);
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,7 @@
 # unrs-resolver (used by eslint) ships prebuilt binaries; its install script is only a fallback.
 allowBuilds:
   unrs-resolver: false
+
+overrides:
+  # postcss-selector-parser < 7.1.6 has a moderate advisory (build time, via tailwindcss).
+  postcss-selector-parser: ">=7.1.6"

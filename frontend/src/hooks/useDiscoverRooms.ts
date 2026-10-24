@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RoomSummary, roomService } from '@/services/roomService';
+import { logError } from '@/lib/logError';
 
 /** Pages fetched in a row while a page holds only rooms the user already belongs to. */
 const MAX_EMPTY_PAGES = 5;
@@ -31,7 +32,7 @@ export const useDiscoverRooms = (refreshKey: unknown) => {
     try {
       await fetchPages(true);
     } catch (error) {
-      console.error('Failed to discover rooms', error);
+      logError('Failed to discover rooms', error);
     }
   }, [fetchPages]);
 

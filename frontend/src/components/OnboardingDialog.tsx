@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { clampStep, ONBOARDING_STEPS, OnboardingStep } from '@/lib/onboarding';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/useT';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 const icons: Record<OnboardingStep, typeof Users> = {
   people: Users,
@@ -18,9 +19,13 @@ export default function OnboardingDialog({ name, onFinish }: { name: string; onF
   const { t } = useT();
   const [index, setIndex] = useState(0);
   const primary = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
   const step = ONBOARDING_STEPS[clampStep(index)];
   const last = index >= ONBOARDING_STEPS.length - 1;
   const Icon = icons[step];
+
+  // Declared before the autofocus effect so it records the opener (help button) before focus moves.
+  useFocusTrap(dialog);
 
   useEffect(() => {
     primary.current?.focus();
@@ -35,6 +40,7 @@ export default function OnboardingDialog({ name, onFinish }: { name: string; onF
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div
+        ref={dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
@@ -52,7 +58,7 @@ export default function OnboardingDialog({ name, onFinish }: { name: string; onF
         <div className="mt-6 flex items-center justify-between">
           <div className="flex items-center gap-1.5" role="img" aria-label={t('onboarding.step', { current: index + 1, total: ONBOARDING_STEPS.length })}>
             {ONBOARDING_STEPS.map((id, i) => (
-              <span key={id} className={cn('h-1.5 rounded-full transition-all', i === index ? 'w-5 bg-primary' : 'w-1.5 bg-border')} />
+              <span key={id} className={cn('h-1.5 rounded-full transition-all motion-reduce:transition-none', i === index ? 'w-5 bg-primary' : 'w-1.5 bg-border')} />
             ))}
           </div>
           <div className="flex items-center gap-2">
