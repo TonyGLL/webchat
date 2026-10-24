@@ -35,42 +35,6 @@ Plantilla para añadir uno nuevo:
 
 ### Operación y documentación
 
-### Producción y cloud
-
-_Objetivo del proyecto (2026-10-23): dejarlo a nivel producción para luego desplegarlo y practicar cloud engineering con él._
-
-### H-070 Frontend sin imagen Docker ni compose completo
-- **Severidad:** 🟠 · **Fase:** P · **Área:** infra · **Verificación:** Confirmado (solo el backend tiene `Dockerfile`; el compose está en `backend/`)
-- **Propuesta:** `Dockerfile` multi-etapa de Next.js (`output: standalone`, usuario no root) y un `docker-compose.yml` en la raíz que levante front + back + db + redis.
-
-### H-071 Sin entrega continua (CD) ni escaneo de imágenes
-- **Severidad:** 🟠 · **Fase:** P · **Área:** CI/CD · **Verificación:** Confirmado
-- **Propuesta:** en CI, construir las dos imágenes, etiquetarlas por commit/versión y publicarlas (GHCR); escanear con Trivy; generar SBOM. Es lo que luego consume el despliegue en la nube.
-
-### H-072 Límite de peticiones por IP no sabe de balanceadores
-- **Severidad:** 🟠 · **Fase:** P · **Área:** backend · **Verificación:** Confirmado (`SetTrustedProxies(nil)`: detrás de un balanceador todas las peticiones parecerían venir de la misma IP)
-- **Propuesta:** variable `TRUSTED_PROXIES` (CIDR del balanceador) para leer `X-Forwarded-For` solo de proxies conocidos.
-
-### H-073 Sin métricas ni trazas
-- **Severidad:** 🟡 · **Fase:** P · **Área:** backend · **Verificación:** Confirmado (hay logs `slog` y `/health`/`/ready`, nada más)
-- **Propuesta:** `/metrics` de Prometheus (peticiones, latencia, conexiones WebSocket, mensajes) y trazas OpenTelemetry con el `X-Request-ID` como correlación.
-
-### H-074 Cabeceras de seguridad HTTP
-- **Severidad:** 🟡 · **Fase:** P · **Área:** front + back · **Verificación:** Por confirmar
-- **Propuesta:** HSTS, `X-Content-Type-Options`, `Referrer-Policy` y una CSP en Next.js; revisar cookies `Secure` y `SameSite` detrás de HTTPS.
-
-### H-075 Secretos y configuración para la nube
-- **Severidad:** 🟡 · **Fase:** P · **Área:** backend + infra · **Verificación:** Confirmado
-- **Propuesta:** (junto con H-051) soportar secretos montados como archivo (`JWT_SECRET_FILE`, etc.) o inyectados por el gestor de secretos de la nube; documentar la lista completa de variables por entorno.
-
-### H-076 Backups y despliegue de migraciones
-- **Severidad:** 🟡 · **Fase:** P · **Área:** operación · **Verificación:** Confirmado
-- **Propuesta:** documentar y automatizar respaldo/restauración de Postgres (y probar la restauración); decidir si las migraciones corren como paso de despliegue aparte (hoy corren al arrancar, con candado de golang-migrate).
-
-### H-077 Pruebas de carga y de extremo a extremo
-- **Severidad:** 🟡 · **Fase:** P · **Área:** calidad · **Verificación:** Confirmado
-- **Propuesta:** k6 con un objetivo de conexiones WebSocket concurrentes y latencia p95; Playwright para registro → login → crear sala → chatear.
-
 ### H-051 Contraseñas escritas directamente en docker-compose.yml
 - **Severidad:** 🟠 · **Fase:** 1 · **Área:** infra · **Verificación:** Confirmado (las claves `POSTGRES_PASSWORD` y `REDIS_PASSWORD` tienen valor literal en un archivo versionado; no se revisó el valor)
 - **Ubicación:** `backend/docker-compose.yml`
