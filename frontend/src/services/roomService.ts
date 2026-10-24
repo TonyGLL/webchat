@@ -49,7 +49,7 @@ export interface Invitation {
 export interface CreateRoomData {
   name: string;
   is_private: boolean;
-  topic: string;
+  topic: string | null;
 }
 
 export interface Invite {
