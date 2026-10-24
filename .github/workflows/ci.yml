@@ -130,7 +130,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build${{ github.event_name == 'push' && ' and push' || '' }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           push: ${{ env.PUBLISH == 'true' }}
