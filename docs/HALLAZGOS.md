@@ -54,7 +54,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
-| H-074 | (Roadmap Fase 4, parte 4) Interfaz de moderación: botón Report en mensajes ajenos, panel con pestañas Reports / Bans / Audit (la auditoría solo para admins), botón Ban con motivo y duración en la lista de miembros | 2026-10-23 | _(este commit)_ |
+| H-074 | (Roadmap Fase 4, parte 4) Interfaz de moderación: botón Report en mensajes ajenos, panel con pestañas Reports / Bans / Audit (la auditoría solo para admins), botón Ban con motivo y duración en la lista de miembros | 2026-10-23 | a3dfc3a |
 | H-073 | (Roadmap Fase 4, parte 3) Reportes y bans: reportar mensajes (uno por persona, no el propio), cola para moderadores con resolver/ignorar y borrar el mensaje, bans temporales o permanentes que impiden volver a entrar por unión o invitación, todo auditado. Probado en vivo | 2026-10-23 | 6e5b1be |
 | H-072 | (Roadmap Fase 4, parte 2) Frontend de roles: permisos espejo de la matriz del backend (con pruebas), selector de rol y botón Remove en la lista de miembros según tu rango, moderadores ven Delete en mensajes ajenos, cambios de rol y expulsiones en vivo | 2026-10-23 | 6287a02 |
 | H-071 | (Roadmap Fase 4, parte 1) Sistema de roles: matriz única de permisos por rango (dueño > admin > moderador > miembro) más roles globales (moderador/admin) que solo se dan desde el servidor (`make admin-grant`); cambiar roles, expulsar, borrado por moderadores y fijar usan la misma matriz; registro de auditoría. Probado en vivo con 5 usuarios | 2026-10-23 | 83965d4 |
