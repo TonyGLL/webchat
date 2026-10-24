@@ -30,10 +30,13 @@ func (r *PgMessageRepository) Create(ctx context.Context, message *domain.Messag
 }
 
 func (r *PgMessageRepository) Update(ctx context.Context, content string, id uuid.UUID) (string, error) {
-	query := "UPDATE messages SET content = $1, edited_at = NOW() WHERE id = $2 returning room_id"
+	query := "UPDATE messages SET content = $1, edited_at = NOW() WHERE id = $2 AND deleted_at IS NULL RETURNING room_id"
 	var roomID string
 	err := r.db.QueryRowContext(ctx, query, content, id).Scan(&roomID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", domain.ErrMessageNotFound
+		}
 		return "", err
 	}
 	return roomID, nil

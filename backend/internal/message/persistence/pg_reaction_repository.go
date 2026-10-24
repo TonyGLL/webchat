@@ -45,3 +45,16 @@ func (r *PgReactionRepository) FindByMessageID(ctx context.Context, messageID uu
 	}
 	return reactions, nil
 }
+
+func (r *PgReactionRepository) CountsFor(ctx context.Context, messageID uuid.UUID, userID int, emoji string) (domain.ReactionCounts, error) {
+	query := `
+		SELECT
+			COUNT(*) FILTER (WHERE user_id = $2),
+			COUNT(DISTINCT emoji),
+			COALESCE(BOOL_OR(emoji = $3), FALSE),
+			COALESCE(BOOL_OR(emoji = $3 AND user_id = $2), FALSE)
+		FROM reactions WHERE message_id = $1`
+	var c domain.ReactionCounts
+	err := r.db.QueryRowContext(ctx, query, messageID, userID, emoji).Scan(&c.UserReactions, &c.Kinds, &c.EmojiInUse, &c.AlreadyReacted)
+	return c, err
+}

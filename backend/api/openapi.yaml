@@ -793,7 +793,7 @@ paths:
       tags: [Messages]
       operationId: updateMessage
       summary: Edit a message
-      description: Author only. Pushed as `update_message`.
+      description: Author only, and only while still a member of the room. Deleted messages answer 404. Content must not be blank (max 4000 characters). Pushed as `update_message`.
       parameters:
         - $ref: "#/components/parameters/MessageId"
       requestBody:
@@ -804,7 +804,7 @@ paths:
               type: object
               required: [content]
               properties:
-                content: { type: string, minLength: 1 }
+                content: { type: string, minLength: 1, maxLength: 4000 }
       responses:
         "202": { $ref: "#/components/responses/MessageOk" }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -858,7 +858,7 @@ paths:
       tags: [Messages]
       operationId: addReaction
       summary: Add a reaction
-      description: One reaction per emoji and user. Pushed as `reaction_added`.
+      description: One reaction per emoji and user. The emoji must not be blank (max 8 characters and 32 bytes); each user can add at most 10 distinct emoji to a message and a message carries at most 30 distinct emoji (400 beyond that). Deleted messages answer 404. Pushed as `reaction_added`.
       parameters:
         - $ref: "#/components/parameters/MessageId"
       requestBody:
@@ -1422,7 +1422,7 @@ components:
       type: object
       required: [emoji]
       properties:
-        emoji: { type: string, examples: ["👍"] }
+        emoji: { type: string, minLength: 1, maxLength: 32, examples: ["👍"] }
 
     ResolveReportRequest:
       type: object

@@ -8,7 +8,7 @@ import (
 )
 
 type RemoveReactionDTO struct {
-	Emoji string `json:"emoji" validate:"required"`
+	Emoji string `json:"emoji" validate:"required,max=32"`
 }
 
 type RemoveReactionUseCase struct {
