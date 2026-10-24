@@ -193,7 +193,7 @@ curl -s -X POST http://localhost:8081/api/v1/auth/login \
   -d '{"user":"tu@correo.com","password":"clave12345"}'
 ```
 
-Debe devolver `token` y `refreshToken`.
+Devuelve `token` (access, 1 h) en el cuerpo y pone el refresh token en una cookie `httpOnly` (`Set-Cookie: refresh_token=...`), que JavaScript no puede leer. Con `curl -i -c jar.txt` ves la cabecera y guardas la cookie; `curl -b jar.txt -X POST .../auth/refresh-token` renueva y `.../auth/logout` la revoca.
 
 ### 5.4 Recorrido en el navegador
 
@@ -230,10 +230,7 @@ Para el backend y el frontend locales: `Ctrl+C` en cada terminal.
 
 ## Limitaciones conocidas hoy
 
-Registradas en [HALLAZGOS.md](HALLAZGOS.md); cuando se resuelvan, actualiza esta guía.
-
-- **H-050:** el frontend llama a `/auth/refresh`, pero el backend expone `/auth/refresh-token`.
-- **H-054:** `bun run lint` no funciona en el frontend (usa `next lint`, que ya no existe en Next 16).
+Ver [HALLAZGOS.md](HALLAZGOS.md) (sección Pendientes). Cuando se resuelvan, actualiza esta guía.
 
 ## Dónde está cada cosa
 

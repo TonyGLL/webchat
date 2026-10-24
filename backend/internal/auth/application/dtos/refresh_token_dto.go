@@ -1,6 +1,7 @@
 package dtos
 
-// RefreshTokenInputDTO represents the data required to refresh an authentication token.
+// RefreshTokenInputDTO is the optional body of a refresh request; browsers send the
+// token in the httpOnly cookie instead.
 type RefreshTokenInputDTO struct {
-	RefreshToken string `json:"refreshToken" binding:"required"`
+	RefreshToken string `json:"refreshToken"`
 }

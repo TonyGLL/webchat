@@ -1,40 +1,60 @@
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
 }
 
-const STORAGE_KEY = 'authTokens';
+const SESSION_HINT_KEY = 'hasSession';
 
 type Listener = (tokens: AuthTokens | null) => void;
 const listeners = new Set<Listener>();
+
+// The access token lives only in memory: an XSS cannot read it from storage, and a page
+// reload gets a new one through the httpOnly refresh cookie (see AuthContext).
+let current: AuthTokens | null = null;
 
 function notify(tokens: AuthTokens | null) {
   listeners.forEach((listener) => listener(tokens));
 }
 
+function writeHint(value: boolean) {
+  try {
+    if (value) window.localStorage.setItem(SESSION_HINT_KEY, '1');
+    else window.localStorage.removeItem(SESSION_HINT_KEY);
+  } catch {
+    // storage unavailable: the hint is only an optimisation
+  }
+}
+
 /**
- * The only place that knows where auth tokens live. Today that is localStorage;
- * moving to httpOnly cookies later (H-004) only requires changing this file.
+ * The only place that knows where the access token lives. The refresh token is an httpOnly
+ * cookie set by the backend, so JavaScript never sees it (H-004).
  */
 export const tokenStorage = {
   get(): AuthTokens | null {
-    if (typeof window === 'undefined') return null;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as AuthTokens) : null;
-    } catch {
-      return null;
-    }
+    return current;
   },
 
   set(tokens: AuthTokens) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tokens));
+    current = tokens;
+    writeHint(true);
     notify(tokens);
   },
 
   clear() {
-    window.localStorage.removeItem(STORAGE_KEY);
+    current = null;
+    writeHint(false);
     notify(null);
+  },
+
+  /**
+   * Non-secret flag telling whether this browser probably has a session (a refresh cookie),
+   * so visitors do not trigger a pointless refresh request on every page load.
+   */
+  mayHaveSession(): boolean {
+    try {
+      return window.localStorage.getItem(SESSION_HINT_KEY) === '1';
+    } catch {
+      return false;
+    }
   },
 
   /** Subscribe to token changes (login, silent refresh, logout). Returns an unsubscribe function. */

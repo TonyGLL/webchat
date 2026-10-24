@@ -27,30 +27,30 @@ function fakeServer() {
 describe('api client token refresh', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    window.localStorage.clear();
-    tokenStorage.set({ accessToken: 'expired', refreshToken: 'refresh-1' });
+    tokenStorage.clear();
+    tokenStorage.set({ accessToken: 'expired' });
   });
 
   it('refreshes once on 401 and retries the request with the new token', async () => {
     const seen = fakeServer();
     const post = vi
       .spyOn(axios, 'post')
-      .mockResolvedValue({ data: { token: 'fresh', refreshToken: 'refresh-2' } });
+      .mockResolvedValue({ data: { token: 'fresh' } });
 
     const response = await api.get('/rooms');
 
     expect(response.data).toEqual({ ok: true });
     expect(post).toHaveBeenCalledTimes(1);
-    expect(post.mock.calls[0][1]).toEqual({ refreshToken: 'refresh-1' });
+    expect(post.mock.calls[0][2]).toMatchObject({ withCredentials: true }); // the cookie does the work
     expect(seen).toEqual(['Bearer expired', 'Bearer fresh']);
-    expect(tokenStorage.get()).toEqual({ accessToken: 'fresh', refreshToken: 'refresh-2' });
+    expect(tokenStorage.get()).toEqual({ accessToken: 'fresh' });
   });
 
   it('shares a single refresh between concurrent 401s (the refresh token is single-use)', async () => {
     fakeServer();
     const post = vi
       .spyOn(axios, 'post')
-      .mockResolvedValue({ data: { token: 'fresh', refreshToken: 'refresh-2' } });
+      .mockResolvedValue({ data: { token: 'fresh' } });
 
     await Promise.all([api.get('/rooms'), api.get('/users/profile'), api.get('/messages/x/messages')]);
 

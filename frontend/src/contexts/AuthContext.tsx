@@ -3,6 +3,7 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { authService, LoginData, RegisterData, User } from '@/services/authService';
 import { userService } from '@/services/userService';
+import { refreshAccessToken } from '@/lib/api';
 import { AuthTokens, tokenStorage } from '@/lib/tokenStorage';
 
 interface AuthContextValue {
@@ -24,7 +25,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const logout = useCallback(() => {
-    tokenStorage.clear();
+    // Revoke the refresh cookie on the server, then end the local session either way.
+    authService.logout().catch(() => undefined).finally(() => tokenStorage.clear());
   }, []);
 
   // Keep React state in sync with the token store (login, silent refresh, logout, expired session).
@@ -34,25 +36,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!next) setUser(null);
     });
 
-    const stored = tokenStorage.get();
-    if (!stored) {
-      setLoading(false);
-      return unsubscribe;
-    }
+    // Restore the session after a reload: the access token is memory-only, so ask for a new
+    // one with the httpOnly refresh cookie.
+    let cancelled = false;
+    const restore = async () => {
+      if (!tokenStorage.get() && tokenStorage.mayHaveSession()) {
+        try {
+          await refreshAccessToken();
+        } catch {
+          tokenStorage.clear();
+        }
+      }
+      if (cancelled) return;
+      if (!tokenStorage.get()) {
+        setLoading(false);
+        return;
+      }
+      setTokens(tokenStorage.get());
+      try {
+        const profile = await userService.getProfile();
+        if (!cancelled) setUser(profile);
+      } catch {
+        tokenStorage.clear();
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void restore();
 
-    setTokens(stored);
-    userService
-      .getProfile()
-      .then(setUser)
-      .catch(() => tokenStorage.clear())
-      .finally(() => setLoading(false));
-
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
+
   const login = useCallback(async (data: LoginData) => {
-    const { token, refreshToken } = await authService.login(data);
-    tokenStorage.set({ accessToken: token, refreshToken });
+    const { token } = await authService.login(data);
+    tokenStorage.set({ accessToken: token });
     setUser(await userService.getProfile());
   }, []);
 

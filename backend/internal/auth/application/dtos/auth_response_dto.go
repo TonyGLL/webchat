@@ -20,5 +20,5 @@ type UserResponseDTO struct {
 type AuthResponseDTO struct {
 	User         UserResponseDTO `json:"user"`
 	Token        string          `json:"token"`
-	RefreshToken string          `json:"refreshToken"`
+	RefreshToken string          `json:"refreshToken,omitempty"`
 }

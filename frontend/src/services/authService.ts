@@ -14,7 +14,6 @@ export interface User {
 export interface IAuthResponse {
   user: { id: number; email: string };
   token: string;
-  refreshToken: string;
 }
 
 export const RegisterSchema = z.object({
@@ -54,6 +53,10 @@ export const authService = {
   sendVerifyEmail: async (userId: number, email: string) => {
     const response = await api.post(`/auth/send-verify-email/${userId}`, { email });
     return response.data;
+  },
+
+  logout: async (): Promise<void> => {
+    await api.post('/auth/logout');
   },
 
   verifyEmail: async (token: string) => {

@@ -20,7 +20,10 @@ type AuthController struct {
 	RefreshTokenUseCase    *usecases.RefreshTokenUseCase
 	SendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase
 	VerifyEmailUseCase     *usecases.VerifyEmailUseCase
+	LogoutUseCase          *usecases.LogoutUseCase
 	Validate               *validator.Validate
+	// SecureCookies marks the refresh cookie as HTTPS-only (set in production).
+	SecureCookies bool
 }
 
 func NewAuthController(
@@ -29,7 +32,9 @@ func NewAuthController(
 	refreshTokenUseCase *usecases.RefreshTokenUseCase,
 	sendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase,
 	verifyEmailUseCase *usecases.VerifyEmailUseCase,
+	logoutUseCase *usecases.LogoutUseCase,
 	validate *validator.Validate,
+	secureCookies bool,
 ) *AuthController {
 	return &AuthController{
 		LoginUseCase:           loginUseCase,
@@ -37,8 +42,32 @@ func NewAuthController(
 		RefreshTokenUseCase:    refreshTokenUseCase,
 		SendVerifyEmailUseCase: sendVerifyEmailUseCase,
 		VerifyEmailUseCase:     verifyEmailUseCase,
+		LogoutUseCase:          logoutUseCase,
 		Validate:               validate,
+		SecureCookies:          secureCookies,
 	}
+}
+
+const (
+	refreshCookieName = "refresh_token"
+	// The cookie is only sent to the auth routes, never to the rest of the API.
+	refreshCookiePath = "/api/v1/auth"
+)
+
+// sendSession stores the refresh token in an httpOnly cookie (invisible to JavaScript, so an
+// XSS cannot steal it) and returns only the short-lived access token in the body.
+func (ctrl *AuthController) sendSession(ctx *gin.Context, status int, session *dtos.AuthResponseDTO) {
+	ctx.SetSameSite(http.SameSiteStrictMode)
+	ctx.SetCookie(refreshCookieName, session.RefreshToken, int(usecases.RefreshTokenDuration.Seconds()), refreshCookiePath, "", ctrl.SecureCookies, true)
+
+	body := *session
+	body.RefreshToken = ""
+	ctx.JSON(status, body)
+}
+
+func (ctrl *AuthController) clearRefreshCookie(ctx *gin.Context) {
+	ctx.SetSameSite(http.SameSiteStrictMode)
+	ctx.SetCookie(refreshCookieName, "", -1, refreshCookiePath, "", ctrl.SecureCookies, true)
 }
 
 func (ctrl *AuthController) Login(ctx *gin.Context) {
@@ -63,32 +92,46 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctrl.sendSession(ctx, http.StatusOK, response)
 }
 
 func (ctrl *AuthController) RefreshToken(ctx *gin.Context) {
-	var input dtos.RefreshTokenInputDTO
-	if err := ctx.ShouldBindJSON(&input); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+	// The cookie is the normal source; a JSON body is accepted for non-browser clients.
+	token, _ := ctx.Cookie(refreshCookieName)
+	if token == "" {
+		var input dtos.RefreshTokenInputDTO
+		_ = ctx.ShouldBindJSON(&input)
+		token = input.RefreshToken
+	}
+	if token == "" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
 		return
 	}
 
-	if err := ctrl.Validate.Struct(input); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	response, err := ctrl.RefreshTokenUseCase.Execute(ctx.Request.Context(), input)
+	response, err := ctrl.RefreshTokenUseCase.Execute(ctx.Request.Context(), dtos.RefreshTokenInputDTO{RefreshToken: token})
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrInvalidToken) {
+			ctrl.clearRefreshCookie(ctx)
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
 			return
 		}
+		log.Printf("failed to refresh token: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refresh token"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctrl.sendSession(ctx, http.StatusOK, response)
+}
+
+// Logout revokes the refresh token and clears its cookie. It always succeeds.
+func (ctrl *AuthController) Logout(ctx *gin.Context) {
+	if token, err := ctx.Cookie(refreshCookieName); err == nil && token != "" {
+		if err := ctrl.LogoutUseCase.Execute(ctx.Request.Context(), token); err != nil {
+			log.Printf("failed to revoke refresh token: %v", err)
+		}
+	}
+	ctrl.clearRefreshCookie(ctx)
+	ctx.Status(http.StatusNoContent)
 }
 
 func (ctrl *AuthController) Register(ctx *gin.Context) {
