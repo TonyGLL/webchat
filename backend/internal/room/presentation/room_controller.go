@@ -21,6 +21,7 @@ type RoomController struct {
 	createRoomUseCase    *application.CreateRoomUseCase
 	listUserRoomsUseCase *application.ListUserRoomsUseCase
 	markRoomReadUseCase  *application.MarkRoomReadUseCase
+	leaveRoomUseCase     *application.LeaveRoomUseCase
 	joinRoomUseCase      *application.JoinRoomUseCase
 	createInviteUseCase  *application.CreateInviteUseCase
 	acceptInviteUseCase  *application.AcceptInviteUseCase
@@ -32,6 +33,7 @@ func NewRoomController(
 	createRoomUseCase *application.CreateRoomUseCase,
 	listUserRoomsUseCase *application.ListUserRoomsUseCase,
 	markRoomReadUseCase *application.MarkRoomReadUseCase,
+	leaveRoomUseCase *application.LeaveRoomUseCase,
 	joinRoomUseCase *application.JoinRoomUseCase,
 	createInviteUseCase *application.CreateInviteUseCase,
 	acceptInviteUseCase *application.AcceptInviteUseCase,
@@ -41,6 +43,7 @@ func NewRoomController(
 		createRoomUseCase:    createRoomUseCase,
 		listUserRoomsUseCase: listUserRoomsUseCase,
 		markRoomReadUseCase:  markRoomReadUseCase,
+		leaveRoomUseCase:     leaveRoomUseCase,
 		joinRoomUseCase:      joinRoomUseCase,
 		createInviteUseCase:  createInviteUseCase,
 		acceptInviteUseCase:  acceptInviteUseCase,
@@ -139,6 +142,33 @@ func (c *RoomController) MarkRead(ctx *gin.Context) {
 		}
 		log.Printf("failed to mark room as read: %v", err)
 		response.Error(ctx, http.StatusInternalServerError, "Failed to mark room as read")
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}
+
+// LeaveRoom handles the endpoint for POST /api/v1/rooms/leave/:room_id
+func (c *RoomController) LeaveRoom(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+	roomID, err := uuid.Parse(ctx.Param("room_id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
+		return
+	}
+	if err := c.leaveRoomUseCase.Execute(ctx, roomID, userID); err != nil {
+		switch {
+		case errors.Is(err, shared_domain.ErrForbidden):
+			response.Error(ctx, http.StatusForbidden, "You are not a member of this room")
+		case errors.Is(err, application.ErrOwnerCannotLeave):
+			response.Error(ctx, http.StatusConflict, err.Error())
+		default:
+			log.Printf("failed to leave room: %v", err)
+			response.Error(ctx, http.StatusInternalServerError, "Failed to leave room")
+		}
 		return
 	}
 	ctx.Status(http.StatusNoContent)

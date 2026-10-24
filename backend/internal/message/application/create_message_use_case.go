@@ -33,6 +33,18 @@ func (uc *CreateMessageUseCase) Execute(ctx context.Context, input CreateMessage
 	}
 
 	message := &domain.Message{Content: input.Content, AuthorID: authorID, RoomID: roomID}
+	if input.ReplyToMessageID != nil {
+		replyID, err := uuid.Parse(*input.ReplyToMessageID)
+		if err != nil {
+			return nil, shared_domain.ErrInvalidInput
+		}
+		parent, err := uc.messageRepo.FindByID(ctx, replyID)
+		if err != nil || parent.DeletedAt != nil || parent.RoomID != roomID {
+			// only replies to existing messages of the same room are allowed
+			return nil, shared_domain.ErrInvalidInput
+		}
+		message.ReplyToMessageID = &replyID
+	}
 	createdMessage, err := uc.messageRepo.Create(ctx, message)
 	if err != nil {
 		return nil, err

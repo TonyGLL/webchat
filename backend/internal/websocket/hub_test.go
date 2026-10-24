@@ -159,3 +159,16 @@ func TestEventsCrossInstancesThroughTheBus(t *testing.T) {
 		t.Fatalf("instance B client got %s", got)
 	}
 }
+
+func TestUnsubscribeUserStopsRoomEvents(t *testing.T) {
+	leaver, stayer := newTestClient(1, 4), newTestClient(2, 4)
+	hub := startHub(t, leaver, stayer)
+	hub.AddClientToRoom(leaver, "room")
+	hub.AddClientToRoom(stayer, "room")
+
+	hub.UnsubscribeUser(1, "room")
+	hub.Broadcast("new_message", 1, "room")
+
+	receive(t, stayer)
+	expectNothing(t, leaver)
+}

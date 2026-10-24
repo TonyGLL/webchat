@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
-  const { rooms, loading, createRoom } = useRoom(selectedRoom);
+  const { rooms, loading, createRoom, leaveRoom } = useRoom(selectedRoom);
   const room = rooms.find((r) => r.id === selectedRoom);
 
   // On small screens only one pane is visible: the room list, or the open chat.
@@ -45,6 +45,11 @@ export default function DashboardPage() {
             roomId={selectedRoom}
             roomName={room?.name}
             onBack={() => setSelectedRoom(null)}
+            onLeave={async () => {
+              if (!selectedRoom) return;
+              await leaveRoom(selectedRoom);
+              setSelectedRoom(null);
+            }}
           />
         </main>
       </div>

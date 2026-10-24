@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, LogOut, MessageSquare, Reply, Send, Trash2, X } from 'lucide-react';
+import { IGetRoomMessages } from '@/services/messageService';
 import { useMessages } from '@/hooks/useMessages';
 import Spinner from './Spinner';
 import { useUser } from '@/hooks/useUser';
@@ -15,6 +16,8 @@ interface MessageViewProps {
   roomId: string | null;
   roomName?: string;
   onBack: () => void;
+  /** Leaves the current room (the owner cannot). Resolves when the server accepted it. */
+  onLeave: () => Promise<void>;
 }
 
 const formatTimestamp = (date: string | Date) => {
@@ -29,7 +32,7 @@ const formatTimestamp = (date: string | Date) => {
   return new Date(date).toLocaleTimeString('en-US', options);
 };
 
-export default function MessageView({ roomId, roomName, onBack }: MessageViewProps) {
+export default function MessageView({ roomId, roomName, onBack, onLeave }: MessageViewProps) {
   const {
     messages,
     pending,
@@ -40,11 +43,14 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
     hasMore,
     loadMore,
     createMessage,
+    deleteMessage,
     addReaction,
     removeReaction,
   } = useMessages(roomId);
   const { profile } = useUser();
   const [content, setContent] = useState('');
+  const [replyingTo, setReplyingTo] = useState<IGetRoomMessages | null>(null);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const newestIdRef = useRef<string | null>(null);
@@ -69,7 +75,20 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
 
   useEffect(() => {
     newestIdRef.current = null; // a different room: jump to its latest message
+    setReplyingTo(null);
+    setLeaveError(null);
   }, [roomId]);
+
+  const handleLeave = async () => {
+    if (!window.confirm(`Leave ${roomName ?? 'this room'}?`)) return;
+    try {
+      await onLeave();
+    } catch {
+      setLeaveError("You can't leave this room (the owner must stay).");
+    }
+  };
+
+  const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
 
   const handleLoadMore = async () => {
     heightBeforeLoadRef.current = scrollRef.current?.scrollHeight ?? null;
@@ -79,8 +98,9 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (roomId && content.trim()) {
-      createMessage({ room_id: roomId, content });
+      createMessage({ room_id: roomId, content, reply_to_message_id: replyingTo?.id });
       setContent('');
+      setReplyingTo(null);
     }
   };
 
@@ -99,7 +119,15 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
         <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label="Back to rooms">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h2 className="truncate text-sm font-medium">{roomName ?? 'Room'}</h2>
+        <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{roomName ?? 'Room'}</h2>
+        {leaveError && (
+          <p className="text-xs text-destructive" role="alert">
+            {leaveError}
+          </p>
+        )}
+        <Button variant="ghost" size="icon" onClick={handleLeave} aria-label="Leave room" title="Leave room">
+          <LogOut className="h-4 w-4" />
+        </Button>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
@@ -128,8 +156,27 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
                         : 'rounded-bl-md bg-muted'
                     )}
                   >
+                    {msg.reply_to_message_id && (
+                      <p className="mb-1 truncate border-l-2 border-current pl-2 text-xs opacity-70">
+                        {byId.get(msg.reply_to_message_id)?.content ?? 'Original message'}
+                      </p>
+                    )}
                     <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
                     <p className="mt-0.5 text-right text-[11px] opacity-60">{formatTimestamp(msg.created_at)}</p>
+                  </div>
+                  <div className="flex gap-3 text-[11px] text-muted-foreground">
+                    <button type="button" className="flex items-center gap-1 hover:text-foreground" onClick={() => setReplyingTo(msg)}>
+                      <Reply className="h-3 w-3" /> Reply
+                    </button>
+                    {isCurrentUser && (
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 hover:text-destructive"
+                        onClick={() => window.confirm('Delete this message?') && deleteMessage(msg.id)}
+                      >
+                        <Trash2 className="h-3 w-3" /> Delete
+                      </button>
+                    )}
                   </div>
                   {msg.reactions && profile && (
                     <Reaction
@@ -173,6 +220,15 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
         <div ref={messagesEndRef} />
       </div>
 
+      {replyingTo && (
+        <div className="flex shrink-0 items-center gap-2 border-t bg-muted/50 px-3 py-2 text-xs">
+          <Reply className="h-3 w-3 shrink-0" />
+          <p className="min-w-0 flex-1 truncate">Replying to: {replyingTo.content}</p>
+          <button type="button" onClick={() => setReplyingTo(null)} aria-label="Cancel reply">
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
       <form onSubmit={handleSendMessage} className="flex shrink-0 items-center gap-2 border-t p-3">
         <Input
           value={content}

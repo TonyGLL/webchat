@@ -5,6 +5,7 @@ import { useSocket } from './useSocket';
 // Events the backend broadcasts to a room (see backend/internal/message/application).
 type WebSocketMessage =
   | { type: 'new_message'; payload: IGetRoomMessages }
+  | { type: 'delete_message'; payload: { message_id: string } }
   | { type: 'update_message'; payload: { message_id: string; content: string } }
   | { type: 'reaction_added'; payload: IReaction & { message_id: string } }
   | { type: 'reaction_removed'; payload: IReaction & { message_id: string } };
@@ -16,6 +17,7 @@ export interface PendingMessage {
   tempId: string;
   room_id: string;
   content: string;
+  reply_to_message_id?: string;
   status: 'sending' | 'failed';
 }
 
@@ -78,6 +80,10 @@ export const useMessages = (roomId: string | null) => {
                 prev.some((m) => m.id === message.payload.id) ? prev : [message.payload, ...prev]
               );
             }
+            break;
+
+          case 'delete_message':
+            setMessages((prev) => prev.filter((msg) => msg.id !== message.payload.message_id));
             break;
 
           case 'update_message':
@@ -148,7 +154,11 @@ export const useMessages = (roomId: string | null) => {
   const deliver = async (item: PendingMessage) => {
     setPending((prev) => prev.map((p) => (p.tempId === item.tempId ? { ...p, status: 'sending' } : p)));
     try {
-      const created = await messageService.createMessage({ room_id: item.room_id, content: item.content });
+      const created = await messageService.createMessage({
+        room_id: item.room_id,
+        content: item.content,
+        reply_to_message_id: item.reply_to_message_id,
+      });
       setPending((prev) => prev.filter((p) => p.tempId !== item.tempId));
       // The websocket event usually arrives first; only add the message if it did not.
       if (created?.id && item.room_id === roomId) {
@@ -161,7 +171,7 @@ export const useMessages = (roomId: string | null) => {
   };
 
   /** Shows the message immediately as pending, then confirms or marks it failed. */
-  const createMessage = async (data: { room_id: string; content: string }) => {
+  const createMessage = async (data: { room_id: string; content: string; reply_to_message_id?: string }) => {
     const item: PendingMessage = { tempId: crypto.randomUUID(), ...data, status: 'sending' };
     setPending((prev) => [...prev, item]);
     await deliver(item);
@@ -173,6 +183,15 @@ export const useMessages = (roomId: string | null) => {
   };
 
   const discardMessage = (tempId: string) => setPending((prev) => prev.filter((p) => p.tempId !== tempId));
+
+  const deleteMessage = async (messageId: string) => {
+    try {
+      await messageService.deleteMessage(messageId);
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+    } catch (error) {
+      console.error('Failed to delete message', error);
+    }
+  };
 
   const addReaction = async (messageId: string, emoji: string) => {
     try {
@@ -190,5 +209,5 @@ export const useMessages = (roomId: string | null) => {
     }
   };
 
-  return { messages, pending, retryMessage, discardMessage, loading, loadingMore, hasMore, loadMore, createMessage, addReaction, removeReaction, setMessages };
+  return { messages, pending, retryMessage, discardMessage, loading, loadingMore, hasMore, loadMore, createMessage, deleteMessage, addReaction, removeReaction, setMessages };
 };

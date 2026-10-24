@@ -22,6 +22,7 @@ func RegisterModule(
 	addReactionUseCase := application.NewAddReactionUseCase(reactionRepository, messageRepository, wsBroadcaster)
 	removeReactionUseCase := application.NewRemoveReactionUseCase(reactionRepository, messageRepository, wsBroadcaster)
 	listMessagesUseCase := application.NewListMessagesUseCase(messageRepository)
+	deleteMessageUseCase := application.NewDeleteMessageUseCase(messageRepository, wsBroadcaster)
 
 	messageController := presentation.NewMessageController(
 		createMessageUseCase,
@@ -29,6 +30,7 @@ func RegisterModule(
 		addReactionUseCase,
 		removeReactionUseCase,
 		listMessagesUseCase,
+		deleteMessageUseCase,
 		validate,
 	)
 
@@ -39,6 +41,7 @@ func RegisterModule(
 		messageRoutes.GET("/:roomId/messages", messageController.FetchMessages)
 		messageRoutes.POST("", messageController.CreateMessage)
 		messageRoutes.PATCH("/:id", messageController.UpdateMessage)
+		messageRoutes.DELETE("/:id", messageController.DeleteMessage)
 		messageRoutes.POST("/:id/reactions", messageController.AddReaction)
 		messageRoutes.DELETE("/:id/reactions", messageController.RemoveReaction)
 	}

@@ -130,3 +130,39 @@ func TestMarkReadRequiresMembership(t *testing.T) {
 		t.Fatalf("outsider should be forbidden, got %v", err)
 	}
 }
+
+func (f *fakeMembers) RemoveMember(_ context.Context, room uuid.UUID, user int) error {
+	delete(f.members[room], user)
+	return nil
+}
+
+type spySubscriber struct{ unsubscribed []int }
+
+func (s *spySubscriber) SubscribeUser(int, string) {}
+func (s *spySubscriber) UnsubscribeUser(user int, _ string) {
+	s.unsubscribed = append(s.unsubscribed, user)
+}
+
+func TestLeaveRoom(t *testing.T) {
+	room := uuid.New()
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{room: {1: domain.RoleOwner, 2: domain.RoleMember}}}
+	spy := &spySubscriber{}
+	uc := NewLeaveRoomUseCase(members, spy)
+	ctx := context.Background()
+
+	if err := uc.Execute(ctx, room, 1); !errors.Is(err, ErrOwnerCannotLeave) {
+		t.Fatalf("owner: err = %v, want ErrOwnerCannotLeave", err)
+	}
+	if err := uc.Execute(ctx, room, 3); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Fatalf("outsider: err = %v, want ErrForbidden", err)
+	}
+	if err := uc.Execute(ctx, room, 2); err != nil {
+		t.Fatalf("member: unexpected err %v", err)
+	}
+	if _, still := members.members[room][2]; still {
+		t.Fatal("member should be removed")
+	}
+	if len(spy.unsubscribed) != 1 || spy.unsubscribed[0] != 2 {
+		t.Fatalf("websocket unsubscribe not requested: %v", spy.unsubscribed)
+	}
+}

@@ -12,6 +12,7 @@ export interface IGetRoomMessages {
   author_id: number;
   room_id: string;
   created_at: string;
+  reply_to_message_id?: string | null;
   edited_at?: string | null;
   reactions?: IReaction[];
 }
@@ -25,9 +26,13 @@ export const messageService = {
     return response.data;
   },
 
-  createMessage: async (data: { room_id: string; content: string }) => {
+  createMessage: async (data: { room_id: string; content: string; reply_to_message_id?: string }) => {
     const response = await api.post('/messages', data);
     return response.data;
+  },
+
+  deleteMessage: async (messageId: string): Promise<void> => {
+    await api.delete(`/messages/${messageId}`);
   },
 
   addReaction: async (messageId: string, data: { emoji: string }) => {

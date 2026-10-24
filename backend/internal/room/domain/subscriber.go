@@ -4,4 +4,6 @@ package domain
 // rooms created or joined after connecting receive events without reconnecting.
 type RealtimeSubscriber interface {
 	SubscribeUser(userID int, roomID string)
+	// UnsubscribeUser stops delivering a room's events to the user's open connections.
+	UnsubscribeUser(userID int, roomID string)
 }

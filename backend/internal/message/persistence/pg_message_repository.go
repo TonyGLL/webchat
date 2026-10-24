@@ -38,6 +38,15 @@ func (r *PgMessageRepository) Update(ctx context.Context, content string, id uui
 	return roomID, nil
 }
 
+func (r *PgMessageRepository) SoftDelete(ctx context.Context, id uuid.UUID) (string, error) {
+	var roomID string
+	err := r.db.QueryRowContext(ctx, `UPDATE messages SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING room_id`, id).Scan(&roomID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", domain.ErrMessageNotFound
+	}
+	return roomID, err
+}
+
 func (r *PgMessageRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Message, error) {
 	query := `SELECT id, content, author_id, room_id, created_at, edited_at, deleted_at FROM messages WHERE id = $1;`
 	var msg domain.Message

@@ -22,6 +22,7 @@ type MessageController struct {
 	addReactionUseCase    *application.AddReactionUseCase
 	removeReactionUseCase *application.RemoveReactionUseCase
 	listMessagesUseCase   *application.ListMessagesUseCase
+	deleteMessageUseCase  *application.DeleteMessageUseCase
 	validate              *validator.Validate
 }
 
@@ -31,6 +32,7 @@ func NewMessageController(
 	addReactionUseCase *application.AddReactionUseCase,
 	removeReactionUseCase *application.RemoveReactionUseCase,
 	listMessagesUseCase *application.ListMessagesUseCase,
+	deleteMessageUseCase *application.DeleteMessageUseCase,
 	validate *validator.Validate,
 ) *MessageController {
 	return &MessageController{
@@ -39,6 +41,7 @@ func NewMessageController(
 		addReactionUseCase:    addReactionUseCase,
 		removeReactionUseCase: removeReactionUseCase,
 		listMessagesUseCase:   listMessagesUseCase,
+		deleteMessageUseCase:  deleteMessageUseCase,
 		validate:              validate,
 	}
 }
@@ -107,6 +110,24 @@ func (ctrl *MessageController) UpdateMessage(ctx *gin.Context) {
 	}
 
 	response.JSON(ctx, http.StatusAccepted, gin.H{"message": "Message updated"})
+}
+
+func (ctrl *MessageController) DeleteMessage(c *gin.Context) {
+	userID, err := request.GetUserID(c)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, err.Error())
+		return
+	}
+	messageID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid message ID format")
+		return
+	}
+	if err := ctrl.deleteMessageUseCase.Execute(c.Request.Context(), messageID, userID); err != nil {
+		respondError(c, err, "Failed to delete message")
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (ctrl *MessageController) AddReaction(c *gin.Context) {

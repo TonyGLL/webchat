@@ -58,5 +58,10 @@ export const useRoom = (activeRoomId: string | null = null) => {
     fetchRooms();
   };
 
-  return { rooms, loading, createRoom };
+  const leaveRoom = async (roomId: string) => {
+    await roomService.leaveRoom(roomId);
+    setRooms((prev) => prev.filter((r) => r.id !== roomId));
+  };
+
+  return { rooms, loading, createRoom, leaveRoom };
 };

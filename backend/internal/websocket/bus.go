@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	eventBroadcast = "broadcast"
-	eventSubscribe = "subscribe"
-	busChannel     = "webchat:ws:events"
+	eventBroadcast   = "broadcast"
+	eventSubscribe   = "subscribe"
+	eventUnsubscribe = "unsubscribe"
+	busChannel       = "webchat:ws:events"
 )
 
 // Event is what instances exchange so every backend instance can serve its own

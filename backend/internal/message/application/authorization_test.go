@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"backend/internal/message/domain"
 	shared_domain "backend/internal/shared/domain"
@@ -43,6 +44,11 @@ func (f *fakeRepo) FindByID(_ context.Context, id uuid.UUID) (*domain.Message, e
 		return m, nil
 	}
 	return nil, domain.ErrMessageNotFound
+}
+func (f *fakeRepo) SoftDelete(_ context.Context, id uuid.UUID) (string, error) {
+	now := time.Now()
+	f.messages[id].DeletedAt = &now
+	return f.messages[id].RoomID.String(), nil
 }
 func (f *fakeRepo) FindByRoomID(context.Context, uuid.UUID, int, *uuid.UUID) ([]*domain.Message, error) {
 	return []*domain.Message{}, nil
@@ -132,5 +138,52 @@ func TestReactionsRequireMembership(t *testing.T) {
 	}
 	if repo.reactions != 1 {
 		t.Fatal("member reaction should be stored")
+	}
+}
+
+func TestDeleteMessageOnlyByAuthor(t *testing.T) {
+	repo, room, msg := setup()
+	repo.addMember(room, outsiderID)
+	uc := NewDeleteMessageUseCase(repo, nil)
+
+	if err := uc.Execute(context.Background(), msg.ID, outsiderID); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Fatalf("non-author: err = %v, want ErrForbidden", err)
+	}
+	if msg.DeletedAt != nil {
+		t.Fatal("message must not be deleted by a non-author")
+	}
+	if err := uc.Execute(context.Background(), msg.ID, memberID); err != nil {
+		t.Fatalf("author: unexpected err %v", err)
+	}
+	if err := uc.Execute(context.Background(), msg.ID, memberID); !errors.Is(err, domain.ErrMessageNotFound) {
+		t.Fatalf("already deleted: err = %v, want ErrMessageNotFound", err)
+	}
+}
+
+func TestReplyMustTargetAMessageOfTheSameRoom(t *testing.T) {
+	repo, room, msg := setup()
+	uc := NewCreateMessageUseCase(repo, nil)
+	reply := func(parent string) (*domain.Message, error) {
+		return uc.Execute(context.Background(), CreateMessageDTO{Content: "re", RoomID: room.String(), ReplyToMessageID: &parent}, memberID)
+	}
+
+	created, err := reply(msg.ID.String())
+	if err != nil || created.ReplyToMessageID == nil || *created.ReplyToMessageID != msg.ID {
+		t.Fatalf("valid reply: %v / %+v", err, created)
+	}
+
+	otherRoom := uuid.New()
+	foreign := &domain.Message{ID: uuid.New(), RoomID: otherRoom, AuthorID: memberID, Content: "x"}
+	repo.messages[foreign.ID] = foreign
+	for name, parent := range map[string]string{"other room": foreign.ID.String(), "unknown": uuid.New().String(), "garbage": "nope"} {
+		if _, err := reply(parent); !errors.Is(err, shared_domain.ErrInvalidInput) {
+			t.Fatalf("%s: err = %v, want ErrInvalidInput", name, err)
+		}
+	}
+
+	now := time.Now()
+	msg.DeletedAt = &now
+	if _, err := reply(msg.ID.String()); !errors.Is(err, shared_domain.ErrInvalidInput) {
+		t.Fatalf("deleted parent: err = %v, want ErrInvalidInput", err)
 	}
 }

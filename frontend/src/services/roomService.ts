@@ -35,6 +35,10 @@ export const roomService = {
     return response.data;
   },
 
+  leaveRoom: async (roomId: string): Promise<void> => {
+    await api.post(`/rooms/leave/${roomId}`);
+  },
+
   markRead: async (roomId: string): Promise<void> => {
     await api.post(`/rooms/read/${roomId}`);
   },

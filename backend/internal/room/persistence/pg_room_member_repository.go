@@ -46,3 +46,8 @@ func (r *PgRoomMemberRepository) MarkRead(ctx context.Context, roomID uuid.UUID,
 	n, err := res.RowsAffected()
 	return n > 0, err
 }
+
+func (r *PgRoomMemberRepository) RemoveMember(ctx context.Context, roomID uuid.UUID, userID int) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM room_members WHERE room_id = $1 AND user_id = $2`, roomID, userID)
+	return err
+}

@@ -63,8 +63,8 @@ docs/       setup guide, roadmap, use cases, findings tracker
 - `GET /health`, `GET /ready` (outside the prefix): liveness and readiness.
 - **Auth:** `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh-token`, `POST /auth/send-verify-email/:user_id`, `POST /auth/verify-email/:token`.
 - **Users:** `GET /users/profile`, `DELETE /users/deactivate`.
-- **Rooms:** `POST /rooms`, `GET /rooms`, `POST /rooms/join/:room_id`, `POST /rooms/read/:room_id` (mark as read; `GET /rooms` includes `unread_count`), `POST /rooms/invite/:room_id`, `POST /rooms/accept-invite/:code`.
-- **Messages:** `GET /messages/:roomId/messages?limit=`GET /messages/:roomId/messages`, `POST /messages`before=` (cursor pagination), `POST /messages`, `PATCH /messages/:id`, `POST|DELETE /messages/:id/reactions`.
+- **Rooms:** `POST /rooms`, `GET /rooms`, `POST /rooms/join/:room_id`, `POST /rooms/leave/:room_id`, `POST /rooms/read/:room_id` (mark as read; `GET /rooms` includes `unread_count`), `POST /rooms/invite/:room_id`, `POST /rooms/accept-invite/:code`.
+- **Messages:** `GET /messages/:roomId/messages?limit=&before=` (cursor pagination), `POST /messages` (optional `reply_to_message_id`), `PATCH /messages/:id`, `DELETE /messages/:id` (author only, soft delete), `POST|DELETE /messages/:id/reactions`.
 - **WebSocket:** `POST /ws-ticket` (authenticated) returns a 30-second single-use ticket; connect to `GET /ws?ticket=...`.
 
 Everything except register, login, refresh and email verification requires `Authorization: Bearer <access token>`.
