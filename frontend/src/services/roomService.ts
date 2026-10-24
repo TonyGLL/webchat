@@ -59,6 +59,9 @@ export interface Invite {
   expires_at: string;
 }
 
+const MEMBERS_PAGE = 200;
+const DISCOVER_PAGE = 30;
+
 export const roomService = {
   createRoom: async (data: CreateRoomData): Promise<Room> => {
     const response = await api.post('/rooms', data);
@@ -75,9 +78,15 @@ export const roomService = {
     return response.data;
   },
 
+  /** Every member, fetched page by page (the API returns at most 200 per request). */
   getMembers: async (roomId: string): Promise<RoomMember[]> => {
-    const response = await api.get(`/rooms/members/${roomId}`);
-    return response.data ?? [];
+    const all: RoomMember[] = [];
+    for (;;) {
+      const response = await api.get(`/rooms/members/${roomId}`, { params: { limit: MEMBERS_PAGE, offset: all.length } });
+      const page: RoomMember[] = response.data ?? [];
+      all.push(...page);
+      if (page.length < MEMBERS_PAGE) return all;
+    }
   },
 
   leaveRoom: async (roomId: string): Promise<void> => {
@@ -93,9 +102,11 @@ export const roomService = {
     return response.data;
   },
 
-  discoverRooms: async (): Promise<RoomSummary[]> => {
-    const response = await api.get('/rooms/discover');
-    return response.data ?? [];
+  /** One page of rooms after the room `after` (the last one received); `hasMore` says to ask again. */
+  discoverRooms: async (after?: string): Promise<{ rooms: RoomSummary[]; hasMore: boolean }> => {
+    const response = await api.get('/rooms/discover', { params: { limit: DISCOVER_PAGE, after } });
+    const rooms: RoomSummary[] = response.data ?? [];
+    return { rooms, hasMore: rooms.length === DISCOVER_PAGE };
   },
 
   /** Sends a personal invitation; only the owner or an admin of the room can. */

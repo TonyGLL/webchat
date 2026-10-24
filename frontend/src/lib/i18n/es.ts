@@ -237,6 +237,7 @@ const es: Record<MessageKey, string> = {
   'profile.deleteForever': 'Eliminar mi cuenta para siempre',
   'profile.delete': 'Eliminar cuenta',
   'profile.deleteError': 'Contraseña incorrecta, o no se pudo eliminar la cuenta.',
+  'discover.loadMore': 'Ver más salas',
 };
 
 export default es;
