@@ -17,6 +17,7 @@ type fakeRepo struct {
 	members   map[uuid.UUID]map[int]bool
 	messages  map[uuid.UUID]*domain.Message
 	reactions int
+	roles     map[int]string // overrides the default "member" role
 }
 
 func newFakeRepo() *fakeRepo {
@@ -50,6 +51,33 @@ func (f *fakeRepo) SoftDelete(_ context.Context, id uuid.UUID) (string, error) {
 	f.messages[id].DeletedAt = &now
 	return f.messages[id].RoomID.String(), nil
 }
+func (f *fakeRepo) MemberRole(_ context.Context, room uuid.UUID, user int) (string, bool, error) {
+	if !f.members[room][user] {
+		return "", false, nil
+	}
+	if role, ok := f.roles[user]; ok {
+		return role, true, nil
+	}
+	return "member", true, nil
+}
+func (f *fakeRepo) SetPinned(_ context.Context, id uuid.UUID, pinned bool) error {
+	if pinned {
+		now := time.Now()
+		f.messages[id].PinnedAt = &now
+	} else {
+		f.messages[id].PinnedAt = nil
+	}
+	return nil
+}
+func (f *fakeRepo) FindPinned(_ context.Context, room uuid.UUID) ([]*domain.Message, error) {
+	out := []*domain.Message{}
+	for _, m := range f.messages {
+		if m.RoomID == room && m.PinnedAt != nil {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}
 func (f *fakeRepo) FindByRoomID(context.Context, uuid.UUID, int, *uuid.UUID) ([]*domain.Message, error) {
 	return []*domain.Message{}, nil
 }
@@ -65,7 +93,7 @@ func (f *fakeRepo) Remove(context.Context, uuid.UUID, int, string) error {
 	return nil
 }
 
-const memberID, outsiderID = 1, 2
+const memberID, outsiderID, adminID = 1, 2, 3
 
 func setup() (*fakeRepo, uuid.UUID, *domain.Message) {
 	repo := newFakeRepo()
@@ -185,5 +213,36 @@ func TestReplyMustTargetAMessageOfTheSameRoom(t *testing.T) {
 	msg.DeletedAt = &now
 	if _, err := reply(msg.ID.String()); !errors.Is(err, shared_domain.ErrInvalidInput) {
 		t.Fatalf("deleted parent: err = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestPinMessageOnlyByOwnerOrAdmin(t *testing.T) {
+	repo, room, msg := setup()
+	repo.roles = map[int]string{memberID: "member", adminID: "admin"}
+	repo.addMember(room, adminID)
+	uc := NewPinMessageUseCase(repo, nil)
+	ctx := context.Background()
+
+	for name, user := range map[string]int{"plain member": memberID, "outsider": outsiderID} {
+		if err := uc.Execute(ctx, msg.ID, user, true); !errors.Is(err, shared_domain.ErrForbidden) {
+			t.Fatalf("%s: err = %v, want ErrForbidden", name, err)
+		}
+	}
+	if msg.PinnedAt != nil {
+		t.Fatal("message must not be pinned by unauthorized users")
+	}
+	if err := uc.Execute(ctx, msg.ID, adminID, true); err != nil || msg.PinnedAt == nil {
+		t.Fatalf("admin should pin: err=%v pinned=%v", err, msg.PinnedAt)
+	}
+	if err := uc.Execute(ctx, msg.ID, adminID, false); err != nil || msg.PinnedAt != nil {
+		t.Fatalf("admin should unpin: err=%v pinned=%v", err, msg.PinnedAt)
+	}
+}
+
+func TestListPinnedRequiresMembership(t *testing.T) {
+	repo, room, _ := setup()
+	uc := NewListPinnedUseCase(repo)
+	if _, err := uc.Execute(context.Background(), room.String(), outsiderID); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Fatalf("outsider: err = %v, want ErrForbidden", err)
 	}
 }

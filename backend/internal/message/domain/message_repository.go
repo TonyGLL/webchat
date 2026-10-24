@@ -12,6 +12,11 @@ type MessageRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*Message, error)
 	// SoftDelete marks the message as deleted and returns its room id.
 	SoftDelete(ctx context.Context, id uuid.UUID) (string, error)
+	// MemberRole returns the user's role in the room and whether they are a member at all.
+	MemberRole(ctx context.Context, roomID uuid.UUID, userID int) (role string, isMember bool, err error)
+	SetPinned(ctx context.Context, id uuid.UUID, pinned bool) error
+	// FindPinned returns the room's pinned, non-deleted messages, most recently pinned first.
+	FindPinned(ctx context.Context, roomID uuid.UUID) ([]*Message, error)
 	IsRoomMember(ctx context.Context, roomID uuid.UUID, userID int) (bool, error)
 	// FindByRoomID returns up to limit messages, newest first. When before is set, only messages
 	// older than that message are returned (cursor pagination, stable while new messages arrive).

@@ -23,6 +23,8 @@ func RegisterModule(
 	removeReactionUseCase := application.NewRemoveReactionUseCase(reactionRepository, messageRepository, wsBroadcaster)
 	listMessagesUseCase := application.NewListMessagesUseCase(messageRepository)
 	deleteMessageUseCase := application.NewDeleteMessageUseCase(messageRepository, wsBroadcaster)
+	pinMessageUseCase := application.NewPinMessageUseCase(messageRepository, wsBroadcaster)
+	listPinnedUseCase := application.NewListPinnedUseCase(messageRepository)
 
 	messageController := presentation.NewMessageController(
 		createMessageUseCase,
@@ -31,6 +33,8 @@ func RegisterModule(
 		removeReactionUseCase,
 		listMessagesUseCase,
 		deleteMessageUseCase,
+		pinMessageUseCase,
+		listPinnedUseCase,
 		validate,
 	)
 
@@ -42,6 +46,9 @@ func RegisterModule(
 		messageRoutes.POST("", messageController.CreateMessage)
 		messageRoutes.PATCH("/:id", messageController.UpdateMessage)
 		messageRoutes.DELETE("/:id", messageController.DeleteMessage)
+		messageRoutes.PUT("/:id/pin", messageController.PinMessage)
+		messageRoutes.DELETE("/:id/pin", messageController.UnpinMessage)
+		messageRoutes.GET("/:roomId/pinned", messageController.FetchPinned)
 		messageRoutes.POST("/:id/reactions", messageController.AddReaction)
 		messageRoutes.DELETE("/:id/reactions", messageController.RemoveReaction)
 	}

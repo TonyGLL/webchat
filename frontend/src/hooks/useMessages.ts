@@ -5,6 +5,7 @@ import { useSocket } from './useSocket';
 // Events the backend broadcasts to a room (see backend/internal/message/application).
 type WebSocketMessage =
   | { type: 'new_message'; payload: IGetRoomMessages }
+  | { type: 'pin_message'; payload: { message_id: string; pinned: boolean } }
   | { type: 'delete_message'; payload: { message_id: string } }
   | { type: 'update_message'; payload: { message_id: string; content: string } }
   | { type: 'reaction_added'; payload: IReaction & { message_id: string } }
@@ -27,6 +28,7 @@ export const useMessages = (roomId: string | null) => {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [pinned, setPinned] = useState<IGetRoomMessages[]>([]);
   const [pending, setPending] = useState<PendingMessage[]>([]);
 
   const fetchMessages = useCallback(async () => {
@@ -46,6 +48,29 @@ export const useMessages = (roomId: string | null) => {
     }
   }, [roomId]);
 
+  // Keep the pin state shown on messages already loaded in sync.
+  const markPinned = useCallback((messageId: string, isPinned: boolean) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, pinned_at: isPinned ? new Date().toISOString() : null } : m))
+    );
+  }, []);
+
+  const fetchPinned = useCallback(async () => {
+    if (!roomId) {
+      setPinned([]);
+      return;
+    }
+    try {
+      setPinned(await messageService.getPinned(roomId));
+    } catch (error) {
+      console.error('Failed to fetch pinned messages', error);
+    }
+  }, [roomId]);
+
+  useEffect(() => {
+    fetchPinned();
+  }, [fetchPinned]);
+
   useEffect(() => {
     fetchMessages();
     setPending([]); // unconfirmed messages belong to the room they were typed in
@@ -59,12 +84,13 @@ export const useMessages = (roomId: string | null) => {
       if (hadDrop.current) {
         hadDrop.current = false;
         fetchMessages();
+        fetchPinned();
       }
       wasConnected.current = true;
     } else if (wasConnected.current) {
       hadDrop.current = true;
     }
-  }, [socket, fetchMessages]);
+  }, [socket, fetchMessages, fetchPinned]);
 
   useEffect(() => {
     if (!socket) return;
@@ -82,8 +108,14 @@ export const useMessages = (roomId: string | null) => {
             }
             break;
 
+          case 'pin_message':
+            markPinned(message.payload.message_id, message.payload.pinned);
+            fetchPinned();
+            break;
+
           case 'delete_message':
             setMessages((prev) => prev.filter((msg) => msg.id !== message.payload.message_id));
+            setPinned((prev) => prev.filter((msg) => msg.id !== message.payload.message_id));
             break;
 
           case 'update_message':
@@ -133,7 +165,7 @@ export const useMessages = (roomId: string | null) => {
     return () => {
       socket.removeEventListener('message', handleMessage);
     };
-  }, [socket, roomId]);
+  }, [socket, roomId, fetchPinned, markPinned]);
 
   // Messages are kept newest first, so the last one is the oldest loaded.
   const loadMore = async () => {
@@ -184,6 +216,16 @@ export const useMessages = (roomId: string | null) => {
 
   const discardMessage = (tempId: string) => setPending((prev) => prev.filter((p) => p.tempId !== tempId));
 
+  const togglePin = async (messageId: string, pin: boolean) => {
+    try {
+      await messageService.setPinned(messageId, pin);
+      markPinned(messageId, pin);
+      await fetchPinned();
+    } catch (error) {
+      console.error('Failed to update pin', error);
+    }
+  };
+
   const deleteMessage = async (messageId: string) => {
     try {
       await messageService.deleteMessage(messageId);
@@ -209,5 +251,5 @@ export const useMessages = (roomId: string | null) => {
     }
   };
 
-  return { messages, pending, retryMessage, discardMessage, loading, loadingMore, hasMore, loadMore, createMessage, deleteMessage, addReaction, removeReaction, setMessages };
+  return { messages, pinned, togglePin, pending, retryMessage, discardMessage, loading, loadingMore, hasMore, loadMore, createMessage, deleteMessage, addReaction, removeReaction, setMessages };
 };

@@ -44,6 +44,7 @@ export default function DashboardPage() {
           <MessageView
             roomId={selectedRoom}
             roomName={room?.name}
+            canPin={room?.my_role === 'owner' || room?.my_role === 'admin'}
             onBack={() => setSelectedRoom(null)}
             onLeave={async () => {
               if (!selectedRoom) return;

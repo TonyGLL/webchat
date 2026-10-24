@@ -23,6 +23,8 @@ type MessageController struct {
 	removeReactionUseCase *application.RemoveReactionUseCase
 	listMessagesUseCase   *application.ListMessagesUseCase
 	deleteMessageUseCase  *application.DeleteMessageUseCase
+	pinMessageUseCase     *application.PinMessageUseCase
+	listPinnedUseCase     *application.ListPinnedUseCase
 	validate              *validator.Validate
 }
 
@@ -33,6 +35,8 @@ func NewMessageController(
 	removeReactionUseCase *application.RemoveReactionUseCase,
 	listMessagesUseCase *application.ListMessagesUseCase,
 	deleteMessageUseCase *application.DeleteMessageUseCase,
+	pinMessageUseCase *application.PinMessageUseCase,
+	listPinnedUseCase *application.ListPinnedUseCase,
 	validate *validator.Validate,
 ) *MessageController {
 	return &MessageController{
@@ -42,6 +46,8 @@ func NewMessageController(
 		removeReactionUseCase: removeReactionUseCase,
 		listMessagesUseCase:   listMessagesUseCase,
 		deleteMessageUseCase:  deleteMessageUseCase,
+		pinMessageUseCase:     pinMessageUseCase,
+		listPinnedUseCase:     listPinnedUseCase,
 		validate:              validate,
 	}
 }
@@ -128,6 +134,41 @@ func (ctrl *MessageController) DeleteMessage(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func (ctrl *MessageController) setPinned(c *gin.Context, pinned bool) {
+	userID, err := request.GetUserID(c)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, err.Error())
+		return
+	}
+	messageID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid message ID format")
+		return
+	}
+	if err := ctrl.pinMessageUseCase.Execute(c.Request.Context(), messageID, userID, pinned); err != nil {
+		respondError(c, err, "Failed to update pin")
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (ctrl *MessageController) PinMessage(c *gin.Context)   { ctrl.setPinned(c, true) }
+func (ctrl *MessageController) UnpinMessage(c *gin.Context) { ctrl.setPinned(c, false) }
+
+func (ctrl *MessageController) FetchPinned(c *gin.Context) {
+	userID, err := request.GetUserID(c)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, err.Error())
+		return
+	}
+	messages, err := ctrl.listPinnedUseCase.Execute(c.Request.Context(), c.Param("roomId"), userID)
+	if err != nil {
+		respondError(c, err, "Failed to fetch pinned messages")
+		return
+	}
+	response.JSON(c, http.StatusOK, messages)
 }
 
 func (ctrl *MessageController) AddReaction(c *gin.Context) {

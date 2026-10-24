@@ -9,6 +9,7 @@ export interface Room {
   created_at: string;
   /** Messages from other people since the user last opened the room. */
   unread_count: number;
+  my_role: 'owner' | 'admin' | 'member';
 }
 
 export interface CreateRoomData {

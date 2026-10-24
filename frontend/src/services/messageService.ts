@@ -13,6 +13,7 @@ export interface IGetRoomMessages {
   room_id: string;
   created_at: string;
   reply_to_message_id?: string | null;
+  pinned_at?: string | null;
   edited_at?: string | null;
   reactions?: IReaction[];
 }
@@ -29,6 +30,16 @@ export const messageService = {
   createMessage: async (data: { room_id: string; content: string; reply_to_message_id?: string }) => {
     const response = await api.post('/messages', data);
     return response.data;
+  },
+
+  getPinned: async (roomId: string): Promise<IGetRoomMessages[]> => {
+    const response = await api.get(`/messages/${roomId}/pinned`);
+    return response.data ?? [];
+  },
+
+  setPinned: async (messageId: string, pinned: boolean): Promise<void> => {
+    if (pinned) await api.put(`/messages/${messageId}/pin`);
+    else await api.delete(`/messages/${messageId}/pin`);
   },
 
   deleteMessage: async (messageId: string): Promise<void> => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, LogOut, MessageSquare, Reply, Send, Trash2, X } from 'lucide-react';
+import { ArrowLeft, LogOut, MessageSquare, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
 import { IGetRoomMessages } from '@/services/messageService';
 import { useMessages } from '@/hooks/useMessages';
 import Spinner from './Spinner';
@@ -15,6 +15,8 @@ dayjs.extend(isToday);
 interface MessageViewProps {
   roomId: string | null;
   roomName?: string;
+  /** Owners and admins can pin messages. */
+  canPin?: boolean;
   onBack: () => void;
   /** Leaves the current room (the owner cannot). Resolves when the server accepted it. */
   onLeave: () => Promise<void>;
@@ -32,9 +34,11 @@ const formatTimestamp = (date: string | Date) => {
   return new Date(date).toLocaleTimeString('en-US', options);
 };
 
-export default function MessageView({ roomId, roomName, onBack, onLeave }: MessageViewProps) {
+export default function MessageView({ roomId, roomName, canPin = false, onBack, onLeave }: MessageViewProps) {
   const {
     messages,
+    pinned,
+    togglePin,
     pending,
     retryMessage,
     discardMessage,
@@ -130,6 +134,21 @@ export default function MessageView({ roomId, roomName, onBack, onLeave }: Messa
         </Button>
       </header>
 
+      {pinned.length > 0 && (
+        <div className="shrink-0 border-b bg-muted/40 px-4 py-2 text-xs">
+          <p className="mb-1 flex items-center gap-1 font-medium text-muted-foreground">
+            <Pin className="h-3 w-3" /> Pinned
+          </p>
+          <ul className="max-h-20 space-y-1 overflow-y-auto">
+            {pinned.map((p) => (
+              <li key={p.id} className="truncate">
+                {p.content}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
         {loading ? (
           <div className="py-8">
@@ -168,6 +187,16 @@ export default function MessageView({ roomId, roomName, onBack, onLeave }: Messa
                     <button type="button" className="flex items-center gap-1 hover:text-foreground" onClick={() => setReplyingTo(msg)}>
                       <Reply className="h-3 w-3" /> Reply
                     </button>
+                    {canPin && (
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 hover:text-foreground"
+                        onClick={() => togglePin(msg.id, !msg.pinned_at)}
+                      >
+                        {msg.pinned_at ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                        {msg.pinned_at ? 'Unpin' : 'Pin'}
+                      </button>
+                    )}
                     {isCurrentUser && (
                       <button
                         type="button"

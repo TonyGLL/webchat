@@ -46,7 +46,8 @@ func (r *PgRoomRepository) FindRoomsByUserID(ctx context.Context, userID int) ([
 		SELECT r.id, r.owner_id, r.name, r.topic, r.is_private, r.created_at, r.updated_at,
 			(SELECT COUNT(*) FROM messages m
 			  WHERE m.room_id = r.id AND m.created_at > rm.last_read_at
-			    AND m.author_id <> rm.user_id AND m.deleted_at IS NULL) AS unread_count
+			    AND m.author_id <> rm.user_id AND m.deleted_at IS NULL) AS unread_count,
+			rm.role
 		FROM rooms r JOIN room_members rm ON r.id = rm.room_id
 		WHERE rm.user_id = $1 ORDER BY r.name`
 	rows, err := r.db.QueryContext(ctx, query, userID)
@@ -57,7 +58,7 @@ func (r *PgRoomRepository) FindRoomsByUserID(ctx context.Context, userID int) ([
 	rooms := []*domain.Room{}
 	for rows.Next() {
 		room := &domain.Room{}
-		err := rows.Scan(&room.ID, &room.OwnerID, &room.Name, &room.Topic, &room.IsPrivate, &room.CreatedAt, &room.UpdatedAt, &room.UnreadCount)
+		err := rows.Scan(&room.ID, &room.OwnerID, &room.Name, &room.Topic, &room.IsPrivate, &room.CreatedAt, &room.UpdatedAt, &room.UnreadCount, &room.MyRole)
 		if err != nil {
 			return nil, err
 		}

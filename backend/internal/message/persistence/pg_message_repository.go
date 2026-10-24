@@ -77,6 +77,7 @@ func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID
 			m.created_at, 
 			m.edited_at, 
 			m.deleted_at,
+			m.pinned_at,
 			COALESCE(json_agg(
 				json_build_object(
 					'message_id', r.message_id,
@@ -103,7 +104,7 @@ func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID
 	for rows.Next() {
 		var msg domain.Message
 		var reactionsJSON []byte
-		err := rows.Scan(&msg.ID, &msg.Content, &msg.AuthorID, &msg.RoomID, &msg.ReplyToMessageID, &msg.CreatedAt, &msg.EditedAt, &msg.DeletedAt, &reactionsJSON)
+		err := rows.Scan(&msg.ID, &msg.Content, &msg.AuthorID, &msg.RoomID, &msg.ReplyToMessageID, &msg.CreatedAt, &msg.EditedAt, &msg.DeletedAt, &msg.PinnedAt, &reactionsJSON)
 		if err != nil {
 			return nil, err
 		}
@@ -123,4 +124,39 @@ func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID
 		return nil, err
 	}
 	return messages, nil
+}
+
+func (r *PgMessageRepository) MemberRole(ctx context.Context, roomID uuid.UUID, userID int) (string, bool, error) {
+	var role string
+	err := r.db.QueryRowContext(ctx, `SELECT role::text FROM room_members WHERE room_id = $1 AND user_id = $2`, roomID, userID).Scan(&role)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	return role, err == nil, err
+}
+
+func (r *PgMessageRepository) SetPinned(ctx context.Context, id uuid.UUID, pinned bool) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE messages SET pinned_at = CASE WHEN $2 THEN NOW() ELSE NULL END WHERE id = $1`, id, pinned)
+	return err
+}
+
+func (r *PgMessageRepository) FindPinned(ctx context.Context, roomID uuid.UUID) ([]*domain.Message, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, content, author_id, room_id, reply_to_message_id, created_at, edited_at, deleted_at, pinned_at
+		FROM messages
+		WHERE room_id = $1 AND pinned_at IS NOT NULL AND deleted_at IS NULL
+		ORDER BY pinned_at DESC`, roomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	messages := []*domain.Message{}
+	for rows.Next() {
+		var msg domain.Message
+		if err := rows.Scan(&msg.ID, &msg.Content, &msg.AuthorID, &msg.RoomID, &msg.ReplyToMessageID, &msg.CreatedAt, &msg.EditedAt, &msg.DeletedAt, &msg.PinnedAt); err != nil {
+			return nil, err
+		}
+		messages = append(messages, &msg)
+	}
+	return messages, rows.Err()
 }

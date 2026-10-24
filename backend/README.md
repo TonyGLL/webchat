@@ -46,6 +46,7 @@ Prefijo `/api/v1`, excepto `/health` y `/ready`. Salvo registro, login, refresh 
 | `POST /rooms/accept-invite/:code` | Aceptar una invitación |
 | `GET /messages/:roomId/messages` | Historial paginado por cursor (`limit`, `before`=id del mensaje más antiguo cargado); solo miembros |
 | `POST /messages` · `PATCH /messages/:id` · `DELETE /messages/:id` | Enviar (con `reply_to_message_id` opcional para responder) · editar · borrar (solo el autor; borrado lógico) |
+| `PUT /messages/:id/pin` · `DELETE /messages/:id/pin` · `GET /messages/:roomId/pinned` | Fijar/desfijar (solo dueño o admin de la sala) · listar fijados |
 | `POST/DELETE /messages/:id/reactions` | Añadir · quitar reacción |
 | `POST /ws-ticket` → `GET /ws?ticket=` | Ticket de un solo uso (30 s) y conexión WebSocket |
 

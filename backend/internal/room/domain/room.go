@@ -24,6 +24,8 @@ type Room struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	// UnreadCount is only filled when listing a user's rooms.
 	UnreadCount int `json:"unread_count"`
+	// MyRole is the requesting user's role; only filled when listing a user's rooms.
+	MyRole RoomRole `json:"my_role,omitempty"`
 }
 
 type RoomMember struct {
