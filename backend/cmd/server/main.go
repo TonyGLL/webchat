@@ -114,6 +114,8 @@ func main() {
 		{Method: "POST", Path: "/api/v1/auth/send-verify-email/:user_id", Limit: 5, Window: 10 * time.Minute},
 		{Method: "POST", Path: "/api/v1/ws-ticket", Limit: 30, Window: time.Minute},
 		{Method: "POST", Path: "/api/v1/messages", Limit: 120, Window: time.Minute},
+		{Method: "GET", Path: "/api/v1/users/export", Limit: 5, Window: time.Hour},
+		{Method: "DELETE", Path: "/api/v1/users/me", Limit: 5, Window: time.Hour},
 		{Method: "GET", Path: "/api/v1/messages/search", Limit: 60, Window: time.Minute},
 	}))
 
@@ -134,7 +136,7 @@ func main() {
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL, cfg.IsProduction())
-	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
+	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService), wsHub)
 	moderationRepository := moderation_persistence.NewPgRepository(database)
 	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub, presence, moderationRepository)
 	moderation.RegisterModule(moderationRepository, wsHub, apiV1, http.JWTMiddleware(jwtService))

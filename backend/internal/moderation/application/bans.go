@@ -57,7 +57,7 @@ func (uc *BansUseCase) Ban(ctx context.Context, roomID uuid.UUID, actorID, targe
 		return shared_domain.ErrForbidden
 	}
 
-	if err := uc.repo.UpsertBan(ctx, domain.Ban{UserID: targetID, RoomID: roomID, BannedBy: actorID, Reason: reason, ExpiresAt: expires}); err != nil {
+	if err := uc.repo.UpsertBan(ctx, domain.Ban{UserID: targetID, RoomID: roomID, BannedBy: &actorID, Reason: reason, ExpiresAt: expires}); err != nil {
 		return err
 	}
 	if target.IsMember {

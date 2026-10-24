@@ -1,6 +1,7 @@
 package users
 
 import (
+	auth_domain "backend/internal/auth/domain"
 	shared_app "backend/internal/shared/application"
 	"backend/internal/users/application/usecases"
 	"backend/internal/users/domain"
@@ -19,13 +20,17 @@ func RegisterModule(
 	mailerService shared_app.MailerService,
 	store shared_app.Store,
 	authMiddleware gin.HandlerFunc,
+	realtime usecases.Realtime,
 ) {
 	// Initialize use cases
 	deactivateUserUseCase := usecases.NewDeactivateUserUseCase(usersRepository)
 	getUserProfileUseCase := usecases.NewGetUserProfileUseCase(usersRepository)
 
+	exportAccountUseCase := usecases.NewExportAccountUseCase(usersRepository)
+	deleteAccountUseCase := usecases.NewDeleteAccountUseCase(usersRepository, auth_domain.NewPasswordService(), realtime)
+
 	// Initialize the controller
-	usersController := presentation.NewUsersController(deactivateUserUseCase, getUserProfileUseCase, validate)
+	usersController := presentation.NewUsersController(deactivateUserUseCase, getUserProfileUseCase, exportAccountUseCase, deleteAccountUseCase, validate)
 
 	// Register authenticated routes
 	usersRoutes := router.Group("/users")
@@ -33,5 +38,7 @@ func RegisterModule(
 	{
 		usersRoutes.GET("/profile", usersController.GetUserProfile)
 		usersRoutes.DELETE("/deactivate", usersController.DeactivateUser)
+		usersRoutes.GET("/export", usersController.ExportAccount)
+		usersRoutes.DELETE("/me", usersController.DeleteAccount)
 	}
 }

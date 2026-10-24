@@ -67,7 +67,7 @@ type MessageRef struct {
 type Ban struct {
 	UserID    int        `json:"user_id"`
 	RoomID    uuid.UUID  `json:"room_id"`
-	BannedBy  int        `json:"banned_by_id"`
+	BannedBy  *int       `json:"banned_by_id"`
 	Reason    string     `json:"reason"`
 	ExpiresAt *time.Time `json:"expires_at"`
 	CreatedAt time.Time  `json:"created_at"`

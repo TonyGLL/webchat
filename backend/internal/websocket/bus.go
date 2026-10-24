@@ -12,6 +12,7 @@ const (
 	eventBroadcast   = "broadcast"
 	eventSubscribe   = "subscribe"
 	eventUnsubscribe = "unsubscribe"
+	eventDisconnect  = "disconnect"
 	busChannel       = "webchat:ws:events"
 )
 

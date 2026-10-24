@@ -51,7 +51,7 @@ func (r *PgRoomRepository) FindRoomsByUserID(ctx context.Context, userID int) ([
 			r.topic, r.is_private, r.is_direct, r.created_at, r.updated_at,
 			(SELECT COUNT(*) FROM messages m
 			  WHERE m.room_id = r.id AND m.created_at > rm.last_read_at
-			    AND m.author_id <> rm.user_id AND m.deleted_at IS NULL) AS unread_count,
+			    AND m.author_id IS DISTINCT FROM rm.user_id AND m.deleted_at IS NULL) AS unread_count,
 			rm.role
 		FROM rooms r JOIN room_members rm ON r.id = rm.room_id
 		WHERE rm.user_id = $1 ORDER BY r.name`

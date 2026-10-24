@@ -8,6 +8,8 @@ import Spinner from '@/components/Spinner';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import { userService } from '@/services/userService';
 
 export default function ProfilePage() {
   const { profile, loading, deactivate } = useUser();
@@ -21,6 +23,33 @@ export default function ProfilePage() {
       router.push('/login');
     } catch (error) {
       console.error('Failed to deactivate account', error);
+    }
+  };
+
+  const [password, setPassword] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleExport = async () => {
+    try {
+      const url = URL.createObjectURL(await userService.exportData());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'webchat-my-data.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setMessage('Could not export your data. Try again later.');
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await userService.deleteAccount(password);
+      logout();
+      router.push('/login');
+    } catch {
+      setMessage('Wrong password, or the account could not be deleted.');
     }
   };
 
@@ -48,6 +77,13 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="space-y-3 rounded-lg border p-4">
+              <h2 className="text-sm font-medium">Your data</h2>
+              <p className="text-sm text-muted-foreground">Download a JSON file with your profile, rooms, messages and reactions.</p>
+              <Button variant="outline" onClick={handleExport} className="w-full">
+                Download my data
+              </Button>
+            </div>
+            <div className="space-y-3 rounded-lg border p-4">
               <h2 className="text-sm font-medium">Danger zone</h2>
               <p className="text-sm text-muted-foreground">
                 Deactivating your account signs you out and disables your access.
@@ -55,6 +91,34 @@ export default function ProfilePage() {
               <Button variant="destructive" onClick={handleDeactivate} className="w-full">
                 Deactivate account
               </Button>
+              <hr />
+              <p className="text-sm text-muted-foreground">
+                Deleting is permanent. Rooms you own pass to another member (or are removed if you are alone); your messages stay, shown as “deleted user”.
+              </p>
+              {confirming ? (
+                <div className="space-y-2">
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Confirm with your password"
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    autoComplete="current-password"
+                  />
+                  <Button variant="destructive" disabled={!password} onClick={handleDelete} className="w-full">
+                    Delete my account forever
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={() => setConfirming(true)} className="w-full">
+                  Delete account
+                </Button>
+              )}
+              {message && (
+                <p className="text-sm text-destructive" role="alert">
+                  {message}
+                </p>
+              )}
             </div>
           </div>
         ) : (

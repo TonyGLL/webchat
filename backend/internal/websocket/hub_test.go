@@ -199,3 +199,24 @@ func TestTypingIsRelayedOnlyForSubscribedRoomsAndRateLimited(t *testing.T) {
 	typer.handleClientEvent([]byte(`{"type":"something_else","room_id":"room"}`), now)
 	expectNothing(t, watcher)
 }
+
+func TestDisconnectUserClosesAllTheirConnections(t *testing.T) {
+	a1, a2, b := newTestClient(1, 4), newTestClient(1, 4), newTestClient(2, 4)
+	hub := startHub(t, a1, a2, b)
+	hub.AddClientToRoom(b, "room")
+
+	hub.DisconnectUser(1)
+
+	for _, c := range []*Client{a1, a2} {
+		select {
+		case _, open := <-c.send:
+			if open {
+				t.Fatal("connection should be closed")
+			}
+		case <-time.After(time.Second):
+			t.Fatal("connection was not closed")
+		}
+	}
+	hub.Broadcast("ping", 1, "room")
+	receive(t, b) // other users are unaffected
+}

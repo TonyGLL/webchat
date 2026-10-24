@@ -49,7 +49,7 @@ func (r *PgMessageRepository) SoftDelete(ctx context.Context, id uuid.UUID) (str
 }
 
 func (r *PgMessageRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Message, error) {
-	query := `SELECT id, content, author_id, room_id, created_at, edited_at, deleted_at FROM messages WHERE id = $1;`
+	query := `SELECT id, content, COALESCE(author_id, 0), room_id, created_at, edited_at, deleted_at FROM messages WHERE id = $1;`
 	var msg domain.Message
 	err := r.db.QueryRowContext(ctx, query, id).Scan(&msg.ID, &msg.Content, &msg.AuthorID, &msg.RoomID, &msg.CreatedAt, &msg.EditedAt, &msg.DeletedAt)
 	if err != nil {
@@ -72,7 +72,7 @@ func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID
 		SELECT 
 			m.id, 
 			m.content, 
-			m.author_id, 
+			COALESCE(m.author_id, 0), 
 			m.room_id, 
 			m.reply_to_message_id, 
 			m.created_at, 
@@ -156,7 +156,7 @@ func (r *PgMessageRepository) SetPinned(ctx context.Context, id uuid.UUID, pinne
 
 func (r *PgMessageRepository) FindPinned(ctx context.Context, roomID uuid.UUID) ([]*domain.Message, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, content, author_id, room_id, reply_to_message_id, created_at, edited_at, deleted_at, pinned_at
+		SELECT id, content, COALESCE(author_id, 0), room_id, reply_to_message_id, created_at, edited_at, deleted_at, pinned_at
 		FROM messages
 		WHERE room_id = $1 AND pinned_at IS NOT NULL AND deleted_at IS NULL
 		ORDER BY pinned_at DESC`, roomID)
@@ -177,7 +177,7 @@ func (r *PgMessageRepository) FindPinned(ctx context.Context, roomID uuid.UUID) 
 
 func (r *PgMessageRepository) Search(ctx context.Context, userID int, query string, roomID *uuid.UUID, limit int) ([]*domain.Message, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT m.id, m.content, m.author_id, m.room_id, m.reply_to_message_id, m.created_at, m.edited_at, m.deleted_at, m.pinned_at
+		SELECT m.id, m.content, COALESCE(m.author_id, 0), m.room_id, m.reply_to_message_id, m.created_at, m.edited_at, m.deleted_at, m.pinned_at
 		FROM messages m
 		JOIN room_members rm ON rm.room_id = m.room_id AND rm.user_id = $1
 		WHERE m.deleted_at IS NULL

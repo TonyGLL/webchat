@@ -174,6 +174,28 @@ func (h *Hub) UnsubscribeUser(userID int, roomID string) {
 	h.unsubscribeUserLocal(userID, roomID)
 }
 
+// DisconnectUser closes every connection of a user (for example after deleting their account).
+func (h *Hub) DisconnectUser(userID int) {
+	if h.bus != nil {
+		err := h.bus.Publish(context.Background(), Event{Kind: eventDisconnect, UserID: userID})
+		if err == nil {
+			return
+		}
+		log.Printf("websocket bus unavailable, disconnecting locally: %v", err)
+	}
+	h.disconnectUserLocal(userID)
+}
+
+func (h *Hub) disconnectUserLocal(userID int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for client := range h.clients {
+		if client.UserID == userID {
+			h.removeClientLocked(client)
+		}
+	}
+}
+
 func (h *Hub) unsubscribeUserLocal(userID int, roomID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -219,6 +241,8 @@ func (h *Hub) StartBus(ctx context.Context) error {
 				h.broadcast <- &Message{Type: e.Type, Payload: e.Payload, RoomID: e.RoomID}
 			case eventSubscribe:
 				h.subscribeUserLocal(e.UserID, e.RoomID)
+			case eventDisconnect:
+				h.disconnectUserLocal(e.UserID)
 			case eventUnsubscribe:
 				h.unsubscribeUserLocal(e.UserID, e.RoomID)
 			}
