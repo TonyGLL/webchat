@@ -36,11 +36,6 @@ Plantilla para añadir uno nuevo:
 
 ### Calidad y pruebas
 
-### H-020 No hay tests
-- **Severidad:** 🔴 · **Fase:** 0 · **Área:** front + back · **Verificación:** Confirmado
-- **Descripción:** no existen archivos `_test.go` ni tests en el frontend.
-- **Propuesta:** empezar por use cases de auth y mensajes; Vitest en frontend.
-
 ### Datos y rendimiento
 
 ### Operación y documentación
@@ -68,6 +63,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-020 | Pruebas automáticas: backend (config, política de contraseñas, autorización de mensajes/salas/invitaciones, rate limit, health, origen y tickets de WebSocket, hub con `-race`, bus entre instancias) y frontend con Vitest (almacenamiento de tokens y renovación del token); ambas corren en CI | 2026-10-23 | _(este commit)_ |
 | H-032 | Hub de WebSocket multi-instancia: los eventos y las suscripciones viajan por Redis pub/sub, así que varias instancias del backend pueden servir las mismas salas (probado con un bus en memoria entre dos hubs y en vivo con Redis) | 2026-10-23 | b4604f6 |
 | H-031 | Historial por cursor (`before` = id del mensaje más antiguo) en vez de página/offset, que duplicaba mensajes con tráfico en vivo; oculta mensajes borrados; botón "Load older messages" que conserva el scroll | 2026-10-23 | 555e434 |
 | H-030 | Migraciones versionadas con golang-migrate, aplicadas al arrancar; las bases creadas a mano se adoptan como versión 1 | 2026-10-23 | 42e1b61 |

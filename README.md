@@ -76,7 +76,7 @@ Everything except register, login, refresh and email verification requires `Auth
 make test             # go test -v ./...
 make watch            # live reload with air
 # frontend (from frontend/)
-bunx tsc --noEmit && bun run lint && bun run build
+bunx tsc --noEmit && bun run lint && bun run test && bun run build
 ```
 
 CI (`.github/workflows/ci.yml`) runs formatting, vet, build and tests for the backend, and type check, lint and build for the frontend.
