@@ -1,26 +1,26 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, LogOut, Smile, UserPlus, Shield, Users, Flag, MessageSquare, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { ArrowLeft, LogOut, UserPlus, Shield, Users, MessageSquare, Pin, Reply, X } from 'lucide-react';
 import { IGetRoomMessages } from '@/services/messageService';
 import { useMessages } from '@/hooks/useMessages';
 import { useRoomActivity } from '@/hooks/useRoomActivity';
 import { typingLabel } from '@/lib/typing';
-import ModerationPanel from './ModerationPanel';
 import { moderationService } from '@/services/moderationService';
 import { RANK, assignableRoles, canDeleteAnyMessage, canModerate, canPin as rankCanPin, rankOf, RoomRole } from '@/lib/permissions';
 import Spinner from './Spinner';
 import { useUser } from '@/hooks/useUser';
-import dayjs from 'dayjs';
-import isToday from 'dayjs/plugin/isToday';
-import Reaction from './Reaction';
 import Avatar from './Avatar';
-import EmojiPicker from './EmojiPicker';
-import InviteUsers from './InviteUsers';
+import MessageItem, { RoleLabel } from './MessageItem';
+import MessageComposer from './MessageComposer';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { intlLocale, Locale } from '@/lib/i18n';
+import { followBehavior, isNearBottom } from '@/lib/scroll';
+import { useStableCallback } from '@/hooks/useStableCallback';
 import { useT } from '@/lib/i18n/useT';
-dayjs.extend(isToday);
+
+// Opened on demand from the header: not needed for the first paint.
+const ModerationPanel = dynamic(() => import('./ModerationPanel'));
+const InviteUsers = dynamic(() => import('./InviteUsers'));
 
 interface MessageViewProps {
   roomId: string | null;
@@ -37,20 +37,8 @@ interface MessageViewProps {
   onLeave: () => Promise<void>;
 }
 
-const formatTimestamp = (date: string | Date, locale: Locale) => {
-  const options: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: 'numeric' };
-
-  if (!dayjs(date).isToday()) {
-    options.day = 'numeric';
-    options.month = 'short';
-    options.year = 'numeric';
-  }
-
-  return new Date(date).toLocaleTimeString(intlLocale(locale), options);
-};
-
 export default function MessageView({ roomId, roomName, myRole, isDirect = false, onOpenDirect, onBack, onLeave }: MessageViewProps) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const {
     messages,
     pinned,
@@ -68,7 +56,6 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
     removeReaction,
   } = useMessages(roomId);
   const { profile } = useUser();
-  const [content, setContent] = useState('');
   const [replyingTo, setReplyingTo] = useState<IGetRoomMessages | null>(null);
   const [showMembers, setShowMembers] = useState(false);
   const { members, typingNames, notifyTyping, changeRole, kickMember, banMember } = useRoomActivity(roomId);
@@ -85,7 +72,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
       setMemberError(t('chat.actionNotAllowed'));
     }
   };
-  const reportMessage = async (messageId: string) => {
+  const reportMessage = useStableCallback(async (messageId: string) => {
     const reason = window.prompt(t('chat.reportPrompt'));
     if (!reason?.trim()) return;
     try {
@@ -94,7 +81,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
     } catch {
       setNotice(t('chat.reportFailed'));
     }
-  };
+  });
   const onlineCount = members.filter((m) => m.online).length;
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -104,20 +91,31 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   // The API returns newest first; the chat shows oldest first.
   const ordered = useMemo(() => messages?.slice().reverse() ?? [], [messages]);
 
-  // Follow the conversation only when a newer message arrives; when older ones are
-  // prepended, keep the reader where they were.
+  // Follow the conversation when a newer message arrives and the reader is at the bottom (or sent it);
+  // when older ones are prepended, keep the reader where they were.
+  const nearBottomRef = useRef(true);
+  const handleScroll = () => {
+    if (scrollRef.current) nearBottomRef.current = isNearBottom(scrollRef.current);
+  };
   useEffect(() => {
     const container = scrollRef.current;
-    const newestId = pending[0]?.tempId ?? ordered[ordered.length - 1]?.id ?? null;
+    const newest = ordered[ordered.length - 1];
+    const newestId = pending[0]?.tempId ?? newest?.id ?? null;
 
     if (heightBeforeLoadRef.current !== null && container) {
       container.scrollTop = container.scrollHeight - heightBeforeLoadRef.current;
       heightBeforeLoadRef.current = null;
     } else if (newestId !== newestIdRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const behavior = followBehavior({
+        firstLoad: newestIdRef.current === null,
+        own: pending.length > 0 || newest?.author_id === profile?.id,
+        nearBottom: nearBottomRef.current,
+        reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      });
+      if (behavior) messagesEndRef.current?.scrollIntoView({ behavior });
     }
     newestIdRef.current = newestId;
-  }, [ordered, pending]);
+  }, [ordered, pending, profile?.id]);
 
   const handleLeave = async () => {
     if (!window.confirm(t('chat.leaveConfirm', { room: roomName ?? t('chat.thisRoom') }))) return;
@@ -130,7 +128,6 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
 
   const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
   const [showInvite, setShowInvite] = useState(false);
-  const [showEmoji, setShowEmoji] = useState(false);
   const memberById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
   const fullName = (m: { name: string; last_name?: string | null }) => [m.name, m.last_name].filter(Boolean).join(' ');
   const authorName = (id: number) => {
@@ -140,26 +137,27 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   };
   // In a direct conversation the other member is who the header is about.
   const peer = isDirect ? members.find((m) => m.user_id !== profile?.id) : undefined;
-  const roleLabel = (role?: RoomRole) =>
-    role && role !== 'member' ? (
-      <span className={cn('text-[10px] font-semibold uppercase tracking-wide', role === 'moderator' ? 'text-muted-foreground' : 'text-primary')}>
-        {t(`role.${role}`)}
-      </span>
-    ) : null;
-
   const handleLoadMore = async () => {
     heightBeforeLoadRef.current = scrollRef.current?.scrollHeight ?? null;
     await loadMore();
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (roomId && content.trim()) {
-      createMessage({ room_id: roomId, content, reply_to_message_id: replyingTo?.id });
-      setContent('');
-      setReplyingTo(null);
-    }
-  };
+  const handleSend = useStableCallback((content: string) => {
+    if (!roomId) return;
+    createMessage({ room_id: roomId, content, reply_to_message_id: replyingTo?.id });
+    setReplyingTo(null);
+  });
+
+  // Stable row handlers: with the memoized MessageItem, only rows whose own data changed re-render.
+  const openDirectFromRow = useStableCallback((userId: number) => void onOpenDirect(userId));
+  const replyTo = useStableCallback((msg: IGetRoomMessages) => setReplyingTo(msg));
+  const pinFromRow = useStableCallback((messageId: string, pin: boolean) => void togglePin(messageId, pin));
+  const deleteFromRow = useStableCallback((messageId: string) => {
+    if (window.confirm(t('chat.deleteConfirm'))) void deleteMessage(messageId);
+  });
+  const addReactionFromRow = useStableCallback((messageId: string, emoji: string) => void addReaction(messageId, emoji));
+  const removeReactionFromRow = useStableCallback((messageId: string, emoji: string) => void removeReaction(messageId, emoji));
+  const canDeleteAny = canDeleteAnyMessage(myRank);
 
   if (!roomId) {
     return (
@@ -172,7 +170,6 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   }
 
   const iconButton = 'h-8 w-8 text-muted-foreground';
-  const actionClass = 'flex items-center gap-1 hover:text-foreground';
 
   const membersList = (
     <ul className="space-y-3 text-xs">
@@ -190,7 +187,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
               <span className={cn('min-w-0 flex-1 truncate', !m.online && 'text-muted-foreground')}>
                 {fullName(m)} <span className="text-xs text-muted-foreground">@{m.username}</span>
               </span>
-              {assignable.length === 0 || !others ? roleLabel(m.role) : null}
+              {assignable.length === 0 || !others ? <RoleLabel role={m.role} /> : null}
             </div>
             {others && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-4 text-xs text-muted-foreground">
@@ -368,7 +365,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 md:px-6">
+        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 md:px-6">
           {loading ? (
             <div className="py-8">
               <Spinner />
@@ -393,82 +390,30 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                 </li>
               )}
               {ordered.map((msg) => {
-                const isCurrentUser = msg.author_id === profile?.id;
-                const author = authorName(msg.author_id);
-                const role = memberById.get(msg.author_id)?.role;
                 const replied = msg.reply_to_message_id ? byId.get(msg.reply_to_message_id) : undefined;
+                const isCurrentUser = msg.author_id === profile?.id;
                 return (
-                  <li key={msg.id} className={cn('group flex gap-2.5 py-1', isCurrentUser && 'flex-row-reverse')}>
-                    <Avatar name={author} tone={isCurrentUser ? 'me' : 'other'} className="mt-0.5" />
-                    <div className={cn('flex min-w-0 max-w-[85%] flex-col md:max-w-[72%]', isCurrentUser && 'items-end')}>
-                      <div
-                        className={cn(
-                          'min-w-0 max-w-full rounded-xl border px-3.5 py-2.5 shadow-sm',
-                          isCurrentUser ? 'rounded-tr-sm border-primary/25 bg-soft' : 'rounded-tl-sm bg-card'
-                        )}
-                      >
-                        <div className="flex flex-wrap items-baseline gap-x-2">
-                          {!isCurrentUser && !isDirect ? (
-                            <button
-                              type="button"
-                              onClick={() => onOpenDirect(msg.author_id)}
-                              title={t('chat.messageUser', { name: author })}
-                              className="text-sm font-semibold hover:text-primary hover:underline"
-                            >
-                              {author}
-                            </button>
-                          ) : (
-                            <span className="text-sm font-semibold">{author}</span>
-                          )}
-                          {roleLabel(role)}
-                          <span className="font-mono text-[11px] text-muted-foreground">{formatTimestamp(msg.created_at, locale)}</span>
-                          <div className="ml-auto flex gap-3 pl-3 text-[11px] text-muted-foreground md:opacity-0 md:transition-opacity md:focus-within:opacity-100 md:group-hover:opacity-100">
-                            <button type="button" className={actionClass} onClick={() => setReplyingTo(msg)}>
-                              <Reply className="h-3 w-3" /> {t('chat.reply')}
-                            </button>
-                            {canPin && (
-                              <button type="button" className={actionClass} onClick={() => togglePin(msg.id, !msg.pinned_at)}>
-                                {msg.pinned_at ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-                                {msg.pinned_at ? t('chat.unpin') : t('chat.pin')}
-                              </button>
-                            )}
-                            {!isCurrentUser && !isDirect && (
-                              <button type="button" className={actionClass} onClick={() => reportMessage(msg.id)}>
-                                <Flag className="h-3 w-3" /> {t('chat.report')}
-                              </button>
-                            )}
-                            {(isCurrentUser || canDeleteAnyMessage(myRank)) && (
-                              <button
-                                type="button"
-                                className="flex items-center gap-1 hover:text-destructive"
-                                onClick={() => window.confirm(t('chat.deleteConfirm')) && deleteMessage(msg.id)}
-                              >
-                                <Trash2 className="h-3 w-3" /> {t('chat.delete')}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        {msg.reply_to_message_id && (
-                          <p className="mt-1.5 truncate rounded-md border-l-2 border-primary/40 bg-background/70 px-2.5 py-1 text-[13px] text-muted-foreground">
-                            {replied ? `${authorName(replied.author_id)}: ${replied.content}` : t('chat.originalMessage')}
-                          </p>
-                        )}
-                        <p className="mt-1 whitespace-pre-wrap break-words text-sm">{msg.content}</p>
-                      </div>
-                      {profile && (
-                        <div className="mt-1.5">
-                          <Reaction
-                            messageId={msg.id}
-                            reactions={msg.reactions ?? []}
-                            onAddReaction={addReaction}
-                            onRemoveReaction={removeReaction}
-                            currentUserId={profile.id}
-                            alignRight={isCurrentUser}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </li>
+                  <MessageItem
+                    key={msg.id}
+                    msg={msg}
+                    author={authorName(msg.author_id)}
+                    role={memberById.get(msg.author_id)?.role}
+                    replyPreview={
+                      msg.reply_to_message_id ? (replied ? `${authorName(replied.author_id)}: ${replied.content}` : t('chat.originalMessage')) : null
+                    }
+                    isCurrentUser={isCurrentUser}
+                    isDirect={isDirect}
+                    canPin={canPin}
+                    canDelete={isCurrentUser || canDeleteAny}
+                    currentUserId={profile?.id}
+                    onOpenDirect={openDirectFromRow}
+                    onReply={replyTo}
+                    onTogglePin={pinFromRow}
+                    onReport={reportMessage}
+                    onDelete={deleteFromRow}
+                    onAddReaction={addReactionFromRow}
+                    onRemoveReaction={removeReactionFromRow}
+                  />
                 );
               })}
               {pending.map((item) => (
@@ -516,35 +461,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
         <p className="h-5 shrink-0 px-4 text-xs text-muted-foreground md:px-6" aria-live="polite">
           {typingLabel(typingNames, t)}
         </p>
-        <form onSubmit={handleSendMessage} className="shrink-0 px-3 pb-4 md:px-6 md:pb-5">
-          <div className="flex h-12 items-center gap-2 rounded-lg border bg-card pl-4 pr-2 focus-within:ring-2 focus-within:ring-ring">
-            <Input
-              value={content}
-              onChange={(e) => {
-                setContent(e.target.value);
-                if (e.target.value) notifyTyping();
-              }}
-              placeholder={t('chat.writeMessage')}
-              aria-label={t('chat.message')}
-              className="h-auto flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setShowEmoji(true)} aria-label={t('chat.emoji')} title={t('chat.emoji')}>
-              <Smile className="h-4 w-4" />
-            </Button>
-            <Button type="submit" size="icon" className="h-8 w-8" disabled={!content.trim()} aria-label={t('chat.send')}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </form>
-        {showEmoji && (
-          <EmojiPicker
-            onSelect={(emoji) => {
-              setContent((c) => c + emoji);
-              setShowEmoji(false);
-            }}
-            onClose={() => setShowEmoji(false)}
-          />
-        )}
+        <MessageComposer onSend={handleSend} onTyping={notifyTyping} />
       </div>
 
       {showMembers && !isDirect && (

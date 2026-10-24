@@ -1,15 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { IGetRoomMessages, IReaction, messageService } from '@/services/messageService';
+import { IGetRoomMessages, messageService } from '@/services/messageService';
 import { useSocket } from './useSocket';
-
-// Events the backend broadcasts to a room (see backend/internal/message/application).
-type WebSocketMessage =
-  | { type: 'new_message'; payload: IGetRoomMessages }
-  | { type: 'pin_message'; payload: { message_id: string; pinned: boolean } }
-  | { type: 'delete_message'; payload: { message_id: string } }
-  | { type: 'update_message'; payload: { message_id: string; content: string } }
-  | { type: 'reaction_added'; payload: IReaction & { message_id: string } }
-  | { type: 'reaction_removed'; payload: IReaction & { message_id: string } };
+import { useSocketEvent } from './useSocketEvents';
 
 const PAGE_SIZE = 50;
 
@@ -91,80 +83,47 @@ export const useMessages = (roomId: string | null) => {
     }
   }, [socket, fetchMessages, fetchPinned]);
 
-  useEffect(() => {
-    if (!socket) return;
+  useSocketEvent('new_message', (message) => {
+    if (message.room_id === roomId) {
+      setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [message, ...prev]));
+    }
+  });
 
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const message: WebSocketMessage = JSON.parse(event.data);
+  useSocketEvent('pin_message', ({ message_id, pinned: isPinned }) => {
+    markPinned(message_id, isPinned);
+    fetchPinned();
+  });
 
-        switch (message.type) {
-          case 'new_message':
-            if (message.payload.room_id === roomId) {
-              setMessages((prev) =>
-                prev.some((m) => m.id === message.payload.id) ? prev : [message.payload, ...prev]
-              );
-            }
-            break;
+  useSocketEvent('delete_message', ({ message_id }) => {
+    setMessages((prev) => prev.filter((msg) => msg.id !== message_id));
+    setPinned((prev) => prev.filter((msg) => msg.id !== message_id));
+  });
 
-          case 'pin_message':
-            markPinned(message.payload.message_id, message.payload.pinned);
-            fetchPinned();
-            break;
+  useSocketEvent('update_message', ({ message_id, content }) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === message_id ? { ...msg, content, edited_at: new Date().toISOString() } : msg))
+    );
+  });
 
-          case 'delete_message':
-            setMessages((prev) => prev.filter((msg) => msg.id !== message.payload.message_id));
-            setPinned((prev) => prev.filter((msg) => msg.id !== message.payload.message_id));
-            break;
+  useSocketEvent('reaction_added', (reaction) => {
+    setMessages((prev) =>
+      prev.map((msg) => {
+        if (msg.id !== reaction.message_id) return msg;
+        const exists = msg.reactions?.some((r) => r.user_id === reaction.user_id && r.emoji === reaction.emoji);
+        return exists ? msg : { ...msg, reactions: [...(msg.reactions ?? []), reaction] };
+      })
+    );
+  });
 
-          case 'update_message':
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === message.payload.message_id
-                  ? { ...msg, content: message.payload.content, edited_at: new Date().toISOString() }
-                  : msg
-              )
-            );
-            break;
-
-          case 'reaction_added':
-            setMessages((prev) =>
-              prev.map((msg) => {
-                if (msg.id !== message.payload.message_id) return msg;
-                const exists = msg.reactions?.some(
-                  (r) => r.user_id === message.payload.user_id && r.emoji === message.payload.emoji
-                );
-                return exists ? msg : { ...msg, reactions: [...(msg.reactions ?? []), message.payload] };
-              })
-            );
-            break;
-
-          case 'reaction_removed':
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === message.payload.message_id
-                  ? {
-                      ...msg,
-                      reactions: msg.reactions?.filter(
-                        (r) => !(r.emoji === message.payload.emoji && r.user_id === message.payload.user_id)
-                      ),
-                    }
-                  : msg
-              )
-            );
-            break;
-        }
-      } catch (error) {
-        console.error('Error parsing incoming socket message:', error);
-      }
-    };
-
-    socket.addEventListener('message', handleMessage);
-
-    return () => {
-      socket.removeEventListener('message', handleMessage);
-    };
-  }, [socket, roomId, fetchPinned, markPinned]);
+  useSocketEvent('reaction_removed', (reaction) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === reaction.message_id
+          ? { ...msg, reactions: msg.reactions?.filter((r) => !(r.emoji === reaction.emoji && r.user_id === reaction.user_id)) }
+          : msg
+      )
+    );
+  });
 
   // Messages are kept newest first, so the last one is the oldest loaded.
   const loadMore = async () => {
