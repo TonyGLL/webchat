@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"backend/internal/room/application"
 	"backend/internal/room/domain"
@@ -23,6 +24,7 @@ type RoomController struct {
 	markRoomReadUseCase  *application.MarkRoomReadUseCase
 	leaveRoomUseCase     *application.LeaveRoomUseCase
 	listMembersUseCase   *application.ListMembersUseCase
+	openDirectUseCase    *application.OpenDirectUseCase
 	joinRoomUseCase      *application.JoinRoomUseCase
 	createInviteUseCase  *application.CreateInviteUseCase
 	acceptInviteUseCase  *application.AcceptInviteUseCase
@@ -36,6 +38,7 @@ func NewRoomController(
 	markRoomReadUseCase *application.MarkRoomReadUseCase,
 	leaveRoomUseCase *application.LeaveRoomUseCase,
 	listMembersUseCase *application.ListMembersUseCase,
+	openDirectUseCase *application.OpenDirectUseCase,
 	joinRoomUseCase *application.JoinRoomUseCase,
 	createInviteUseCase *application.CreateInviteUseCase,
 	acceptInviteUseCase *application.AcceptInviteUseCase,
@@ -47,6 +50,7 @@ func NewRoomController(
 		markRoomReadUseCase:  markRoomReadUseCase,
 		leaveRoomUseCase:     leaveRoomUseCase,
 		listMembersUseCase:   listMembersUseCase,
+		openDirectUseCase:    openDirectUseCase,
 		joinRoomUseCase:      joinRoomUseCase,
 		createInviteUseCase:  createInviteUseCase,
 		acceptInviteUseCase:  acceptInviteUseCase,
@@ -148,6 +152,32 @@ func (c *RoomController) MarkRead(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+// OpenDirect handles the endpoint for POST /api/v1/rooms/direct/:user_id
+func (c *RoomController) OpenDirect(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+	otherID, err := strconv.Atoi(ctx.Param("user_id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+	room, err := c.openDirectUseCase.Execute(ctx, userID, otherID)
+	switch {
+	case err == nil:
+		response.JSON(ctx, http.StatusOK, room)
+	case errors.Is(err, shared_domain.ErrInvalidInput):
+		response.Error(ctx, http.StatusBadRequest, "You cannot message yourself")
+	case errors.Is(err, domain.ErrUserNotFound):
+		response.Error(ctx, http.StatusNotFound, "User not found")
+	default:
+		log.Printf("failed to open direct conversation: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to open conversation")
+	}
 }
 
 // ListMembers handles the endpoint for GET /api/v1/rooms/members/:room_id

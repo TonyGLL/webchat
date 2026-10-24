@@ -19,6 +19,10 @@ interface MessageViewProps {
   roomName?: string;
   /** Owners and admins can pin messages. */
   canPin?: boolean;
+  /** One-to-one conversation: no member list. */
+  isDirect?: boolean;
+  /** Starts (or reopens) a one-to-one conversation with a member. */
+  onOpenDirect: (userId: number) => Promise<void>;
   onBack: () => void;
   /** Leaves the current room (the owner cannot). Resolves when the server accepted it. */
   onLeave: () => Promise<void>;
@@ -36,7 +40,7 @@ const formatTimestamp = (date: string | Date) => {
   return new Date(date).toLocaleTimeString('en-US', options);
 };
 
-export default function MessageView({ roomId, roomName, canPin = false, onBack, onLeave }: MessageViewProps) {
+export default function MessageView({ roomId, roomName, canPin = false, isDirect = false, onOpenDirect, onBack, onLeave }: MessageViewProps) {
   const {
     messages,
     pinned,
@@ -130,7 +134,7 @@ export default function MessageView({ roomId, roomName, canPin = false, onBack, 
         </Button>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-medium">{roomName ?? 'Room'}</h2>
-          {members.length > 0 && (
+          {!isDirect && members.length > 0 && (
             <p className="truncate text-[11px] text-muted-foreground">
               {members.length} {members.length === 1 ? 'member' : 'members'} · {onlineCount} online
             </p>
@@ -141,22 +145,24 @@ export default function MessageView({ roomId, roomName, canPin = false, onBack, 
             {leaveError}
           </p>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setShowMembers((v) => !v)}
+        {!isDirect && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowMembers((v) => !v)}
           aria-label="Members"
           aria-expanded={showMembers}
           title="Members"
-        >
-          <Users className="h-4 w-4" />
-        </Button>
+          >
+            <Users className="h-4 w-4" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" onClick={handleLeave} aria-label="Leave room" title="Leave room">
           <LogOut className="h-4 w-4" />
         </Button>
       </header>
 
-      {showMembers && (
+      {showMembers && !isDirect && (
         <ul className="max-h-40 shrink-0 space-y-1 overflow-y-auto border-b bg-muted/40 px-4 py-2 text-xs">
           {members.map((m) => (
             <li key={m.user_id} className="flex items-center gap-2">
@@ -168,6 +174,15 @@ export default function MessageView({ roomId, roomName, canPin = false, onBack, 
                 {m.name} <span className="text-muted-foreground">@{m.username}</span>
               </span>
               {m.role !== 'member' && <span className="ml-auto text-[10px] uppercase text-muted-foreground">{m.role}</span>}
+              {m.user_id !== profile?.id && (
+                <button
+                  type="button"
+                  className={cn('underline hover:text-foreground', m.role === 'member' && 'ml-auto')}
+                  onClick={() => onOpenDirect(m.user_id).then(() => setShowMembers(false))}
+                >
+                  Message
+                </button>
+              )}
             </li>
           ))}
         </ul>

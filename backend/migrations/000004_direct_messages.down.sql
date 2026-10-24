@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS direct_rooms;
+ALTER TABLE rooms DROP COLUMN IF EXISTS is_direct;

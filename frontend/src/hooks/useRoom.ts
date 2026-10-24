@@ -58,10 +58,17 @@ export const useRoom = (activeRoomId: string | null = null) => {
     fetchRooms();
   };
 
+  /** Opens (creating if needed) the one-to-one conversation with a user and returns its room id. */
+  const openDirect = async (userId: number) => {
+    const room = await roomService.openDirect(userId);
+    await fetchRooms();
+    return room.id;
+  };
+
   const leaveRoom = async (roomId: string) => {
     await roomService.leaveRoom(roomId);
     setRooms((prev) => prev.filter((r) => r.id !== roomId));
   };
 
-  return { rooms, loading, createRoom, leaveRoom };
+  return { rooms, loading, createRoom, leaveRoom, openDirect };
 };

@@ -1,4 +1,4 @@
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function RoomList({
@@ -6,7 +6,7 @@ export default function RoomList({
   onSelectRoom,
   selectedRoom,
 }: {
-  rooms: { id: string; name: string; unread_count?: number }[];
+  rooms: { id: string; name: string; unread_count?: number; is_direct?: boolean }[];
   onSelectRoom: (id: string) => void;
   selectedRoom: string | null;
 }) {
@@ -33,7 +33,7 @@ export default function RoomList({
             )}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
-              {room.name.charAt(0).toUpperCase()}
+              {room.is_direct ? <User className="h-4 w-4" /> : room.name.charAt(0).toUpperCase()}
             </span>
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{room.name}</span>
             {!!room.unread_count && selectedRoom !== room.id && (

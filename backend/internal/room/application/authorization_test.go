@@ -17,6 +17,9 @@ func (f *fakeRooms) Create(_ context.Context, r *domain.Room) (*domain.Room, err
 func (f *fakeRooms) FindByID(_ context.Context, id uuid.UUID) (*domain.Room, error) {
 	return f.rooms[id], nil
 }
+func (f *fakeRooms) FindOrCreateDirect(context.Context, int, int) (*domain.Room, error) {
+	return &domain.Room{ID: uuid.New(), IsDirect: true}, nil
+}
 func (f *fakeRooms) FindRoomsByUserID(context.Context, int) ([]*domain.Room, error) { return nil, nil }
 
 type fakeMembers struct {
@@ -195,5 +198,35 @@ func TestListMembersShowsPresenceToMembersOnly(t *testing.T) {
 		if m.Online != (m.UserID == 2) {
 			t.Fatalf("user %d online=%v", m.UserID, m.Online)
 		}
+	}
+}
+
+type spyDirectSubscriber struct{ subscribed []int }
+
+func (s *spyDirectSubscriber) SubscribeUser(user int, _ string) {
+	s.subscribed = append(s.subscribed, user)
+}
+func (s *spyDirectSubscriber) UnsubscribeUser(int, string) {}
+
+func TestOpenDirect(t *testing.T) {
+	rooms := &fakeRooms{rooms: map[uuid.UUID]*domain.Room{}}
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{}}
+	spy := &spyDirectSubscriber{}
+	uc := NewOpenDirectUseCase(rooms, members, spy)
+	ctx := context.Background()
+
+	if _, err := uc.Execute(ctx, 1, 1); !errors.Is(err, shared_domain.ErrInvalidInput) {
+		t.Fatalf("self: err = %v, want ErrInvalidInput", err)
+	}
+
+	room, err := uc.Execute(ctx, 1, 2)
+	if err != nil || !room.IsDirect {
+		t.Fatalf("open: room=%+v err=%v", room, err)
+	}
+	if _, ok := members.members[room.ID][1]; !ok {
+		t.Fatal("caller must be (re)added as a member")
+	}
+	if len(spy.subscribed) != 2 {
+		t.Fatalf("both users must be subscribed to live events, got %v", spy.subscribed)
 	}
 }

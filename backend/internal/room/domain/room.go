@@ -20,6 +20,8 @@ type Room struct {
 	Name      string    `json:"name"`
 	Topic     *string   `json:"topic"`
 	IsPrivate bool      `json:"is_private"`
+	// IsDirect marks a one-to-one conversation; its Name is the other person's name when listed.
+	IsDirect  bool      `json:"is_direct"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	// UnreadCount is only filled when listing a user's rooms.

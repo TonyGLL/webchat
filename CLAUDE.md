@@ -26,7 +26,7 @@ Backend (run from `backend/`):
 
 Frontend (run from `frontend/`, uses Bun): `bun install`, `bun dev`, `bun run build`, `bun run lint`, `bun run test`.
 
-Config: `config.NewConfig` reads env vars, optionally pre-loading the file named by `CONFIG_FILE` via godotenv. `DATABASE_URL` (or `DB_USER/DB_HOST/DB_PORT/DB_NAME`) is required; `REDIS_URL` can likewise be built from `REDIS_*` parts. Schema lives in `backend/migrations/` as golang-migrate files (`NNNNNN_name.up.sql`/`.down.sql`, embedded and applied on startup by `migrations.Up`; legacy hand-built databases are adopted at version 1). Never edit an applied migration — add a new numbered pair. Frontend uses `NEXT_PUBLIC_API_URL` (default `http://localhost:8081/api/v1`).
+Config: `config.NewConfig` reads env vars, optionally pre-loading the file named by `CONFIG_FILE` via godotenv. `DATABASE_URL` (or `DB_USER/DB_HOST/DB_PORT/DB_NAME`) is required; `REDIS_URL` can likewise be built from `REDIS_*` parts. Schema lives in `backend/migrations/` as golang-migrate files (`NNNNNN_name.up.sql`/`.down.sql`, embedded and applied on startup by `migrations.Up`; legacy hand-built databases are adopted at version 1). Direct messages are private rooms with `is_direct`, one per user pair (`direct_rooms`); error classification helpers for the `lib/pq` driver live in `shared/infra/db/errors.go`. Never edit an applied migration — add a new numbered pair. Frontend uses `NEXT_PUBLIC_API_URL` (default `http://localhost:8081/api/v1`).
 
 ## Backend architecture
 

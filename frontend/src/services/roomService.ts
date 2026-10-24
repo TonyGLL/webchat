@@ -5,6 +5,8 @@ export interface Room {
   name: string;
   topic: string | null;
   is_private: boolean;
+  /** One-to-one conversation; `name` is then the other person's name. */
+  is_direct: boolean;
   owner_id: number;
   created_at: string;
   /** Messages from other people since the user last opened the room. */
@@ -43,6 +45,11 @@ export const roomService = {
 
   getUserRooms: async (): Promise<Room[] | null> => {
     const response = await api.get('/rooms');
+    return response.data;
+  },
+
+  openDirect: async (userId: number): Promise<Room> => {
+    const response = await api.post(`/rooms/direct/${userId}`);
     return response.data;
   },
 

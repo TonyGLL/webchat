@@ -2,13 +2,19 @@ package domain
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 )
 
+var ErrUserNotFound = errors.New("user not found")
+
 type RoomRepository interface {
 	Create(ctx context.Context, room *Room) (*Room, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*Room, error)
+	// FindOrCreateDirect returns the one-to-one room between two users, creating it if needed.
+	// ErrUserNotFound is returned when the other user does not exist.
+	FindOrCreateDirect(ctx context.Context, userID, otherID int) (*Room, error)
 	FindRoomsByUserID(ctx context.Context, userID int) ([]*Room, error)
 }
 

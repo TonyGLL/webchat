@@ -8,8 +8,6 @@ import (
 	"backend/internal/auth/domain"
 	shared_domain "backend/internal/shared/domain"
 	"backend/internal/shared/infra/db"
-
-	"github.com/lib/pq"
 )
 
 // PgAuthRepository implements the repositories.AuthRepository interface for PostgreSQL.
@@ -153,8 +151,7 @@ func (r *PgAuthRepository) RegisterWithPassword(ctx context.Context, user *domai
 		&newUser.UpdatedAt,
 	)
 	if err != nil {
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code.Name() == "unique_violation" {
+		if db.IsUniqueViolation(err) {
 			return nil, shared_domain.ErrConflict
 		}
 		return nil, err

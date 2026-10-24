@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
-  const { rooms, loading, createRoom, leaveRoom } = useRoom(selectedRoom);
+  const { rooms, loading, createRoom, leaveRoom, openDirect } = useRoom(selectedRoom);
   const room = rooms.find((r) => r.id === selectedRoom);
 
   // On small screens only one pane is visible: the room list, or the open chat.
@@ -44,6 +44,8 @@ export default function DashboardPage() {
           <MessageView
             roomId={selectedRoom}
             roomName={room?.name}
+            isDirect={room?.is_direct}
+            onOpenDirect={async (userId) => setSelectedRoom(await openDirect(userId))}
             canPin={room?.my_role === 'owner' || room?.my_role === 'admin'}
             onBack={() => setSelectedRoom(null)}
             onLeave={async () => {

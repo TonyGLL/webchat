@@ -30,6 +30,7 @@ func RegisterModule(
 	markRoomReadUseCase := application.NewMarkRoomReadUseCase(memberRepo)
 	leaveRoomUseCase := application.NewLeaveRoomUseCase(memberRepo, subscriber)
 	listMembersUseCase := application.NewListMembersUseCase(memberRepo, presence)
+	openDirectUseCase := application.NewOpenDirectUseCase(roomRepo, memberRepo, subscriber)
 
 	// Initialize the controller, reusing the provided use case
 	roomController := presentation.NewRoomController(
@@ -38,6 +39,7 @@ func RegisterModule(
 		markRoomReadUseCase,
 		leaveRoomUseCase,
 		listMembersUseCase,
+		openDirectUseCase,
 		joinRoomUseCase,
 		createInviteUseCase,
 		acceptInviteUseCase,
@@ -50,6 +52,7 @@ func RegisterModule(
 	{
 		roomsRoutes.POST("", roomController.CreateRoom)
 		roomsRoutes.GET("", roomController.GetUserRooms)
+		roomsRoutes.POST("/direct/:user_id", roomController.OpenDirect)
 		roomsRoutes.GET("/members/:room_id", roomController.ListMembers)
 		roomsRoutes.POST("/leave/:room_id", roomController.LeaveRoom)
 		roomsRoutes.POST("/read/:room_id", roomController.MarkRead)

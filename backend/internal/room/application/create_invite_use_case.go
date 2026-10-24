@@ -44,6 +44,14 @@ func (uc *CreateInviteUseCase) Execute(ctx context.Context, dto CreateInviteDTO,
 		return nil, shared_domain.ErrForbidden
 	}
 
+	room, err := uc.roomRepo.FindByID(ctx, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if room != nil && room.IsDirect {
+		return nil, shared_domain.ErrForbidden // a conversation between two people cannot grow
+	}
+
 	duration, err := time.ParseDuration(dto.ExpiresIn)
 	if err != nil {
 		return nil, shared_domain.ErrInvalidInput
