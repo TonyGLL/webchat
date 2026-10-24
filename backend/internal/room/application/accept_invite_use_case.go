@@ -2,7 +2,9 @@ package application
 
 import (
 	"backend/internal/room/domain"
+	"backend/internal/shared/permissions"
 	"context"
+	"strings"
 )
 
 type AcceptInviteDTO struct {
@@ -11,13 +13,14 @@ type AcceptInviteDTO struct {
 
 type AcceptInviteUseCase struct {
 	inviteRepo     domain.InviteRepository
+	roomRepo       domain.RoomRepository
 	roomMemberRepo domain.RoomMemberRepository
 	subscriber     domain.RealtimeSubscriber
 	bans           domain.BanChecker
 }
 
-func NewAcceptInviteUseCase(inviteRepo domain.InviteRepository, roomMemberRepo domain.RoomMemberRepository, subscriber domain.RealtimeSubscriber, bans domain.BanChecker) *AcceptInviteUseCase {
-	return &AcceptInviteUseCase{inviteRepo: inviteRepo, roomMemberRepo: roomMemberRepo, subscriber: subscriber, bans: bans}
+func NewAcceptInviteUseCase(inviteRepo domain.InviteRepository, roomRepo domain.RoomRepository, roomMemberRepo domain.RoomMemberRepository, subscriber domain.RealtimeSubscriber, bans domain.BanChecker) *AcceptInviteUseCase {
+	return &AcceptInviteUseCase{inviteRepo: inviteRepo, roomRepo: roomRepo, roomMemberRepo: roomMemberRepo, subscriber: subscriber, bans: bans}
 }
 
 func (uc *AcceptInviteUseCase) Execute(ctx context.Context, dto AcceptInviteDTO, userID int) (*domain.Invite, error) {
@@ -25,6 +28,26 @@ func (uc *AcceptInviteUseCase) Execute(ctx context.Context, dto AcceptInviteDTO,
 	invite, err := uc.inviteRepo.GetByCode(ctx, dto.Code)
 	if err != nil {
 		return nil, err
+	}
+
+	// An invite addressed to an email only works for that person. Not-found hides the restriction.
+	if invite.Email != "" {
+		user, err := uc.roomRepo.FindActiveUser(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		if user == nil || !strings.EqualFold(strings.TrimSpace(user.Email), strings.TrimSpace(invite.Email)) {
+			return nil, domain.ErrInviteNotFound
+		}
+	}
+
+	// The code dies with the creator's power to invite (left the room, or was demoted).
+	creator, err := uc.roomMemberRepo.FindMember(ctx, invite.RoomID, invite.InvitedByID)
+	if err != nil {
+		return nil, err
+	}
+	if creator == nil || !(permissions.Actor{Room: permissions.RoomRole(creator.Role), IsMember: true}).CanInvite() {
+		return nil, domain.ErrInviteNotFound
 	}
 
 	if uc.bans != nil {

@@ -49,13 +49,15 @@ func (r *PgRoomRepository) FindRoomsByUserID(ctx context.Context, userID int) ([
 				  WHERE o.room_id = r.id AND o.user_id <> rm.user_id LIMIT 1), 'Deleted user')
 			ELSE r.name END AS name,
 			r.topic, r.is_private, r.is_direct, r.created_at, r.updated_at,
-			(SELECT COUNT(*) FROM messages m
-			  WHERE m.room_id = r.id AND m.created_at > rm.last_read_at
-			    AND m.author_id IS DISTINCT FROM rm.user_id AND m.deleted_at IS NULL) AS unread_count,
+			(SELECT COUNT(*) FROM (
+				SELECT 1 FROM messages m
+				 WHERE m.room_id = r.id AND m.created_at > rm.last_read_at
+				   AND m.author_id IS DISTINCT FROM rm.user_id AND m.deleted_at IS NULL
+				 LIMIT $2) capped) AS unread_count,
 			rm.role
 		FROM rooms r JOIN room_members rm ON r.id = rm.room_id
 		WHERE rm.user_id = $1 ORDER BY r.name`
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID, domain.MaxUnreadCount)
 	if err != nil {
 		return nil, err
 	}
@@ -72,15 +74,40 @@ func (r *PgRoomRepository) FindRoomsByUserID(ctx context.Context, userID int) ([
 	return rooms, nil
 }
 
-func (r *PgRoomRepository) ListDiscoverable(ctx context.Context, userID int) ([]*domain.RoomSummary, error) {
+func (r *PgRoomRepository) FindRoomIDsByUserID(ctx context.Context, userID int) ([]uuid.UUID, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT room_id FROM room_members WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// ListDiscoverable pages with keyset on (name, id). The member count stays a correlated subquery:
+// with the LIMIT it only runs for the rows of the page, so a join would not be cheaper.
+func (r *PgRoomRepository) ListDiscoverable(ctx context.Context, userID, limit int, after *uuid.UUID) ([]*domain.RoomSummary, error) {
 	query := `
 		SELECT r.id, r.name, r.topic, r.is_private,
 			(SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id) AS member_count,
 			EXISTS (SELECT 1 FROM room_members m WHERE m.room_id = r.id AND m.user_id = $1) AS is_member
 		FROM rooms r
 		WHERE NOT r.is_direct
-		ORDER BY r.name`
-	rows, err := r.db.QueryContext(ctx, query, userID)
+		  AND ($2::uuid IS NULL OR (r.name, r.id) > (SELECT a.name, a.id FROM rooms a WHERE a.id = $2::uuid))
+		ORDER BY r.name, r.id
+		LIMIT $3`
+	var cursor any
+	if after != nil {
+		cursor = after.String()
+	}
+	rows, err := r.db.QueryContext(ctx, query, userID, cursor, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +121,18 @@ func (r *PgRoomRepository) ListDiscoverable(ctx context.Context, userID int) ([]
 		rooms = append(rooms, room)
 	}
 	return rooms, rows.Err()
+}
+
+func (r *PgRoomRepository) FindActiveUser(ctx context.Context, id int) (*domain.UserRef, error) {
+	u := &domain.UserRef{}
+	err := r.db.QueryRowContext(ctx, `SELECT id, email FROM users WHERE id = $1 AND deleted = FALSE`, id).Scan(&u.ID, &u.Email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return u, nil
 }
 
 const directRoomQuery = `SELECT r.id, r.owner_id, r.name, r.topic, r.is_private, r.is_direct, r.created_at, r.updated_at

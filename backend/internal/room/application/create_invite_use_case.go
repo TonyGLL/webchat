@@ -3,6 +3,7 @@ package application
 import (
 	"backend/internal/room/domain"
 	shared_domain "backend/internal/shared/domain"
+	"backend/internal/shared/permissions"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -13,9 +14,15 @@ import (
 
 const inviteCodeBytes = 8
 
+// An invite code lives between a minute and 30 days: a "permanent" code is a standing hole.
+const (
+	MinInviteTTL = time.Minute
+	MaxInviteTTL = 30 * 24 * time.Hour
+)
+
 type CreateInviteDTO struct {
 	RoomID    string `uri:"room_id" validate:"required,uuid"`
-	ExpiresIn string `json:"expires_in" validate:"required"` // e.g., "24h", "7d"
+	ExpiresIn string `json:"expires_in" validate:"required"` // a Go duration between 1m and 720h, e.g. "24h"
 	Email     string `json:"email" validate:"omitempty,email"`
 }
 
@@ -40,7 +47,7 @@ func (uc *CreateInviteUseCase) Execute(ctx context.Context, dto CreateInviteDTO,
 	if err != nil {
 		return nil, err
 	}
-	if member == nil || (member.Role != domain.RoleOwner && member.Role != domain.RoleAdmin) {
+	if member == nil || !(permissions.Actor{Room: permissions.RoomRole(member.Role), IsMember: true}).CanInvite() {
 		return nil, shared_domain.ErrForbidden
 	}
 
@@ -53,7 +60,7 @@ func (uc *CreateInviteUseCase) Execute(ctx context.Context, dto CreateInviteDTO,
 	}
 
 	duration, err := time.ParseDuration(dto.ExpiresIn)
-	if err != nil {
+	if err != nil || duration < MinInviteTTL || duration > MaxInviteTTL {
 		return nil, shared_domain.ErrInvalidInput
 	}
 

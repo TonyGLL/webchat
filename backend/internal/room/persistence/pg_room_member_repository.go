@@ -52,12 +52,13 @@ func (r *PgRoomMemberRepository) RemoveMember(ctx context.Context, roomID uuid.U
 	return err
 }
 
-func (r *PgRoomMemberRepository) ListMembers(ctx context.Context, roomID uuid.UUID) ([]*domain.MemberInfo, error) {
+func (r *PgRoomMemberRepository) ListMembers(ctx context.Context, roomID uuid.UUID, limit, offset int) ([]*domain.MemberInfo, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT u.id, u.username, u.name, u.last_name, u.avatar_url, rm.role
 		FROM room_members rm JOIN users u ON u.id = rm.user_id
 		WHERE rm.room_id = $1 AND u.deleted = FALSE
-		ORDER BY rm.joined_at`, roomID)
+		ORDER BY rm.joined_at, rm.user_id
+		LIMIT $2 OFFSET $3`, roomID, limit, offset)
 	if err != nil {
 		return nil, err
 	}

@@ -440,15 +440,29 @@ paths:
       tags: [Rooms]
       operationId: discoverRooms
       summary: Discover rooms
-      description: Every non-direct room. Public ones can be joined; private ones are listed but readable only by members, so people need an invitation.
+      description: |
+        Non-direct rooms ordered by name (then id), one page at a time. Public ones can be joined;
+        private ones are listed but readable only by members, so people need an invitation.
+        To get the next page pass the `id` of the last room you received as `after`; a page shorter
+        than `limit` is the last one.
+      parameters:
+        - name: limit
+          in: query
+          description: Defaults to 30, at most 100.
+          schema: { type: integer, minimum: 0 }
+        - name: after
+          in: query
+          description: Room id to continue from.
+          schema: { type: string, format: uuid }
       responses:
         "200":
-          description: The rooms, with the caller's membership flag.
+          description: A page of rooms, with the caller's membership flag.
           content:
             application/json:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/RoomSummary" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /rooms/invite-user/{room_id}:
@@ -561,7 +575,7 @@ paths:
       tags: [Rooms]
       operationId: openDirectRoom
       summary: Open a one-to-one conversation
-      description: Returns the existing direct room with that user, or creates it. A direct room is a private room with `is_direct = true`.
+      description: Returns the existing direct room with that user, or creates it. A direct room is a private room with `is_direct = true`. Unknown and deactivated users both answer 404.
       parameters:
         - $ref: "#/components/parameters/UserId"
       responses:
@@ -583,9 +597,19 @@ paths:
       tags: [Rooms]
       operationId: listRoomMembers
       summary: List members
-      description: Members with their role and live online status. Members only.
+      description: |
+        Members with their role and live online status, oldest member first, one page at a time
+        (a page shorter than `limit` is the last one). Members only.
       parameters:
         - $ref: "#/components/parameters/RoomId"
+        - name: limit
+          in: query
+          description: Defaults to 100, at most 200.
+          schema: { type: integer, minimum: 0 }
+        - name: offset
+          in: query
+          description: Members to skip.
+          schema: { type: integer, minimum: 0 }
       responses:
         "200":
           description: The members.
@@ -635,7 +659,11 @@ paths:
       tags: [Rooms]
       operationId: createInvite
       summary: Create an invitation
-      description: Requires admin rank or above in the room.
+      description: |
+        Requires admin rank or above in the room. `expires_in` must be between 1 minute and 30 days
+        (`720h`), otherwise 400. If `email` is set only the user registered with that address
+        (case-insensitive) can use the code. A code stops working when its creator leaves the room or
+        loses the right to invite.
       parameters:
         - $ref: "#/components/parameters/RoomId"
       requestBody:
@@ -658,6 +686,9 @@ paths:
       tags: [Rooms]
       operationId: acceptInvite
       summary: Join through an invitation
+      description: |
+        404 when the code does not exist, has expired, is addressed to another email, or its creator
+        can no longer invite to the room.
       parameters:
         - name: code
           in: path
@@ -1317,7 +1348,7 @@ components:
         is_direct: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
-        unread_count: { type: integer, description: Messages newer than the user's last read. }
+        unread_count: { type: integer, description: "Messages newer than the user's last read, capped at 100 (a value of 100 means 100 or more)." }
         my_role: { $ref: "#/components/schemas/RoomRole" }
 
     RoomSummary:
@@ -1368,12 +1399,12 @@ components:
       properties:
         expires_in:
           type: string
-          description: Lifetime of the invitation, for example `24h`.
+          description: Lifetime of the invitation as a Go duration between `1m` and `720h` (30 days), for example `24h`.
           examples: [24h]
         email:
           type: string
           format: email
-          description: Optional; the address the invitation is meant for.
+          description: Optional; when present only the user with this address (case-insensitive) can accept.
 
     Invite:
       type: object

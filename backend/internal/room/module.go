@@ -27,7 +27,7 @@ func RegisterModule(
 	createRoomUseCase := application.NewCreateRoomUseCase(roomRepo, memberRepo, subscriber)
 	joinRoomUseCase := application.NewJoinRoomUseCase(roomRepo, memberRepo, subscriber, bans)
 	createInviteUseCase := application.NewCreateInviteUseCase(inviteRepo, roomRepo, memberRepo)
-	acceptInviteUseCase := application.NewAcceptInviteUseCase(inviteRepo, memberRepo, subscriber, bans)
+	acceptInviteUseCase := application.NewAcceptInviteUseCase(inviteRepo, roomRepo, memberRepo, subscriber, bans)
 
 	markRoomReadUseCase := application.NewMarkRoomReadUseCase(memberRepo)
 	leaveRoomUseCase := application.NewLeaveRoomUseCase(memberRepo, subscriber)

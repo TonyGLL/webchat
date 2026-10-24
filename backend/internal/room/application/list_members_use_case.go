@@ -9,7 +9,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// ListMembersUseCase lists a room's members with their online status. Only members may see it.
+const (
+	DefaultMembersLimit = 100
+	MaxMembersLimit     = 200
+)
+
+// ListMembersUseCase lists a page of a room's members with their online status. Only members may see it.
 type ListMembersUseCase struct {
 	memberRepo domain.RoomMemberRepository
 	presence   domain.PresenceChecker
@@ -19,7 +24,7 @@ func NewListMembersUseCase(memberRepo domain.RoomMemberRepository, presence doma
 	return &ListMembersUseCase{memberRepo: memberRepo, presence: presence}
 }
 
-func (uc *ListMembersUseCase) Execute(ctx context.Context, roomID uuid.UUID, userID int) ([]*domain.MemberInfo, error) {
+func (uc *ListMembersUseCase) Execute(ctx context.Context, roomID uuid.UUID, userID, limit, offset int) ([]*domain.MemberInfo, error) {
 	self, err := uc.memberRepo.FindMember(ctx, roomID, userID)
 	if err != nil {
 		return nil, err
@@ -28,7 +33,7 @@ func (uc *ListMembersUseCase) Execute(ctx context.Context, roomID uuid.UUID, use
 		return nil, shared_domain.ErrForbidden
 	}
 
-	members, err := uc.memberRepo.ListMembers(ctx, roomID)
+	members, err := uc.memberRepo.ListMembers(ctx, roomID, clampLimit(limit, DefaultMembersLimit, MaxMembersLimit), max(offset, 0))
 	if err != nil {
 		return nil, err
 	}
