@@ -26,7 +26,7 @@ Convención de nombres: `<proyecto>-<servicio>` en minúsculas con guiones; vol�
 
 ## Requisitos
 
-- Go 1.26.10 o superior
+- Go 1.27.3 o superior
 - Node 22+ y pnpm (la versión está fijada en `package.json`; `corepack enable` o `npm i -g pnpm`) para el frontend
 - Docker y Docker Compose
 - Make

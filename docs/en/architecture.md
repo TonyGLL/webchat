@@ -11,7 +11,7 @@ flowchart TB
     subgraph Client
         B[Browser<br/>Next.js 16 · React 19]
     end
-    subgraph Server["backend/ (Go 1.26)"]
+    subgraph Server["backend/ (Go 1.27)"]
         H[HTTP API<br/>Gin · /api/v1]
         W[WebSocket hub<br/>/api/v1/ws]
     end

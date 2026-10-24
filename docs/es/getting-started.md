@@ -4,7 +4,7 @@
 
 ## 1. Requisitos
 
-Go 1.26.10+, Node 22+ y pnpm (la versión está fijada en `package.json`; `corepack enable` o `npm i -g pnpm`), Docker con Compose, Make, `air` (recarga automática; `make watch` ofrece instalarlo) y `openssl`.
+Go 1.27.3+, Node 22+ y pnpm (la versión está fijada en `package.json`; `corepack enable` o `npm i -g pnpm`), Docker con Compose, Make, `air` (recarga automática; `make watch` ofrece instalarlo) y `openssl`.
 
 ## 2. Puertos
 
