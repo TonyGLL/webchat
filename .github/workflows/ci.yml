@@ -3,11 +3,14 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
 
+# A newer push to the same pull request replaces the running check; pushes to main and tags
+# always run to completion so every published image comes from a finished pipeline.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -16,9 +19,29 @@ jobs:
   backend:
     name: Backend (Go)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
+    # Real services, so the migration test exercises the same engines as production.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:ci@localhost:5432/ci?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -31,12 +54,13 @@ jobs:
         run: go vet ./...
       - name: Build
         run: go build ./...
-      - name: Test
+      - name: Test (includes migrations on an empty database)
         run: go test -race ./...
 
   frontend:
     name: Frontend (Next.js)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -55,3 +79,68 @@ jobs:
         run: bun run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8081/api/v1
+
+  # Builds both container images on every run, so a broken Dockerfile fails the pull request.
+  # Only pushes to main and version tags publish them (to GitHub's registry, GHCR).
+  images:
+    name: Image (${{ matrix.image }})
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            context: backend
+          - image: web
+            context: frontend
+    env:
+      PUBLISH: ${{ github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image name (registry paths must be lowercase)
+        id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/webchat-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.name.outputs.image }}
+          tags: |
+            type=sha
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build${{ github.event_name == 'push' && ' and push' || '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: ${{ env.PUBLISH == 'true' }}
+          # arm64 covers Graviton instances on AWS; pull requests build amd64 only, for speed.
+          platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # NEXT_PUBLIC_* is inlined into the browser bundle at build time (one web image per
+          # environment); the backend image ignores this argument.
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1' }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}

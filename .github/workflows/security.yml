@@ -1,0 +1,44 @@
+name: Security
+
+# Dependency advisories change without anyone touching the code, so besides pull requests this
+# also runs weekly. It is a separate workflow so a new advisory in a transitive dependency
+# does not block unrelated pull requests.
+on:
+  pull_request:
+    paths: ["backend/go.mod", "backend/go.sum", "frontend/bun.lock", "frontend/package.json", ".github/workflows/security.yml"]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go-vulnerabilities:
+    name: Go vulnerabilities (govulncheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      # govulncheck only reports vulnerabilities in code the program actually calls.
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+  js-vulnerabilities:
+    name: JavaScript dependencies (bun audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun audit --audit-level=high

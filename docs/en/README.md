@@ -16,6 +16,7 @@ WebChat is a real-time chat platform: rooms, a people directory with presence, d
 | See the tables and their relationships | [Data model](data-model.md) |
 | Call the API | [API reference](api.md) · interactive at `/docs` (Scalar) |
 | Work on the UI | [Frontend](frontend.md) |
+| Understand the pipeline, images and the road to AWS | [CI/CD](ci-cd.md) |
 | Send a change | [Contributing](contributing.md) |
 
 ## Map of the system

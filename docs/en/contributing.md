@@ -36,6 +36,8 @@ bun run test
 bun run build
 ```
 
+CI additionally runs the migration test against a real PostgreSQL, builds both Docker images and (weekly) scans dependencies; see [CI/CD](ci-cd.md).
+
 ## 3. Rules that keep the codebase healthy
 
 | Area | Rule | Why |

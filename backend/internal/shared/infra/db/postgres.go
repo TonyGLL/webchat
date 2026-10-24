@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	_ "github.com/jackc/pgx/v4/stdlib" // Standard library database driver for pgx
+	_ "github.com/lib/pq" // registers the "postgres" driver used below
 )
 
 // NewDBPool creates a new database connection pool using the provided connection string.

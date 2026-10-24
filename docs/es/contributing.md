@@ -36,6 +36,8 @@ bun run test
 bun run build
 ```
 
+El CI además ejecuta el test de migraciones contra un PostgreSQL real, construye ambas imágenes Docker y (cada semana) escanea las dependencias; ver [CI/CD](ci-cd.md).
+
 ## 3. Reglas que mantienen sano el código
 
 | Área | Regla | Por qué |

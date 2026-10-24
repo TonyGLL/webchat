@@ -1,0 +1,19 @@
+node_modules
+.next
+.git
+.github
+*.tsbuildinfo
+*.log
+.DS_Store
+.vscode
+.idea
+
+# Never ship local or secret env files into an image (the API URL is a build argument instead).
+.env
+.env.*
+*.env
+!.env.example
+
+coverage
+Dockerfile
+.dockerignore
