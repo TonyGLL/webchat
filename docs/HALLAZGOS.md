@@ -54,7 +54,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
-| H-067 | (Roadmap Fase 3) Fijar mensajes: solo dueño/admin (403 al resto), máximo 20 por sala, franja "Pinned" en el chat, en vivo para todos; `GET /rooms` ahora trae `my_role` | 2026-10-23 | _(este commit)_ |
+| H-067 | (Roadmap Fase 3) Fijar mensajes: solo dueño/admin (403 al resto), máximo 20 por sala, franja "Pinned" en el chat, en vivo para todos; `GET /rooms` ahora trae `my_role` | 2026-10-23 | eab751e |
 | H-066 | (Roadmap Fase 3) Responder a un mensaje (misma sala, con cita), borrar mensajes propios (borrado lógico, en vivo para todos) y salir de una sala (el dueño no puede; se corta el tiempo real de esa sala) | 2026-10-23 | dbd9b1b |
 | H-065 | (Roadmap Fase 2) Contador de no leídos por sala: migración `last_read_at`, `unread_count` en `GET /rooms`, `POST /rooms/read/:id`; en la lista de salas hay una insignia que sube en vivo y se borra al abrir la sala | 2026-10-23 | 406fdc1 |
 | H-064 | (Roadmap Fase 2) Mensajes optimistas: al enviar aparece al instante ("Sending…"); si falla se marca "Not sent" con Retry/Discard; si el WebSocket ya lo entregó no se duplica | 2026-10-23 | 6718df8 |
