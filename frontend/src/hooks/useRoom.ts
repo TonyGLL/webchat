@@ -39,6 +39,15 @@ export const useRoom = (activeRoomId: string | null = null) => {
     const onMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
+        if (data.type === 'role_changed' && data.payload.user_id === profile?.id) {
+          const { room_id, role } = data.payload;
+          setRooms((prev) => prev.map((r) => (r.id === room_id ? { ...r, my_role: role } : r)));
+          return;
+        }
+        if (data.type === 'member_removed' && data.payload.user_id === profile?.id) {
+          setRooms((prev) => prev.filter((r) => r.id !== data.payload.room_id));
+          return;
+        }
         if (data.type !== 'new_message') return;
         const message = data.payload as { room_id: string; author_id: number };
         if (message.room_id === activeRoomId && message.author_id !== profile?.id) {

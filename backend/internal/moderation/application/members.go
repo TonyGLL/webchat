@@ -65,7 +65,7 @@ func (uc *ManageMembersUseCase) ChangeRole(ctx context.Context, roomID uuid.UUID
 		Details: map[string]interface{}{"from": target.Room, "to": role},
 	})
 	if uc.realtime != nil {
-		uc.realtime.Broadcast("role_changed", map[string]interface{}{"user_id": targetID, "role": role}, roomID.String())
+		uc.realtime.Broadcast("role_changed", map[string]interface{}{"room_id": roomID, "user_id": targetID, "role": role}, roomID.String())
 	}
 	return nil
 }
@@ -95,7 +95,7 @@ func (uc *ManageMembersUseCase) Kick(ctx context.Context, roomID uuid.UUID, acto
 		Details: map[string]interface{}{"reason": reason},
 	})
 	if uc.realtime != nil {
-		uc.realtime.Broadcast("member_removed", map[string]interface{}{"user_id": targetID}, roomID.String())
+		uc.realtime.Broadcast("member_removed", map[string]interface{}{"room_id": roomID, "user_id": targetID}, roomID.String())
 		uc.realtime.UnsubscribeUser(targetID, roomID.String())
 	}
 	return nil

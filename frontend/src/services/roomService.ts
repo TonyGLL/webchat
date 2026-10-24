@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { RoomRole } from '@/lib/permissions';
 
 export interface Room {
   id: string;
@@ -11,7 +12,7 @@ export interface Room {
   created_at: string;
   /** Messages from other people since the user last opened the room. */
   unread_count: number;
-  my_role: 'owner' | 'admin' | 'member';
+  my_role: RoomRole;
 }
 
 export interface RoomMember {
@@ -20,7 +21,7 @@ export interface RoomMember {
   name: string;
   last_name: string | null;
   avatar_url: string | null;
-  role: 'owner' | 'admin' | 'member';
+  role: RoomRole;
   online: boolean;
 }
 

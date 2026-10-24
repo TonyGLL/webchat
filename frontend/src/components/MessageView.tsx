@@ -4,6 +4,7 @@ import { IGetRoomMessages } from '@/services/messageService';
 import { useMessages } from '@/hooks/useMessages';
 import { useRoomActivity } from '@/hooks/useRoomActivity';
 import { typingLabel } from '@/lib/typing';
+import { assignableRoles, canDeleteAnyMessage, canModerate, canPin as rankCanPin, rankOf, RoomRole } from '@/lib/permissions';
 import Spinner from './Spinner';
 import { useUser } from '@/hooks/useUser';
 import dayjs from 'dayjs';
@@ -18,7 +19,8 @@ interface MessageViewProps {
   roomId: string | null;
   roomName?: string;
   /** Owners and admins can pin messages. */
-  canPin?: boolean;
+  /** The user's role in this room; drives what moderation controls are shown. */
+  myRole?: RoomRole;
   /** One-to-one conversation: no member list. */
   isDirect?: boolean;
   /** Starts (or reopens) a one-to-one conversation with a member. */
@@ -40,7 +42,7 @@ const formatTimestamp = (date: string | Date) => {
   return new Date(date).toLocaleTimeString('en-US', options);
 };
 
-export default function MessageView({ roomId, roomName, canPin = false, isDirect = false, onOpenDirect, onBack, onLeave }: MessageViewProps) {
+export default function MessageView({ roomId, roomName, myRole, isDirect = false, onOpenDirect, onBack, onLeave }: MessageViewProps) {
   const {
     messages,
     pinned,
@@ -61,7 +63,18 @@ export default function MessageView({ roomId, roomName, canPin = false, isDirect
   const [content, setContent] = useState('');
   const [replyingTo, setReplyingTo] = useState<IGetRoomMessages | null>(null);
   const [showMembers, setShowMembers] = useState(false);
-  const { members, typingNames, notifyTyping } = useRoomActivity(roomId);
+  const { members, typingNames, notifyTyping, changeRole, kickMember } = useRoomActivity(roomId);
+  const myRank = rankOf(myRole, profile?.role);
+  const canPin = rankCanPin(myRank);
+  const [memberError, setMemberError] = useState<string | null>(null);
+  const manage = async (action: () => Promise<void>) => {
+    setMemberError(null);
+    try {
+      await action();
+    } catch {
+      setMemberError('That action is not allowed.');
+    }
+  };
   const onlineCount = members.filter((m) => m.online).length;
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -167,18 +180,49 @@ export default function MessageView({ roomId, roomName, canPin = false, isDirect
               <span className="truncate">
                 {m.name} <span className="text-muted-foreground">@{m.username}</span>
               </span>
-              {m.role !== 'member' && <span className="ml-auto text-[10px] uppercase text-muted-foreground">{m.role}</span>}
-              {m.user_id !== profile?.id && (
-                <button
-                  type="button"
-                  className={cn('underline hover:text-foreground', m.role === 'member' && 'ml-auto')}
-                  onClick={() => onOpenDirect(m.user_id).then(() => setShowMembers(false))}
-                >
-                  Message
-                </button>
-              )}
+              <span className="ml-auto flex items-center gap-2">
+                {assignableRoles(myRank, rankOf(m.role, null)).length > 0 && m.user_id !== profile?.id ? (
+                  <select
+                    value={m.role}
+                    aria-label={`Role of ${m.name}`}
+                    className="rounded border bg-background px-1 py-0.5 text-[11px]"
+                    onChange={(e) => manage(() => changeRole(m.user_id, e.target.value as RoomRole))}
+                  >
+                    {Array.from(new Set<RoomRole>([m.role, ...assignableRoles(myRank, rankOf(m.role, null))])).map((role) => (
+                      <option key={role} value={role} disabled={!assignableRoles(myRank, rankOf(m.role, null)).includes(role)}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  m.role !== 'member' && <span className="text-[10px] uppercase text-muted-foreground">{m.role}</span>
+                )}
+                {m.user_id !== profile?.id && (
+                  <button
+                    type="button"
+                    className="underline hover:text-foreground"
+                    onClick={() => onOpenDirect(m.user_id).then(() => setShowMembers(false))}
+                  >
+                    Message
+                  </button>
+                )}
+                {m.user_id !== profile?.id && canModerate(myRank, rankOf(m.role, null)) && (
+                  <button
+                    type="button"
+                    className="underline hover:text-destructive"
+                    onClick={() => window.confirm(`Remove ${m.name} from the room?`) && manage(() => kickMember(m.user_id))}
+                  >
+                    Remove
+                  </button>
+                )}
+              </span>
             </li>
           ))}
+          {memberError && (
+            <li className="text-destructive" role="alert">
+              {memberError}
+            </li>
+          )}
         </ul>
       )}
 
@@ -245,7 +289,7 @@ export default function MessageView({ roomId, roomName, canPin = false, isDirect
                         {msg.pinned_at ? 'Unpin' : 'Pin'}
                       </button>
                     )}
-                    {isCurrentUser && (
+                    {(isCurrentUser || canDeleteAnyMessage(myRank)) && (
                       <button
                         type="button"
                         className="flex items-center gap-1 hover:text-destructive"

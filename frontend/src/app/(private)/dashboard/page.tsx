@@ -16,8 +16,10 @@ import { IGetRoomMessages, messageService } from '@/services/messageService';
 import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
-  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
-  const { rooms, loading, createRoom, leaveRoom, openDirect } = useRoom(selectedRoom);
+  const [chosenRoom, setSelectedRoom] = useState<string | null>(null);
+  const { rooms, loading, createRoom, leaveRoom, openDirect } = useRoom(chosenRoom);
+  // A room we were removed from (or left elsewhere) disappears from the list: close its chat.
+  const selectedRoom = loading || rooms.some((r) => r.id === chosenRoom) ? chosenRoom : null;
   const room = rooms.find((r) => r.id === selectedRoom);
 
   const [search, setSearch] = useState('');
@@ -106,7 +108,7 @@ export default function DashboardPage() {
             roomName={room?.name}
             isDirect={room?.is_direct}
             onOpenDirect={async (userId) => setSelectedRoom(await openDirect(userId))}
-            canPin={room?.my_role === 'owner' || room?.my_role === 'admin'}
+            myRole={room?.my_role}
             onBack={() => setSelectedRoom(null)}
             onLeave={async () => {
               if (!selectedRoom) return;

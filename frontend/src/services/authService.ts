@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { api } from '@/lib/api';
+import { GlobalRole } from '@/lib/permissions';
 
 export interface User {
   id: number;
@@ -8,6 +9,8 @@ export interface User {
   username: string;
   email: string;
   avatar_url: string | null;
+  /** Application-wide role; only the server can grant moderator/admin. */
+  role: GlobalRole;
   created_at: string;
 }
 
