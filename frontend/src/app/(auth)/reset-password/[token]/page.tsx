@@ -65,8 +65,8 @@ export default function ResetPasswordPage() {
             )}
           </div>
         )}
-        <FormField label={t('reset.password')} type="password" autoComplete="new-password" error={errors.password?.message} {...register('password')} />
-        <FormField label={t('reset.confirm')} type="password" autoComplete="new-password" error={errors.confirm?.message} {...register('confirm')} />
+        <FormField label={t('reset.password')} type="password" autoComplete="new-password" required hint={t('validation.passwordRules')} error={errors.password?.message} {...register('password')} />
+        <FormField label={t('reset.confirm')} type="password" autoComplete="new-password" required error={errors.confirm?.message} {...register('confirm')} />
         <Button type="submit" disabled={isSubmitting} className="w-full">
           {isSubmitting ? <Spinner className="h-4 w-4 text-primary-foreground" /> : t('reset.submit')}
         </Button>
