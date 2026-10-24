@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { IGetRoomMessages, IReaction, messageService } from '@/services/messageService';
 import { useSocket } from './useSocket';
 
@@ -38,6 +38,21 @@ export const useMessages = (roomId: string | null) => {
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  // Events sent while the connection was down are lost: reload the latest page after a reconnect.
+  const wasConnected = useRef(false);
+  const hadDrop = useRef(false);
+  useEffect(() => {
+    if (socket) {
+      if (hadDrop.current) {
+        hadDrop.current = false;
+        fetchMessages();
+      }
+      wasConnected.current = true;
+    } else if (wasConnected.current) {
+      hadDrop.current = true;
+    }
+  }, [socket, fetchMessages]);
 
   useEffect(() => {
     if (!socket) return;
