@@ -85,3 +85,42 @@ func TestRedisPresenceLookupIsCapped(t *testing.T) {
 		t.Fatalf("online=%d err=%v", len(online), err)
 	}
 }
+
+func TestRedisPresenceOnlineUserIDs(t *testing.T) {
+	client := testRedis(t)
+	ctx := context.Background()
+	clean := func() { client.Del(ctx, userKey(21), userKey(22), userKey(23), onlineIndexKey) }
+	clean()
+	t.Cleanup(clean)
+
+	p := NewRedisPresence(client)
+	for _, id := range []int{23, 21, 22} {
+		if _, err := p.Connect(ctx, id, "tab"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ids, err := p.OnlineUserIDs(ctx, 10)
+	if err != nil || len(ids) != 3 || ids[0] != 21 || ids[2] != 23 {
+		t.Fatalf("ids=%v err=%v", ids, err)
+	}
+	if capped, _ := p.OnlineUserIDs(ctx, 2); len(capped) != 2 {
+		t.Fatalf("cap not applied: %v", capped)
+	}
+
+	// a user leaves the index with their last connection, not before
+	p.Connect(ctx, 21, "tab2")
+	p.Disconnect(ctx, 21, "tab")
+	if ids, _ := p.OnlineUserIDs(ctx, 10); len(ids) != 3 {
+		t.Fatalf("still has a connection, ids=%v", ids)
+	}
+	p.Disconnect(ctx, 21, "tab2")
+	if ids, _ := p.OnlineUserIDs(ctx, 10); len(ids) != 2 {
+		t.Fatalf("gone after last disconnect, ids=%v", ids)
+	}
+
+	// stale heartbeats are pruned
+	p.now = func() time.Time { return time.Now().Add(presenceTTL + time.Minute) }
+	if ids, _ := p.OnlineUserIDs(ctx, 10); len(ids) != 0 {
+		t.Fatalf("expired users must not be listed: %v", ids)
+	}
+}

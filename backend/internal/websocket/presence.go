@@ -15,6 +15,10 @@ const (
 	// presenceKeyPrefix prefixes one sorted set per user ("webchat:presence:u:<id>") whose members
 	// are client IDs and whose scores are the time each connection expires.
 	presenceKeyPrefix = "webchat:presence:u:"
+	// onlineIndexKey is a secondary index with one member per online user (score: when their
+	// latest heartbeat expires), so "who is online" can be listed with a bounded read. It is
+	// kept by the same scripts that update the per-user keys.
+	onlineIndexKey = "webchat:presence:online"
 	// presenceTTL is how long a connection counts as online without a heartbeat. Heartbeats
 	// come with every pong (about every 54 s), so a crashed instance's users expire by themselves.
 	presenceTTL = 2 * time.Minute
@@ -63,24 +67,32 @@ func (p *RedisPresence) expiry() float64 {
 }
 
 // connectScript registers a connection, prunes the user's expired ones and returns how many
-// are left, atomically. KEYS[1]=user key; ARGV: now, expiry, client id, key TTL in seconds.
+// are left, atomically. KEYS[1]=user key, KEYS[2]=online index; ARGV: now, expiry, client id,
+// key TTL in seconds, user id.
 var connectScript = redis.NewScript(`
 redis.call('ZADD', KEYS[1], ARGV[2], ARGV[3])
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
 redis.call('EXPIRE', KEYS[1], ARGV[4])
+redis.call('ZADD', KEYS[2], ARGV[2], ARGV[5])
 return redis.call('ZCARD', KEYS[1])
 `)
 
-// disconnectScript removes a connection, prunes expired ones and returns how many are left.
+// disconnectScript removes a connection, prunes expired ones and returns how many are left;
+// with none left the user leaves the online index. KEYS[1]=user key, KEYS[2]=online index;
+// ARGV: now, client id, user id.
 var disconnectScript = redis.NewScript(`
 redis.call('ZREM', KEYS[1], ARGV[2])
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
-return redis.call('ZCARD', KEYS[1])
+local left = redis.call('ZCARD', KEYS[1])
+if left == 0 then
+  redis.call('ZREM', KEYS[2], ARGV[3])
+end
+return left
 `)
 
 func (p *RedisPresence) Connect(ctx context.Context, userID int, clientID string) (bool, error) {
-	n, err := connectScript.Run(ctx, p.client, []string{userKey(userID)},
-		p.now().Unix(), p.expiry(), clientID, int(presenceTTL.Seconds())).Int()
+	n, err := connectScript.Run(ctx, p.client, []string{userKey(userID), onlineIndexKey},
+		p.now().Unix(), p.expiry(), clientID, int(presenceTTL.Seconds()), userID).Int()
 	if err != nil {
 		return false, err
 	}
@@ -92,13 +104,14 @@ func (p *RedisPresence) Touch(ctx context.Context, userID int, clientID string) 
 	_, err := p.client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 		pipe.ZAdd(ctx, key, &redis.Z{Score: p.expiry(), Member: clientID})
 		pipe.Expire(ctx, key, presenceTTL)
+		pipe.ZAdd(ctx, onlineIndexKey, &redis.Z{Score: p.expiry(), Member: userID})
 		return nil
 	})
 	return err
 }
 
 func (p *RedisPresence) Disconnect(ctx context.Context, userID int, clientID string) (bool, error) {
-	n, err := disconnectScript.Run(ctx, p.client, []string{userKey(userID)}, p.now().Unix(), clientID).Int()
+	n, err := disconnectScript.Run(ctx, p.client, []string{userKey(userID), onlineIndexKey}, p.now().Unix(), clientID, userID).Int()
 	if err != nil {
 		return false, err
 	}
