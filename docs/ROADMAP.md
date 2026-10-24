@@ -69,7 +69,7 @@ Dejar el repo en un estado donde se pueda cambiar con confianza.
 ## Fase 6: Pulido (continuo)
 - Temas claro/oscuro, i18n (es/en), onboarding.
 - Tests end-to-end (Playwright) de los flujos críticos.
-- Documentación de API publicada y guía de contribución.
+- Documentación de API publicada y guía de contribución. ✅ Hecho en `docs/en/` y `docs/es/` (arquitectura, decisiones, seguridad, tiempo real, modelo de datos, API, frontend, primeros pasos, contribuir). Pendiente: contrato OpenAPI formal.
 
 ## Métricas de éxito
 - Cobertura de tests en use cases del backend ≥ 70 %.

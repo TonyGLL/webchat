@@ -1,0 +1,125 @@
+**🌐 English** · [Español](../es/getting-started.md)
+
+# Getting started
+
+## 1. Requirements
+
+Go 1.24.3+, Bun (and Node 20+), Docker with Compose, Make, `air` (live reload; `make watch` offers to install it) and `openssl`.
+
+## 2. Ports
+
+| Service | Port on your machine | Container |
+|---|---|---|
+| Frontend | 3100 | runs outside Docker |
+| Backend | 8081 | `webchat-api` (Docker mode only) |
+| PostgreSQL | 5433 | `webchat-db` |
+| Redis | 6380 | `webchat-redis` |
+
+Everything is published only on `127.0.0.1`. The ports avoid clashes with other local projects; keep `PORT`, `CORS_ALLOWED_ORIGINS` and `NEXT_PUBLIC_API_URL` consistent with them.
+
+## 3. Quick start
+
+```mermaid
+flowchart LR
+    A["1 · docker compose up -d db redis"] --> B["2 · backend/.env.local"]
+    B --> C["3 · make watch<br/>(migrations run)"]
+    C --> D["4 · frontend/.env.local"]
+    D --> E["5 · bun install && bun dev"]
+    E --> F(["http://localhost:3100"])
+```
+
+```bash
+# 1. Database and cache
+cd backend && docker compose up -d db redis
+
+# 2. Backend: copy the template, fill every <...>, then
+cp .env.example .env.local
+make watch                         # http://localhost:8081
+
+# 3. Frontend
+cd ../frontend && cp .env.example .env.local
+bun install && bun dev             # http://localhost:3100
+```
+
+The database passwords are defined in `backend/docker-compose.yml`; copy them into `.env.local`. **Never commit real env files**: only the `.env.example` templates are versioned.
+
+## 4. Environment variables (backend)
+
+The template `backend/.env.example` is the source of truth. The important ones:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `JWT_SECRET` | **Yes** | At least 32 characters (`openssl rand -hex 32`). The server refuses to start without it |
+| `DATABASE_URL` | One of the two | Takes precedence over `DB_*` |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_PASSWORD` | If no `DATABASE_URL` | Local Postgres is on port 5433 |
+| `REDIS_URL` | One of the two | Takes precedence over `REDIS_*` |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASS` | If no `REDIS_URL` | Local Redis is on port 6380 |
+| `CORS_ALLOWED_ORIGINS` | In practice yes | Comma separated; must include the frontend origin. Also used for the WebSocket `Origin` check |
+| `PORT` | No | Default 8081 |
+| `FRONTEND_URL` | No | Used in email links |
+| `APP_ENV` | No | `prod` / `production` enables production mode |
+
+Frontend: a single variable, `NEXT_PUBLIC_API_URL` (default `http://localhost:8081/api/v1`).
+
+Which file is loaded by what:
+
+| File | Used by |
+|---|---|
+| `backend/.env.local` | `make run`, `make watch` (backend on your machine) |
+| `backend/.env.dev` | `make up-dev` (backend in Docker) |
+| `backend/.env.prod` | `make up-prod` |
+| `frontend/.env.local` | `bun dev` |
+
+Inside Docker, hosts and ports are the internal ones (`DB_HOST=db`, `DB_PORT=5432`, `REDIS_HOST=redis`, `REDIS_PORT=6379`).
+
+## 5. Check that it works
+
+1. Open `http://localhost:3100/register` and create a user.
+2. Sign in, create a room and send a message.
+3. In a private window, create a second user and join the room with an invitation.
+4. Messages should arrive in both windows **without reloading**: that proves the WebSocket works.
+5. Edit a message, react to it, pin it.
+
+Handy checks:
+
+```bash
+curl -s http://localhost:8081/health
+curl -s http://localhost:8081/ready
+docker exec -it webchat-db psql -U root -d webchat -c 'select * from schema_migrations'
+```
+
+## 6. Administration
+
+Global roles are granted only from the server:
+
+```bash
+cd backend
+make admin-grant EMAIL=you@example.com ROLE=admin     # admin | moderator
+make admin-list
+make admin-revoke EMAIL=you@example.com
+```
+
+## 7. Everyday commands
+
+| Where | Command | What it does |
+|---|---|---|
+| `backend/` | `make watch` / `make run` | run with / without live reload |
+| `backend/` | `make test` | `go test -v ./...` |
+| `backend/` | `make up-dev` / `make down` | whole stack in Docker / stop it |
+| `backend/` | `docker compose down -v` | stop **and delete all data** |
+| `frontend/` | `bun dev` · `bun run build` · `bun run lint` · `bun run test` | frontend tasks |
+
+## 8. Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `JWT_SECRET must be set and at least 32 characters long` | Missing or short secret | Set it in `.env.local` |
+| `DATABASE_URL is not set…` | `.env.local` not loaded | Run `make watch` from `backend/` |
+| `unable to connect to database` | Container down, wrong port or password | `docker compose ps`; use port **5433** locally |
+| Redis error at startup | Wrong port or password | Use port **6380** locally |
+| `bind: address already in use` | Another project owns the port | `ss -ltnp \| grep <port>` |
+| Frontend loads but shows CORS errors | Origin missing from `CORS_ALLOWED_ORIGINS` | Add `http://localhost:3100` and restart |
+| Requests go to `undefined/...` | No `frontend/.env.local` | Create it and restart `bun dev` |
+| `air: command not found` | `air` not installed | `go install github.com/air-verse/air@latest` |
+
+The original Spanish guide with extra detail is [LEVANTAR.md](../LEVANTAR.md).

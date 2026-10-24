@@ -1,15 +1,40 @@
+**🌐 English** · [Español](README.es.md)
+
 # WebChat
 
-Real-time chat application: a Go backend (Gin, PostgreSQL, Redis, WebSockets) and a Next.js frontend. Minimal UI, JWT authentication with silent token refresh, chat rooms with invitations, message editing and emoji reactions.
+Real-time chat platform: public and private rooms, direct messages, replies, reactions, pinned messages, full-text search, moderation tools and a light/dark, English/Spanish interface.
 
-## Features
+## Highlights
 
-- Real-time messaging over WebSockets (single-use ticket authentication, origin checks).
-- Registration and login with JWT: 1-hour access token plus a single-use refresh token.
-- Public and private rooms; invitations created by room owners/admins.
-- Message editing and emoji reactions, visible live to everyone in the room.
-- Rate limiting, password policy, structured logs, health/readiness endpoints.
-- Responsive, themeable UI (light theme active, dark palette ready).
+- **Live messaging** over WebSockets with single-use ticket authentication, origin checks, presence and typing indicators.
+- **Secure sessions:** 1-hour access JWT held only in memory, plus a single-use rotating refresh token in an httpOnly cookie.
+- **Roles and moderation:** one rank-based permission matrix, reports, temporary or permanent bans and an audit log.
+- **Built to scale out:** several backend instances can serve the same room through Redis pub/sub.
+- **Privacy:** export your data and delete your account.
+
+```mermaid
+flowchart LR
+    U([Browser]) -->|REST + WebSocket| API[Go API<br/>Gin · hub]
+    API --> PG[(PostgreSQL)]
+    API --> R[(Redis)]
+    FE[Next.js] -.serves.-> U
+```
+
+## Documentation
+
+| | |
+|---|---|
+| [Getting started](docs/en/getting-started.md) | Run it locally in a few minutes |
+| [Architecture](docs/en/architecture.md) | Modules, layers, request lifecycle, diagrams |
+| [Design decisions](docs/en/decisions.md) | **Why** each technology and pattern was chosen |
+| [Security](docs/en/security.md) | Authentication, permissions, rate limits, audit |
+| [Real-time](docs/en/realtime.md) | WebSocket hub, presence, scaling out |
+| [Data model](docs/en/data-model.md) | Entity-relationship diagram and conventions |
+| [API reference](docs/en/api.md) | Every endpoint |
+| [Frontend](docs/en/frontend.md) | Structure, session, i18n, theming |
+| [Contributing](docs/en/contributing.md) | Workflow, rules and quality gates |
+
+Every page has a language switch on its first line. Team working documents (roadmap, use cases, findings tracker) are in Spanish under [`docs/`](docs/).
 
 ## Tech stack
 
@@ -17,21 +42,16 @@ Real-time chat application: a Go backend (Gin, PostgreSQL, Redis, WebSockets) an
 |---|---|
 | Backend | Go 1.24, Gin, PostgreSQL 16, Redis, Gorilla WebSocket, JWT |
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, React Hook Form + Zod, Axios |
-| Tooling | Docker Compose, Make, `air` (live reload), GitHub Actions CI |
+| Tooling | Docker Compose, Make, `air`, GitHub Actions CI |
 
-## Getting started
-
-The complete, step-by-step guide (environment variables, database schema, ports, troubleshooting) is in **[docs/LEVANTAR.md](docs/LEVANTAR.md)** (Spanish). The short version:
+## Quick start
 
 ```bash
-# 1. Database and cache
 cd backend && docker compose up -d db redis
-
-# 2. Backend (it applies the database migrations on startup): cp .env.example .env.local, fill in the values, then
-make watch            # http://localhost:8081
-
-# 3. Frontend: cp .env.example .env.local, then
-cd ../frontend && bun install && bun dev    # http://localhost:3100
+cp .env.example .env.local        # fill in the values, then:
+make watch                        # http://localhost:8081
+cd ../frontend && cp .env.example .env.local
+bun install && bun dev            # http://localhost:3100
 ```
 
 | Service | Port (localhost) |
@@ -41,51 +61,13 @@ cd ../frontend && bun install && bun dev    # http://localhost:3100
 | PostgreSQL | 5433 |
 | Redis | 6380 |
 
-## Project structure
+## Repository layout
 
 ```
 backend/    Go API (Clean Architecture, one package per module)
-  cmd/server/        entry point and dependency wiring
-  internal/auth|users|room|message/   domain, application, persistence, presentation
-  internal/websocket/                  hub, clients, single-use tickets
-  internal/shared/                     config, HTTP server/middleware, infra (db, redis, services)
-  migrations/                          versioned SQL migrations (applied on startup)
 frontend/   Next.js app
-  src/app/            routes ((auth) and (private) groups)
-  src/lib/            API client (token refresh) and token storage
-  src/contexts/       AuthContext, SocketContext
-  src/hooks, src/services, src/components
-docs/       setup guide, roadmap, use cases, findings tracker
+docs/       en/ and es/ documentation, plus Spanish working documents
 ```
-
-## API (prefix `/api/v1`, except health)
-
-- `GET /health`, `GET /ready` (outside the prefix): liveness and readiness.
-- **Auth:** `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh-token`, `POST /auth/send-verify-email/:user_id`, `POST /auth/verify-email/:token`.
-- **Users:** `GET /users/profile`, `DELETE /users/deactivate`.
-- **Rooms:** `POST /rooms`, `GET /rooms`, `POST /rooms/join/:room_id`, `POST /rooms/direct/:user_id` (open a one-to-one chat), `GET /rooms/members/:room_id` (members + online status), `POST /rooms/leave/:room_id`, `POST /rooms/read/:room_id` (mark as read; `GET /rooms` includes `unread_count`), `POST /rooms/invite/:room_id`, `POST /rooms/accept-invite/:code`.
-- **Messages:** `GET /messages/:roomId/messages?limit=&before=` (cursor pagination), `GET /messages/search?q=&room_id=` (full-text, accent-insensitive, only your rooms), `POST /messages` (optional `reply_to_message_id`), `PATCH /messages/:id`, `DELETE /messages/:id` (author only, soft delete), `PUT|DELETE /messages/:id/pin` + `GET /messages/:roomId/pinned` (owner/admin pin), `POST|DELETE /messages/:id/reactions`.
-- **WebSocket:** `POST /ws-ticket` (authenticated) returns a 30-second single-use ticket; connect to `GET /ws?ticket=...`.
-
-Everything except register, login, refresh and email verification requires `Authorization: Bearer <access token>`.
-
-## Development
-
-```bash
-# backend (from backend/)
-make test             # go test -v ./...
-make watch            # live reload with air
-# frontend (from frontend/)
-bunx tsc --noEmit && bun run lint && bun run test && bun run build
-```
-
-CI (`.github/workflows/ci.yml`) runs formatting, vet, build and tests for the backend, and type check, lint and build for the frontend.
-
-## Project planning
-
-- [docs/ROADMAP.md](docs/ROADMAP.md): phases to a production-grade product.
-- [docs/CASOS_DE_USO.md](docs/CASOS_DE_USO.md): use cases, existing and new.
-- [docs/HALLAZGOS.md](docs/HALLAZGOS.md): tracked findings and their status.
 
 ## License
 

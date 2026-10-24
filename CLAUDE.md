@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Under no circumstances read, cat, grep, open, or otherwise expose files related to credentials or secrets: `.env`, `*.env`, `.env.dev`, `.env.prod`, `.env.local`, `*.env.example` variants, key/cert/token files, or anything similar. This applies always, even if it seems needed for debugging; ask the user instead. Reading the Go code that consumes env vars (e.g. `internal/shared/config`) is fine.
 
-Full step-by-step setup (env vars, DB schema, ports, troubleshooting) is in `docs/LEVANTAR.md`; work plan in `docs/ROADMAP.md` and open issues in `docs/HALLAZGOS.md` (move items to Completados with commit hash when resolved).
+Full step-by-step setup (env vars, DB schema, ports, troubleshooting) is in `docs/LEVANTAR.md`; bilingual (en/es) documentation with diagrams and design decisions in `docs/en/` and `docs/es/` (same file names, language switch on line 1: when you change one language, change the other, and add an entry to `decisions.md` for any real design choice); work plan in `docs/ROADMAP.md` and open issues in `docs/HALLAZGOS.md` (move items to Completados with commit hash when resolved).
 
 ## Overview
 
