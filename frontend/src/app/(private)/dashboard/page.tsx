@@ -14,8 +14,10 @@ import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/lib/useDebounce';
 import { IGetRoomMessages, messageService } from '@/services/messageService';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n/useT';
 
 export default function DashboardPage() {
+  const { t } = useT();
   const [chosenRoom, setSelectedRoom] = useState<string | null>(null);
   const { rooms, loading, createRoom, leaveRoom, openDirect } = useRoom(chosenRoom);
   // A room we were removed from (or left elsewhere) disappears from the list: close its chat.
@@ -59,7 +61,7 @@ export default function DashboardPage() {
         >
           <UserProfile />
           <div className="relative flex items-center justify-between px-4 pb-2 pt-4">
-            <h2 className="text-sm font-medium text-muted-foreground">Chats</h2>
+            <h2 className="text-sm font-medium text-muted-foreground">{t('dashboard.chats')}</h2>
             <CreateRoomForm createRoom={createRoom} />
           </div>
           <div className="relative px-3 pb-2">
@@ -67,15 +69,15 @@ export default function DashboardPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search messages"
-              aria-label="Search messages"
+              placeholder={t('dashboard.searchPlaceholder')}
+              aria-label={t('dashboard.searchPlaceholder')}
               className="h-9 pl-8 pr-8"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                aria-label="Clear search"
+                aria-label={t('dashboard.clearSearch')}
                 className="absolute right-5 top-2.5 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />

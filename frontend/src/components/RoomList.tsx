@@ -1,5 +1,6 @@
 import { MessageSquare, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n/useT';
 
 export default function RoomList({
   rooms,
@@ -10,11 +11,12 @@ export default function RoomList({
   onSelectRoom: (id: string) => void;
   selectedRoom: string | null;
 }) {
+  const { t } = useT();
   if (rooms.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-muted-foreground">
         <MessageSquare className="h-5 w-5" />
-        <p className="text-sm">No rooms yet. Create your first one with +.</p>
+        <p className="text-sm">{t('rooms.empty')}</p>
       </div>
     );
   }
@@ -39,7 +41,7 @@ export default function RoomList({
             {!!room.unread_count && selectedRoom !== room.id && (
               <span
                 className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-medium text-primary-foreground"
-                aria-label={`${room.unread_count} unread messages`}
+                aria-label={t('rooms.unread', { count: room.unread_count })}
               >
                 {room.unread_count > 99 ? '99+' : room.unread_count}
               </span>

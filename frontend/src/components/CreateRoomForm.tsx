@@ -5,12 +5,14 @@ import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useT } from '@/lib/i18n/useT';
 
 export default function CreateRoomForm({
   createRoom,
 }: {
   createRoom: (data: { name: string; is_private: boolean; topic: string }) => Promise<void> | void;
 }) {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [isPublic, setIsPublic] = useState(true);
@@ -38,9 +40,9 @@ export default function CreateRoomForm({
         size="icon"
         className="h-8 w-8"
         onClick={() => setOpen((v) => !v)}
-        aria-label={open ? 'Close new room form' : 'New room'}
+        aria-label={open ? t('rooms.closeForm') : t('rooms.new')}
         aria-expanded={open}
-        title="New room"
+        title={t('rooms.new')}
       >
         {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
       </Button>
@@ -53,16 +55,16 @@ export default function CreateRoomForm({
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Room name"
-            aria-label="Room name"
+            placeholder={t('rooms.name')}
+            aria-label={t('rooms.name')}
           />
           <div className="flex items-center justify-between">
             <label htmlFor="public-room" className="flex items-center gap-2 text-sm">
               <Checkbox id="public-room" checked={isPublic} onCheckedChange={() => setIsPublic(!isPublic)} />
-              Public
+              {t('rooms.public')}
             </label>
             <Button type="submit" size="sm" disabled={!name.trim() || submitting}>
-              Create
+              {t('rooms.create')}
             </Button>
           </div>
         </form>

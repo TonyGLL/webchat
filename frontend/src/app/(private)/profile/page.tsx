@@ -10,11 +10,13 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { userService } from '@/services/userService';
+import { useT } from '@/lib/i18n/useT';
 
 export default function ProfilePage() {
   const { profile, loading, deactivate } = useUser();
   const { logout } = useAuth();
   const router = useRouter();
+  const { t } = useT();
 
   const handleDeactivate = async () => {
     try {
@@ -39,7 +41,7 @@ export default function ProfilePage() {
       link.click();
       URL.revokeObjectURL(url);
     } catch {
-      setMessage('Could not export your data. Try again later.');
+      setMessage(t('profile.exportError'));
     }
   };
 
@@ -49,7 +51,7 @@ export default function ProfilePage() {
       logout();
       router.push('/login');
     } catch {
-      setMessage('Wrong password, or the account could not be deleted.');
+      setMessage(t('profile.deleteError'));
     }
   };
 
@@ -61,7 +63,7 @@ export default function ProfilePage() {
           className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to chats
+          {t('profile.back')}
         </Link>
         {loading ? (
           <Spinner />
@@ -77,23 +79,23 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="space-y-3 rounded-lg border p-4">
-              <h2 className="text-sm font-medium">Your data</h2>
-              <p className="text-sm text-muted-foreground">Download a JSON file with your profile, rooms, messages and reactions.</p>
+              <h2 className="text-sm font-medium">{t('profile.dataTitle')}</h2>
+              <p className="text-sm text-muted-foreground">{t('profile.dataBody')}</p>
               <Button variant="outline" onClick={handleExport} className="w-full">
-                Download my data
+                {t('profile.download')}
               </Button>
             </div>
             <div className="space-y-3 rounded-lg border p-4">
-              <h2 className="text-sm font-medium">Danger zone</h2>
+              <h2 className="text-sm font-medium">{t('profile.dangerTitle')}</h2>
               <p className="text-sm text-muted-foreground">
-                Deactivating your account signs you out and disables your access.
+                {t('profile.deactivateBody')}
               </p>
               <Button variant="destructive" onClick={handleDeactivate} className="w-full">
-                Deactivate account
+                {t('profile.deactivate')}
               </Button>
               <hr />
               <p className="text-sm text-muted-foreground">
-                Deleting is permanent. Rooms you own pass to another member (or are removed if you are alone); your messages stay, shown as “deleted user”.
+                {t('profile.deleteBody')}
               </p>
               {confirming ? (
                 <div className="space-y-2">
@@ -101,17 +103,17 @@ export default function ProfilePage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Confirm with your password"
+                    placeholder={t('profile.confirmPassword')}
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                     autoComplete="current-password"
                   />
                   <Button variant="destructive" disabled={!password} onClick={handleDelete} className="w-full">
-                    Delete my account forever
+                    {t('profile.deleteForever')}
                   </Button>
                 </div>
               ) : (
                 <Button variant="outline" onClick={() => setConfirming(true)} className="w-full">
-                  Delete account
+                  {t('profile.delete')}
                 </Button>
               )}
               {message && (
@@ -122,7 +124,7 @@ export default function ProfilePage() {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Could not load profile.</p>
+          <p className="text-sm text-muted-foreground">{t('profile.loadError')}</p>
         )}
       </main>
     </PrivateRoute>

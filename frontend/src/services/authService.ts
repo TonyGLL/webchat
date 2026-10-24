@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { api } from '@/lib/api';
 import { GlobalRole } from '@/lib/permissions';
+import type { Translate } from '@/lib/i18n';
 
 export interface User {
   id: number;
@@ -19,28 +20,30 @@ export interface IAuthResponse {
   token: string;
 }
 
-export const RegisterSchema = z.object({
-  name: z.string().min(1, { message: 'Name is required' }),
-  last_name: z.string().min(1, { message: 'Last name is required' }),
-  username: z
-    .string()
-    .min(3, { message: 'Username must be at least 3 characters' })
-    .max(30, { message: 'Username must be at most 30 characters' }),
-  email: z.string().email({ message: 'Invalid email address' }),
-  phone: z.string().min(1, { message: 'Phone is required' }),
-  password: z
-    .string()
-    .min(8, { message: 'Password must be at least 8 characters' })
-    .max(72, { message: 'Password must be at most 72 characters' }),
-});
+export const makeRegisterSchema = (t: Translate) =>
+  z.object({
+    name: z.string().min(1, { message: t('validation.nameRequired') }),
+    last_name: z.string().min(1, { message: t('validation.lastNameRequired') }),
+    username: z
+      .string()
+      .min(3, { message: t('validation.usernameMin', { min: 3 }) })
+      .max(30, { message: t('validation.usernameMax', { max: 30 }) }),
+    email: z.string().email({ message: t('validation.invalidEmail') }),
+    phone: z.string().min(1, { message: t('validation.phoneRequired') }),
+    password: z
+      .string()
+      .min(8, { message: t('validation.passwordMin', { min: 8 }) })
+      .max(72, { message: t('validation.passwordMax', { max: 72 }) }),
+  });
 
-export const LoginSchema = z.object({
-  user: z.string().email(),
-  password: z.string().min(6),
-});
+export const makeLoginSchema = (t: Translate) =>
+  z.object({
+    user: z.string().email({ message: t('validation.invalidEmail') }),
+    password: z.string().min(6, { message: t('validation.passwordMin', { min: 6 }) }),
+  });
 
-export type RegisterData = z.infer<typeof RegisterSchema>;
-export type LoginData = z.infer<typeof LoginSchema>;
+export type RegisterData = z.infer<ReturnType<typeof makeRegisterSchema>>;
+export type LoginData = z.infer<ReturnType<typeof makeLoginSchema>>;
 
 export const authService = {
   register: async (data: RegisterData): Promise<{ id: number; email: string }> => {

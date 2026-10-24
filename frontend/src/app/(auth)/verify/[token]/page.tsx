@@ -7,9 +7,11 @@ import Link from 'next/link';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import Spinner from '@/components/Spinner';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/lib/i18n/useT';
 
 export default function VerifyTokenPage() {
   const { token } = useParams();
+  const { t } = useT();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   // The token is single-use; React dev mode runs effects twice, so guard the request.
   const requested = useRef(false);
@@ -28,7 +30,7 @@ export default function VerifyTokenPage() {
     return (
       <div className="space-y-3 text-center">
         <Spinner className="h-6 w-6" />
-        <p className="text-sm text-muted-foreground">Verifying your email…</p>
+        <p className="text-sm text-muted-foreground">{t('verifyToken.verifying')}</p>
       </div>
     );
   }
@@ -42,13 +44,13 @@ export default function VerifyTokenPage() {
         <Icon className={`h-5 w-5 ${ok ? 'text-foreground' : 'text-destructive'}`} />
       </div>
       <h1 className="text-2xl font-semibold tracking-tight">
-        {ok ? 'Email verified' : 'Link not valid'}
+        {ok ? t('verifyToken.okTitle') : t('verifyToken.errorTitle')}
       </h1>
       <p className="text-sm text-muted-foreground">
-        {ok ? 'Your account is ready.' : 'This verification link is invalid or has expired.'}
+        {ok ? t('verifyToken.okBody') : t('verifyToken.errorBody')}
       </p>
       <Button asChild className="w-full">
-        <Link href="/login">{ok ? 'Continue to sign in' : 'Back to sign in'}</Link>
+        <Link href="/login">{ok ? t('verifyToken.okAction') : t('verifyToken.errorAction')}</Link>
       </Button>
     </div>
   );

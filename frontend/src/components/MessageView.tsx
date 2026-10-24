@@ -15,6 +15,8 @@ import Reaction from './Reaction';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { intlLocale, Locale } from '@/lib/i18n';
+import { useT } from '@/lib/i18n/useT';
 dayjs.extend(isToday);
 
 interface MessageViewProps {
@@ -32,8 +34,8 @@ interface MessageViewProps {
   onLeave: () => Promise<void>;
 }
 
-const formatTimestamp = (date: string | Date) => {
-  const options: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: 'numeric', hour12: true };
+const formatTimestamp = (date: string | Date, locale: Locale) => {
+  const options: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: 'numeric' };
 
   if (!dayjs(date).isToday()) {
     options.day = 'numeric';
@@ -41,10 +43,11 @@ const formatTimestamp = (date: string | Date) => {
     options.year = 'numeric';
   }
 
-  return new Date(date).toLocaleTimeString('en-US', options);
+  return new Date(date).toLocaleTimeString(intlLocale(locale), options);
 };
 
 export default function MessageView({ roomId, roomName, myRole, isDirect = false, onOpenDirect, onBack, onLeave }: MessageViewProps) {
+  const { t, locale } = useT();
   const {
     messages,
     pinned,
@@ -76,17 +79,17 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
     try {
       await action();
     } catch {
-      setMemberError('That action is not allowed.');
+      setMemberError(t('chat.actionNotAllowed'));
     }
   };
   const reportMessage = async (messageId: string) => {
-    const reason = window.prompt('Why are you reporting this message?');
+    const reason = window.prompt(t('chat.reportPrompt'));
     if (!reason?.trim()) return;
     try {
       await moderationService.report(messageId, reason.trim());
-      setNotice('Report sent. Thank you.');
+      setNotice(t('chat.reportSent'));
     } catch {
-      setNotice('Could not send the report (maybe you already reported it).');
+      setNotice(t('chat.reportFailed'));
     }
   };
   const onlineCount = members.filter((m) => m.online).length;
@@ -114,11 +117,11 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   }, [ordered, pending]);
 
   const handleLeave = async () => {
-    if (!window.confirm(`Leave ${roomName ?? 'this room'}?`)) return;
+    if (!window.confirm(t('chat.leaveConfirm', { room: roomName ?? t('chat.thisRoom') }))) return;
     try {
       await onLeave();
     } catch {
-      setLeaveError("You can't leave this room (the owner must stay).");
+      setLeaveError(t('chat.leaveError'));
     }
   };
 
@@ -142,7 +145,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
         <MessageSquare className="h-6 w-6" />
-        <p className="text-sm">Select a room to start messaging.</p>
+        <p className="text-sm">{t('chat.selectRoom')}</p>
       </div>
     );
   }
@@ -150,14 +153,14 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b px-2 md:px-4">
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label="Back to rooms">
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label={t('chat.backToRooms')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-medium">{roomName ?? 'Room'}</h2>
+          <h2 className="truncate text-sm font-medium">{roomName ?? t('rooms.fallbackName')}</h2>
           {!isDirect && members.length > 0 && (
             <p className="truncate text-[11px] text-muted-foreground">
-              {members.length} {members.length === 1 ? 'member' : 'members'} · {onlineCount} online
+              {t(members.length === 1 ? 'chat.membersCount.one' : 'chat.membersCount.other', { count: members.length, online: onlineCount })}
             </p>
           )}
         </div>
@@ -171,9 +174,9 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
             variant="ghost"
             size="icon"
             onClick={() => setShowModeration((v) => !v)}
-            aria-label="Moderation"
+            aria-label={t('chat.moderation')}
             aria-expanded={showModeration}
-            title="Moderation"
+            title={t('chat.moderation')}
           >
             <Shield className="h-4 w-4" />
           </Button>
@@ -183,14 +186,14 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
             variant="ghost"
             size="icon"
             onClick={() => setShowMembers((v) => !v)}
-          aria-label="Members"
+          aria-label={t('chat.members')}
           aria-expanded={showMembers}
-          title="Members"
+          title={t('chat.members')}
           >
             <Users className="h-4 w-4" />
           </Button>
         )}
-        <Button variant="ghost" size="icon" onClick={handleLeave} aria-label="Leave room" title="Leave room">
+        <Button variant="ghost" size="icon" onClick={handleLeave} aria-label={t('chat.leave')} title={t('chat.leave')}>
           <LogOut className="h-4 w-4" />
         </Button>
       </header>
@@ -199,7 +202,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
 
       {notice && (
         <p className="shrink-0 border-b bg-muted/40 px-4 py-1 text-xs" role="status">
-          {notice} <button type="button" className="underline" onClick={() => setNotice(null)}>OK</button>
+          {notice} <button type="button" className="underline" onClick={() => setNotice(null)}>{t('common.ok')}</button>
         </p>
       )}
 
@@ -209,7 +212,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
             <li key={m.user_id} className="flex items-center gap-2">
               <span
                 className={cn('h-2 w-2 shrink-0 rounded-full', m.online ? 'bg-green-500' : 'bg-muted-foreground/40')}
-                aria-label={m.online ? 'Online' : 'Offline'}
+                aria-label={m.online ? t('chat.online') : t('chat.offline')}
               />
               <span className="truncate">
                 {m.name} <span className="text-muted-foreground">@{m.username}</span>
@@ -218,18 +221,18 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                 {assignableRoles(myRank, rankOf(m.role, null)).length > 0 && m.user_id !== profile?.id ? (
                   <select
                     value={m.role}
-                    aria-label={`Role of ${m.name}`}
+                    aria-label={t('chat.roleOf', { name: m.name })}
                     className="rounded border bg-background px-1 py-0.5 text-[11px]"
                     onChange={(e) => manage(() => changeRole(m.user_id, e.target.value as RoomRole))}
                   >
                     {Array.from(new Set<RoomRole>([m.role, ...assignableRoles(myRank, rankOf(m.role, null))])).map((role) => (
                       <option key={role} value={role} disabled={!assignableRoles(myRank, rankOf(m.role, null)).includes(role)}>
-                        {role}
+                        {t(`role.${role}`)}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  m.role !== 'member' && <span className="text-[10px] uppercase text-muted-foreground">{m.role}</span>
+                  m.role !== 'member' && <span className="text-[10px] uppercase text-muted-foreground">{t(`role.${m.role}`)}</span>
                 )}
                 {m.user_id !== profile?.id && (
                   <button
@@ -237,16 +240,16 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                     className="underline hover:text-foreground"
                     onClick={() => onOpenDirect(m.user_id).then(() => setShowMembers(false))}
                   >
-                    Message
+                    {t('chat.message')}
                   </button>
                 )}
                 {m.user_id !== profile?.id && canModerate(myRank, rankOf(m.role, null)) && (
                   <button
                     type="button"
                     className="underline hover:text-destructive"
-                    onClick={() => window.confirm(`Remove ${m.name} from the room?`) && manage(() => kickMember(m.user_id))}
+                    onClick={() => window.confirm(t('chat.removeConfirm', { name: m.name })) && manage(() => kickMember(m.user_id))}
                   >
-                    Remove
+                    {t('chat.remove')}
                   </button>
                 )}
                 {m.user_id !== profile?.id && canModerate(myRank, rankOf(m.role, null)) && (
@@ -254,13 +257,13 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                     type="button"
                     className="underline hover:text-destructive"
                     onClick={() => {
-                      const reason = window.prompt(`Ban ${m.name}. Reason?`);
+                      const reason = window.prompt(t('chat.banPrompt', { name: m.name }));
                       if (reason === null) return;
-                      const duration = window.prompt('For how long? Examples: 24h, 168h. Leave empty for permanent.') ?? '';
+                      const duration = window.prompt(t('chat.banDurationPrompt')) ?? '';
                       manage(() => banMember(m.user_id, reason, duration));
                     }}
                   >
-                    Ban
+                    {t('chat.ban')}
                   </button>
                 )}
               </span>
@@ -277,7 +280,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
       {pinned.length > 0 && (
         <div className="shrink-0 border-b bg-muted/40 px-4 py-2 text-xs">
           <p className="mb-1 flex items-center gap-1 font-medium text-muted-foreground">
-            <Pin className="h-3 w-3" /> Pinned
+            <Pin className="h-3 w-3" /> {t('chat.pinned')}
           </p>
           <ul className="max-h-20 space-y-1 overflow-y-auto">
             {pinned.map((p) => (
@@ -299,7 +302,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
             {hasMore && (
               <li className="flex justify-center">
                 <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
-                  {loadingMore ? 'Loading…' : 'Load older messages'}
+                  {loadingMore ? t('common.loading') : t('chat.loadOlder')}
                 </Button>
               </li>
             )}
@@ -317,15 +320,15 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                   >
                     {msg.reply_to_message_id && (
                       <p className="mb-1 truncate border-l-2 border-current pl-2 text-xs opacity-70">
-                        {byId.get(msg.reply_to_message_id)?.content ?? 'Original message'}
+                        {byId.get(msg.reply_to_message_id)?.content ?? t('chat.originalMessage')}
                       </p>
                     )}
                     <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
-                    <p className="mt-0.5 text-right text-[11px] opacity-60">{formatTimestamp(msg.created_at)}</p>
+                    <p className="mt-0.5 text-right text-[11px] opacity-60">{formatTimestamp(msg.created_at, locale)}</p>
                   </div>
                   <div className="flex gap-3 text-[11px] text-muted-foreground">
                     <button type="button" className="flex items-center gap-1 hover:text-foreground" onClick={() => setReplyingTo(msg)}>
-                      <Reply className="h-3 w-3" /> Reply
+                      <Reply className="h-3 w-3" /> {t('chat.reply')}
                     </button>
                     {canPin && (
                       <button
@@ -334,21 +337,21 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                         onClick={() => togglePin(msg.id, !msg.pinned_at)}
                       >
                         {msg.pinned_at ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-                        {msg.pinned_at ? 'Unpin' : 'Pin'}
+                        {msg.pinned_at ? t('chat.unpin') : t('chat.pin')}
                       </button>
                     )}
                     {!isCurrentUser && !isDirect && (
                       <button type="button" className="flex items-center gap-1 hover:text-foreground" onClick={() => reportMessage(msg.id)}>
-                        <Flag className="h-3 w-3" /> Report
+                        <Flag className="h-3 w-3" /> {t('chat.report')}
                       </button>
                     )}
                     {(isCurrentUser || canDeleteAnyMessage(myRank)) && (
                       <button
                         type="button"
                         className="flex items-center gap-1 hover:text-destructive"
-                        onClick={() => window.confirm('Delete this message?') && deleteMessage(msg.id)}
+                        onClick={() => window.confirm(t('chat.deleteConfirm')) && deleteMessage(msg.id)}
                       >
-                        <Trash2 className="h-3 w-3" /> Delete
+                        <Trash2 className="h-3 w-3" /> {t('chat.delete')}
                       </button>
                     )}
                   </div>
@@ -375,15 +378,15 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                   <p className="whitespace-pre-wrap break-words text-sm">{item.content}</p>
                 </div>
                 {item.status === 'sending' ? (
-                  <p className="text-[11px] text-muted-foreground">Sending…</p>
+                  <p className="text-[11px] text-muted-foreground">{t('chat.sending')}</p>
                 ) : (
                   <p className="flex gap-2 text-[11px] text-destructive" role="alert">
-                    Not sent.
+                    {t('chat.notSent')}
                     <button type="button" className="underline" onClick={() => retryMessage(item.tempId)}>
-                      Retry
+                      {t('chat.retry')}
                     </button>
                     <button type="button" className="underline" onClick={() => discardMessage(item.tempId)}>
-                      Discard
+                      {t('chat.discard')}
                     </button>
                   </p>
                 )}
@@ -397,14 +400,14 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
       {replyingTo && (
         <div className="flex shrink-0 items-center gap-2 border-t bg-muted/50 px-3 py-2 text-xs">
           <Reply className="h-3 w-3 shrink-0" />
-          <p className="min-w-0 flex-1 truncate">Replying to: {replyingTo.content}</p>
-          <button type="button" onClick={() => setReplyingTo(null)} aria-label="Cancel reply">
+          <p className="min-w-0 flex-1 truncate">{t('chat.replyingTo', { content: replyingTo.content })}</p>
+          <button type="button" onClick={() => setReplyingTo(null)} aria-label={t('chat.cancelReply')}>
             <X className="h-3 w-3" />
           </button>
         </div>
       )}
       <p className="h-4 shrink-0 px-4 text-[11px] text-muted-foreground" aria-live="polite">
-        {typingLabel(typingNames)}
+        {typingLabel(typingNames, t)}
       </p>
       <form onSubmit={handleSendMessage} className="flex shrink-0 items-center gap-2 border-t p-3">
         <Input
@@ -413,11 +416,11 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
             setContent(e.target.value);
             if (e.target.value) notifyTyping();
           }}
-          placeholder="Write a message"
-          aria-label="Message"
+          placeholder={t('chat.writeMessage')}
+          aria-label={t('chat.message')}
           className="flex-1"
         />
-        <Button type="submit" size="icon" disabled={!content.trim()} aria-label="Send">
+        <Button type="submit" size="icon" disabled={!content.trim()} aria-label={t('chat.send')}>
           <Send className="h-4 w-4" />
         </Button>
       </form>

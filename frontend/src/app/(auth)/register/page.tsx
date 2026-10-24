@@ -3,10 +3,11 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useAuth';
-import { RegisterSchema, RegisterData } from '@/services/authService';
+import { makeRegisterSchema, RegisterData } from '@/services/authService';
+import { useT } from '@/lib/i18n/useT';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
@@ -14,6 +15,8 @@ import Spinner from '@/components/Spinner';
 
 export default function RegisterPage() {
   const { register: registerUser } = useAuth();
+  const { t } = useT();
+  const schema = useMemo(() => makeRegisterSchema(t), [t]);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +25,7 @@ export default function RegisterPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<RegisterData>({
-    resolver: zodResolver(RegisterSchema),
+    resolver: zodResolver(schema),
   });
 
   const onSubmit = async (data: RegisterData) => {
@@ -36,12 +39,12 @@ export default function RegisterPage() {
       const serverMessage = axios.isAxiosError(err) ? err.response?.data?.error : undefined;
       setError(
         status === 409
-          ? 'A user with this email or username already exists.'
+          ? t('register.conflict')
           : status === 400 && serverMessage
             ? serverMessage
             : status === 429
-              ? 'Too many attempts. Please wait a moment and try again.'
-              : 'Failed to register. Please try again.'
+              ? t('register.rateLimited')
+              : t('register.failed')
       );
       console.error(err);
     } finally {
@@ -52,8 +55,8 @@ export default function RegisterPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
-        <p className="text-sm text-muted-foreground">It only takes a minute.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t('register.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('register.subtitle')}</p>
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         {error && (
@@ -63,53 +66,53 @@ export default function RegisterPage() {
         )}
         <div className="grid grid-cols-2 gap-3">
           <FormField
-            label="Name"
+            label={t('register.name')}
             autoComplete="given-name"
             error={errors.name?.message}
             {...register('name')}
           />
           <FormField
-            label="Last name"
+            label={t('register.lastName')}
             autoComplete="family-name"
             error={errors.last_name?.message}
             {...register('last_name')}
           />
         </div>
         <FormField
-          label="Username"
+          label={t('register.username')}
           autoComplete="username"
           error={errors.username?.message}
           {...register('username')}
         />
         <FormField
-          label="Email"
+          label={t('common.email')}
           type="email"
           autoComplete="email"
           error={errors.email?.message}
           {...register('email')}
         />
         <FormField
-          label="Phone"
+          label={t('register.phone')}
           type="tel"
           autoComplete="tel"
           error={errors.phone?.message}
           {...register('phone')}
         />
         <FormField
-          label="Password"
+          label={t('common.password')}
           type="password"
           autoComplete="new-password"
           error={errors.password?.message}
           {...register('password')}
         />
         <Button type="submit" disabled={loading} className="w-full">
-          {loading ? <Spinner className="h-4 w-4 text-primary-foreground" /> : 'Create account'}
+          {loading ? <Spinner className="h-4 w-4 text-primary-foreground" /> : t('register.submit')}
         </Button>
       </form>
       <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{' '}
+        {t('register.haveAccount')}{' '}
         <Link href="/login" className="font-medium text-foreground hover:underline">
-          Sign in
+          {t('register.signIn')}
         </Link>
       </p>
     </div>

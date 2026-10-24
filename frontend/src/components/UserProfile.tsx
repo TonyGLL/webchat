@@ -6,12 +6,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
 import { useRouter } from 'next/navigation';
 import ThemeToggle from '@/components/ThemeToggle';
+import LanguageToggle from '@/components/LanguageToggle';
+import { useT } from '@/lib/i18n/useT';
 import { Button } from '@/components/ui/button';
 
 export default function UserProfile() {
   const { logout } = useAuth();
   const { profile } = useUser();
   const router = useRouter();
+  const { t } = useT();
 
   const handleLogout = () => {
     logout();
@@ -27,8 +30,9 @@ export default function UserProfile() {
         <p className="truncate text-sm font-medium">{profile?.username}</p>
       </Link>
       <div className="flex shrink-0 items-center">
+      <LanguageToggle />
       <ThemeToggle />
-      <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Log out" title="Log out">
+      <Button variant="ghost" size="icon" onClick={handleLogout} aria-label={t('nav.logOut')} title={t('nav.logOut')}>
         <LogOut className="h-4 w-4" />
       </Button>
       </div>
