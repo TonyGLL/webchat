@@ -24,6 +24,9 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D16 | Optimistic sending with explicit states | Accepted |
 | D17 | Visual direction "Foco" | Accepted |
 | D18 | People directory, discoverable rooms and personal invitations | Accepted |
+| D19 | Container images as the deliverable; cloud-neutral CI/CD | Accepted |
+| D20 | Persistent sessions with a sliding 7-day window | Accepted |
+| D21 | Password reset by emailed single-use link | Accepted |
 
 ---
 
@@ -164,3 +167,27 @@ sequenceDiagram
 - **Why:** being online, talking privately and belonging to a room are different questions. Mixing them (members only visible inside rooms) made the app feel empty. Keeping privacy at the room level protects private content while still advertising that the room exists.
 - **Alternatives:** hiding private rooms entirely (nothing to ask an invitation for), or invite codes only (clumsy and unaddressed).
 - **Consequences:** the directory exposes names and usernames to every signed-in user, which suits a team server; for a public deployment it would need a visibility setting. Invitations are polled every 15 s rather than pushed.
+
+## D19. Container images as the deliverable; cloud-neutral CI/CD
+
+- **Context:** CI only checked the code. Nothing produced a runnable, versioned artifact, the frontend had no Dockerfile, the migrations had never been proven on an empty database, and dependencies were never scanned.
+- **Decision:** CI also builds both images on every run and publishes them (multi-architecture) from `main` and version tags to GHCR; a separate weekly workflow scans dependencies; Dependabot keeps everything current. Deployment itself is deliberately not in the pipeline.
+- **Why:** an image runs on any platform, so choosing AWS later (or something else) does not invalidate the work. Building images on pull requests catches a broken Dockerfile before merge. The first scan found real problems (critical Next.js advisories, an end-of-life Go line with 29 reachable vulnerabilities, an unused database driver with an unfixable one), which is the argument for running it continuously.
+- **Alternatives:** deploy scripts for one provider (not portable), or publishing only on release tags (slower feedback on whether the image still builds).
+- **Consequences:** the web image is per environment because Next.js inlines `NEXT_PUBLIC_*` at build time. The Go toolchain moved from 1.24 (no longer patched) to 1.26, and the unused `pgx` driver was removed; the real driver is `lib/pq`. See [CI/CD](ci-cd.md).
+
+## D20. Persistent sessions with a sliding 7-day window
+
+- **Context:** people expect to come back to an open app after closing the tab, and to be asked to sign in again only after a long absence.
+- **Decision:** the refresh token lives 7 days in a persistent httpOnly cookie, and **every renewal issues a new token with a fresh 7 days**. So a session ends after seven days *without use*, not seven days after sign-in. A used token stays valid for 30 seconds more. The browser signs the user out only when the server explicitly rejects the token (401/403), never because the network failed.
+- **Why:** a fixed 7-day session would sign out someone who uses the app daily. The 30-second grace covers two tabs restoring at once and a response lost in transit, which would otherwise look like token theft and sign the user out. Treating a network failure as a rejection would end valid sessions every time a laptop wakes up offline.
+- **Alternatives:** a longer fixed lifetime (signs out active users anyway, and widens the theft window), or never expiring (a lost device stays signed in forever).
+- **Consequences:** a used token is replayable for 30 seconds, a deliberate trade for reliability. Activity means the app renewing its access token (about hourly while in use); a tab left open and untouched does not extend the session. Refresh tokens live in Redis, so losing Redis without persistence signs everyone out.
+
+## D21. Password reset by emailed single-use link
+
+- **Context:** forgetting the password left the account unreachable. The mailer already existed, but email *verification* is paused (H-008).
+- **Decision:** `POST /auth/forgot-password` emails a link with a random token valid for 30 minutes; `POST /auth/reset-password` redeems it. The token is random bytes, not a JWT, and only its SHA-256 hash is stored in Redis. Redeeming it sets the password under the same policy as registration, burns the link, and rejects every refresh token issued before that moment.
+- **Why:** the endpoint answers identically whether or not the address exists, otherwise it becomes a way to list who has an account. Storing a hash means a Redis leak yields no usable links. Ending all sessions matters because the usual reason to reset a password is a suspicion that someone else has it. A one-minute cooldown per address and a rate limit per client stop the form being used to flood someone's inbox.
+- **Alternatives:** a signed JWT link (cannot be revoked or burned without storing something anyway), or security questions (weak and guessable).
+- **Consequences:** it needs working SMTP settings; if sending fails the person still sees the neutral confirmation (the error is only logged). Already-issued access tokens stay valid until they expire, at most an hour. Link scanners that prefetch URLs are harmless because opening the page does not redeem the token; only submitting the form does.

@@ -24,6 +24,9 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D16 | Envío optimista con estados explícitos | Aceptada |
 | D17 | Dirección visual "Foco" | Aceptada |
 | D18 | Directorio de personas, salas descubribles e invitaciones personales | Aceptada |
+| D19 | Imágenes de contenedor como entregable; CI/CD neutral a la nube | Aceptada |
+| D20 | Sesiones persistentes con ventana deslizante de 7 días | Aceptada |
+| D21 | Restablecer contraseña con enlace de un solo uso por correo | Aceptada |
 
 ---
 
@@ -164,3 +167,27 @@ sequenceDiagram
 - **Por qué:** estar en línea, hablar en privado y pertenecer a una sala son preguntas distintas. Mezclarlas (miembros solo visibles dentro de las salas) hacía que la app se sintiera vacía. Mantener la privacidad a nivel de sala protege el contenido privado y aun así anuncia que la sala existe.
 - **Alternativas:** ocultar del todo las salas privadas (no habría nada a lo que pedir invitación), o solo códigos de invitación (incómodo y sin destinatario).
 - **Consecuencias:** el directorio expone nombres y usuarios a cualquier persona con sesión, algo adecuado para un servidor de equipo; en un despliegue público haría falta un ajuste de visibilidad. Las invitaciones se consultan cada 15 s en lugar de enviarse en vivo.
+
+## D19. Imágenes de contenedor como entregable; CI/CD neutral a la nube
+
+- **Contexto:** el CI solo comprobaba el código. Nada producía un artefacto ejecutable y versionado, el frontend no tenía Dockerfile, las migraciones nunca se habían probado sobre una base vacía y las dependencias nunca se escaneaban.
+- **Decisión:** el CI además construye ambas imágenes en cada ejecución y las publica (multiarquitectura) desde `main` y los tags de versión en GHCR; un workflow semanal aparte escanea las dependencias; Dependabot lo mantiene al día. El despliegue en sí queda deliberadamente fuera del pipeline.
+- **Por qué:** una imagen corre en cualquier plataforma, así que elegir AWS más adelante (u otra cosa) no invalida el trabajo. Construir imágenes en los pull requests detecta un Dockerfile roto antes de fusionar. El primer escaneo encontró problemas reales (avisos críticos de Next.js, una línea de Go sin mantenimiento con 29 vulnerabilidades alcanzables, un driver de base de datos sin uso con una vulnerabilidad sin arreglo), que es el argumento para ejecutarlo de forma continua.
+- **Alternativas:** scripts de despliegue para un proveedor (no portables), o publicar solo en tags de versión (feedback más lento sobre si la imagen aún construye).
+- **Consecuencias:** la imagen web es por entorno porque Next.js incrusta `NEXT_PUBLIC_*` al construir. El toolchain de Go pasó de 1.24 (ya sin parches) a 1.26, y se eliminó el driver `pgx`, que no se usaba; el real es `lib/pq`. Ver [CI/CD](ci-cd.md).
+
+## D20. Sesiones persistentes con ventana deslizante de 7 días
+
+- **Contexto:** la gente espera volver a la app abierta tras cerrar la pestaña, y que se le pida iniciar sesión de nuevo solo tras una ausencia larga.
+- **Decisión:** el refresh token vive 7 días en una cookie httpOnly persistente, y **cada renovación emite un token nuevo con otros 7 días**. Así la sesión termina a los siete días *sin uso*, no siete días después de iniciar sesión. Un token ya usado sigue valiendo 30 segundos más. El navegador cierra la sesión solo cuando el servidor rechaza el token de forma explícita (401/403), nunca porque falló la red.
+- **Por qué:** una sesión fija de 7 días echaría a quien usa la app a diario. La gracia de 30 segundos cubre dos pestañas que restauran a la vez y una respuesta perdida en tránsito, que de otro modo parecerían un robo de token y cerrarían la sesión. Tratar un fallo de red como un rechazo acabaría sesiones válidas cada vez que un portátil despierta sin conexión.
+- **Alternativas:** una vida fija más larga (echa igualmente a quien está activo y amplía la ventana de robo), o que nunca caduque (un dispositivo perdido queda con sesión para siempre).
+- **Consecuencias:** un token usado se puede reutilizar durante 30 segundos, un compromiso deliberado a favor de la fiabilidad. Actividad significa que la app renueve su access token (cada hora aproximadamente mientras se usa); una pestaña abierta y sin tocar no alarga la sesión. Los refresh tokens viven en Redis, así que perderlo sin persistencia cierra la sesión a todos.
+
+## D21. Restablecer contraseña con enlace de un solo uso por correo
+
+- **Contexto:** olvidar la contraseña dejaba la cuenta inaccesible. El servicio de correo ya existía, pero la *verificación* del email está pausada (H-008).
+- **Decisión:** `POST /auth/forgot-password` envía un enlace con un token aleatorio válido 30 minutos; `POST /auth/reset-password` lo canjea. El token son bytes aleatorios, no un JWT, y en Redis solo se guarda su hash SHA-256. Canjearlo fija la contraseña con la misma política que el registro, quema el enlace y rechaza todos los refresh tokens emitidos antes de ese momento.
+- **Por qué:** el endpoint responde igual exista o no la dirección, si no se convertiría en una forma de listar quién tiene cuenta. Guardar un hash hace que una filtración de Redis no dé enlaces utilizables. Cerrar todas las sesiones importa porque el motivo habitual para cambiar la contraseña es sospechar que otra persona la tiene. Un enfriamiento de un minuto por dirección y un límite por cliente impiden usar el formulario para inundar el correo de alguien.
+- **Alternativas:** un enlace con JWT firmado (no se puede revocar ni quemar sin guardar algo igualmente), o preguntas de seguridad (débiles y adivinables).
+- **Consecuencias:** necesita ajustes SMTP que funcionen; si el envío falla la persona sigue viendo la confirmación neutra (el error solo se registra). Los access tokens ya emitidos siguen valiendo hasta que caducan, una hora como máximo. Los escáneres de enlaces que precargan URLs son inofensivos porque abrir la página no canjea el token; solo lo hace enviar el formulario.

@@ -4,7 +4,7 @@
 
 ## 1. Requirements
 
-Go 1.24.3+, Bun (and Node 20+), Docker with Compose, Make, `air` (live reload; `make watch` offers to install it) and `openssl`.
+Go 1.26.10+, Bun (and Node 20+), Docker with Compose, Make, `air` (live reload; `make watch` offers to install it) and `openssl`.
 
 ## 2. Ports
 
@@ -55,6 +55,7 @@ The template `backend/.env.example` is the source of truth. The important ones:
 | `REDIS_URL` | One of the two | Takes precedence over `REDIS_*` |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASS` | If no `REDIS_URL` | Local Redis is on port 6380 |
 | `CORS_ALLOWED_ORIGINS` | In practice yes | Comma separated; must include the frontend origin. Also used for the WebSocket `Origin` check |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD` | Only for password reset | Without them "Forgot your password?" sends nothing (the error is only logged). A test SMTP server such as Mailpit works locally |
 | `PORT` | No | Default 8081 |
 | `FRONTEND_URL` | No | Used in email links |
 | `APP_ENV` | No | `prod` / `production` enables production mode |

@@ -26,7 +26,7 @@ Convención de nombres: `<proyecto>-<servicio>` en minúsculas con guiones; vol�
 
 ## Requisitos
 
-- Go 1.24.3 o superior
+- Go 1.26.10 o superior
 - Bun (para el frontend) y Node 20+
 - Docker y Docker Compose
 - Make
@@ -105,7 +105,7 @@ Notas sobre cada variable:
 | `CORS_ALLOWED_ORIGINS` | Sí en la práctica | Lista separada por comas. Debe incluir el origen del frontend. |
 | `PORT` | No | Por defecto `8081`. |
 | `FRONTEND_URL` | No | URL pública del frontend para los enlaces de los correos. Por defecto `http://localhost:3100`. |
-| `SMTP_*` | No por ahora (verificación pausada) | Con Gmail necesitas una "contraseña de aplicación". |
+| `SMTP_*` | Solo para restablecer contraseña | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD`. Sin ellos «¿Olvidaste tu contraseña?» no envía nada (el error solo queda en el log). Con Gmail necesitas una "contraseña de aplicación". Para probar en local sirve un servidor SMTP de pruebas como Mailpit. |
 | `APP_ENV` | No | `prod` o `production` activa el modo producción. |
 
 ### 3.2 Arrancar
@@ -183,7 +183,7 @@ curl -s -X POST http://localhost:8081/api/v1/auth/register \
 
 ### 5.2 Verificación de email (pausada)
 
-Por ahora **no se verifica el email**: el login no lo exige y el registro ya no envía correo, así que no necesitas configurar `SMTP_*`. El código de verificación (rutas `/auth/send-verify-email` y `/auth/verify-email`, páginas `/verify-email` y `/verify/[token]`) sigue en el repositorio, sin usarse, para retomarlo más adelante.
+Por ahora **no se verifica el email**: el login no lo exige y el registro ya no envía correo, así que para eso no necesitas `SMTP_*` (sí hacen falta para «¿Olvidaste tu contraseña?», ver arriba). El código de verificación (rutas `/auth/send-verify-email` y `/auth/verify-email`, páginas `/verify-email` y `/verify/[token]`) sigue en el repositorio, sin usarse, para retomarlo más adelante.
 
 ### 5.3 Iniciar sesión
 

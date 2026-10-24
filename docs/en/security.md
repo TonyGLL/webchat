@@ -22,12 +22,14 @@ flowchart LR
 | Passwords | bcrypt hashes in their own table (`passwords`), never returned by the API |
 | Password policy | 8–72 characters (72 is bcrypt's limit); rejects a short list of very common passwords and passwords containing the username or the email's local part |
 | Access token | JWT, 1 hour, sent as `Authorization: Bearer …` |
-| Refresh token | JWT, 7 days, **single use**; id stored in Redis; httpOnly, `SameSite=Strict` cookie scoped to `/api/v1/auth` |
+| Refresh token | JWT, 7 days, **single use** (kept valid 30 s more so concurrent tabs do not collide); id stored in Redis; httpOnly, `SameSite=Strict` cookie scoped to `/api/v1/auth` |
+| Session persistence | every renewal issues a fresh 7 days, so the session ends after a week **without use**; the browser signs out only when the server rejects the token, never on a network error (D20) |
+| Password reset | `POST /auth/forgot-password` always answers the same, so it never reveals who has an account. The emailed link carries a random 256-bit token valid 30 minutes and **single use**; only its SHA-256 hash is stored. At most one email per address per minute, plus a per-client rate limit. `POST /auth/reset-password` applies the registration password policy (a refused password leaves the link valid), then **ends every session**: refresh tokens issued before that moment are rejected (access tokens expire within the hour) (D21) |
 | Logout | `POST /auth/logout` revokes the refresh id and clears the cookie |
 | Secret | the server refuses to start without a `JWT_SECRET` of at least 32 characters |
 | Login errors | the login form shows one generic message, so it does not reveal whether an email exists |
 
-The reasoning behind each choice is in [Design decisions](decisions.md) (D5–D7).
+The reasoning behind each choice is in [Design decisions](decisions.md) (D5–D7, D20, D21).
 
 ## 2. WebSocket
 

@@ -36,6 +36,8 @@ sequenceDiagram
 
 The access token is never persisted (see D6 in [Design decisions](decisions.md)). `PrivateRoute` guards the `(private)` group.
 
+Sessions survive closing the tab: the restore step retries transient failures (`lib/sessionRestore.ts`) and the user is signed out only when the server rejects the refresh token (401/403), never because of a network error (D20). The `/forgot-password` and `/reset-password/[token]` pages implement the password reset (D21); their error messages are mapped to translated texts by `lib/resetErrors.ts`, so no server text is shown raw.
+
 ## 3. Real-time in the UI
 
 ```mermaid
@@ -73,6 +75,7 @@ The interface follows the **Foco** direction, chosen from three proposals (Foco,
 | People | `PeoplePanel`: a right column, always visible on wide screens (at the end of the sidebar on small ones), with search, online first and presence dots; click a person to write to them |
 | Explore | `DiscoverRooms` in the sidebar: public rooms have a Join button; private ones show a lock and "invitation only" |
 | Invitations | received ones appear on top of the sidebar with Accept and Decline; owners and admins get an invite button in the room header (`InviteUsers`) |
+| Notifications | the bell in the sidebar header opens two switches (kept per browser): a short synthesized chime (one note for rooms, a rising pair for direct messages) and operating-system notifications, which ask the browser for permission when switched on. Nothing fires for your own messages or for the conversation you are reading; desktop notifications appear only while the page is in the background, and clicking one opens that conversation. The tab title shows the unread total, e.g. `(3) WebChat`. The decision rules live in `lib/alerts.ts` (unit-tested); audio needs a prior click on the page, which a normal session always has |
 | Onboarding | `OnboardingDialog`: a three-step welcome (people, rooms, talking) shown once per person; skipping or finishing stores `onboarding:<userId>` in `localStorage`, and the help button next to the language switch reopens it. Empty states (no rooms, no room open) say what to do next |
 | Room members | side panel (overlay on small screens) kept for roles, removing and banning |
 | Type | Inter for text, JetBrains Mono (`font-mono`) for hashes, times and counters |

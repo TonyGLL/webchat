@@ -10,6 +10,7 @@ import LanguageToggle from '@/components/LanguageToggle';
 import { useT } from '@/lib/i18n/useT';
 import { Button } from '@/components/ui/button';
 import Avatar from '@/components/Avatar';
+import AlertSettings from '@/components/AlertSettings';
 
 export default function UserProfile({ onHelp }: { onHelp?: () => void }) {
   const { logout } = useAuth();
@@ -31,12 +32,13 @@ export default function UserProfile({ onHelp }: { onHelp?: () => void }) {
           <p className="text-[11px] text-muted-foreground">{t('nav.online')}</p>
         </div>
       </Link>
-      <div className="flex shrink-0 items-center">
+      <div className="flex shrink-0 items-center [&_button]:h-8 [&_button]:w-8">
       {onHelp && (
         <Button variant="ghost" size="icon" onClick={onHelp} aria-label={t('onboarding.help')} title={t('onboarding.help')}>
           <CircleHelp className="h-4 w-4" />
         </Button>
       )}
+      <AlertSettings />
       <LanguageToggle />
       <ThemeToggle />
       <Button variant="ghost" size="icon" onClick={handleLogout} aria-label={t('nav.logOut')} title={t('nav.logOut')}>

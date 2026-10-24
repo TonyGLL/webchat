@@ -14,6 +14,7 @@ import InvitationList from '@/components/InvitationList';
 import { useDiscoverRooms } from '@/hooks/useDiscoverRooms';
 import { useInvitations } from '@/hooks/useInvitations';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { useMessageAlerts } from '@/hooks/useMessageAlerts';
 import { useUser } from '@/hooks/useUser';
 import OnboardingDialog from '@/components/OnboardingDialog';
 import UserProfile from '@/components/UserProfile';
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   // A room we were removed from (or left elsewhere) disappears from the list: close its chat.
   const selectedRoom = loading || rooms.some((r) => r.id === chosenRoom) ? chosenRoom : null;
   const room = rooms.find((r) => r.id === selectedRoom);
+  useMessageAlerts(rooms, selectedRoom, setSelectedRoom);
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim(), 300);

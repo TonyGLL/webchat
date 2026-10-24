@@ -22,12 +22,14 @@ flowchart LR
 | Contraseñas | Hashes bcrypt en su propia tabla (`passwords`), nunca devueltos por la API |
 | Política de contraseñas | 8–72 caracteres (72 es el límite de bcrypt); rechaza una lista corta de contraseñas muy comunes y las que contienen el usuario o la parte local del email |
 | Access token | JWT de 1 hora, enviado como `Authorization: Bearer …` |
-| Refresh token | JWT de 7 días, **un solo uso**; su id se guarda en Redis; cookie httpOnly, `SameSite=Strict`, limitada a `/api/v1/auth` |
+| Refresh token | JWT de 7 días, **un solo uso** (sigue valiendo 30 s más para que pestañas simultáneas no choquen); su id se guarda en Redis; cookie httpOnly, `SameSite=Strict`, limitada a `/api/v1/auth` |
+| Persistencia de sesión | cada renovación emite otros 7 días, así la sesión termina tras una semana **sin uso**; el navegador cierra sesión solo si el servidor rechaza el token, nunca por un error de red (D20) |
+| Restablecer contraseña | `POST /auth/forgot-password` responde siempre igual, así que nunca revela quién tiene cuenta. El enlace del correo lleva un token aleatorio de 256 bits válido 30 minutos y de **un solo uso**; solo se guarda su hash SHA-256. Como máximo un correo por dirección y minuto, además de un límite por cliente. `POST /auth/reset-password` aplica la política de contraseñas del registro (una contraseña rechazada deja el enlace válido) y después **cierra todas las sesiones**: los refresh tokens emitidos antes se rechazan (los access tokens caducan en menos de una hora) (D21) |
 | Cierre de sesión | `POST /auth/logout` revoca el id de refresh y borra la cookie |
 | Secreto | el servidor se niega a arrancar sin un `JWT_SECRET` de al menos 32 caracteres |
 | Errores de login | el formulario muestra un único mensaje genérico, así no revela si un email existe |
 
-El razonamiento de cada elección está en [Decisiones de diseño](decisions.md) (D5–D7).
+El razonamiento de cada elección está en [Decisiones de diseño](decisions.md) (D5–D7, D20, D21).
 
 ## 2. WebSocket
 

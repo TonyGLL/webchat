@@ -187,6 +187,13 @@ const en = {
   'rooms.emptyHint': 'You are not in any room yet. Join one under Explore rooms or create yours with +.',
   'chat.selectHint': 'Pick a room or a person to start. Tip: the People panel shows who is online.',
 
+  'alerts.open': 'Notification settings',
+  'alerts.title': 'Notifications',
+  'alerts.sound': 'Message sounds',
+  'alerts.desktop': 'Desktop notifications',
+  'alerts.test': 'Play a test sound',
+  'alerts.blocked': 'Your browser blocked them. Allow notifications for this site in its settings, then try again.',
+  'alerts.unsupported': 'This browser does not support notifications.',
 
   'role.member': 'member',
   'role.moderator': 'moderator',

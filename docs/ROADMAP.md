@@ -47,7 +47,7 @@ Dejar el repo en un estado donde se pueda cambiar con confianza.
 - Directorio de personas con presencia, mensajes directos a cualquiera, salas descubribles e invitaciones personales (H-081).
 - Búsqueda de mensajes (Postgres full-text).
 - Responder a un mensaje, borrar, fijar.
-- Notificaciones (Web Push) y preferencias de silencio por sala.
+- Notificaciones: sonidos, avisos del escritorio y contador en el título ✅ (H-087); Web Push (con la pestaña cerrada) y silencio por sala pendientes.
 
 **Salida:** paridad razonable con apps de chat de equipos pequeños.
 
@@ -62,8 +62,8 @@ Dejar el repo en un estado donde se pueda cambiar con confianza.
 - Métricas (Prometheus), trazas (OpenTelemetry) y alertas.
 - Pruebas de carga (k6) con objetivo de conexiones concurrentes definido.
 - Caché de lectura en Redis para salas y perfiles; revisión de índices y planes de consulta.
-- Despliegue reproducible (imágenes versionadas, entornos staging/prod, backups de Postgres).
-- Imagen Docker con usuario no root y certificados CA (hoy usa `scratch`).
+- Despliegue reproducible: imágenes versionadas y multiarquitectura publicadas desde el CI ✅ (H-084); entornos staging/prod y backups de Postgres pendientes (los hace el usuario por aparte).
+- Imagen Docker con usuario no root y certificados CA ✅ (distroless `nonroot`).
 
 **Salida:** dos instancias del backend sirviendo la misma sala; dashboards y alertas activos.
 

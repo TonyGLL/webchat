@@ -189,6 +189,13 @@ const es: Record<MessageKey, string> = {
   'rooms.emptyHint': 'Todavía no estás en ninguna sala. Únete a una en Explorar salas o crea la tuya con +.',
   'chat.selectHint': 'Elige una sala o una persona para empezar. Consejo: el panel Personas muestra quién está en línea.',
 
+  'alerts.open': 'Ajustes de notificaciones',
+  'alerts.title': 'Notificaciones',
+  'alerts.sound': 'Sonidos de mensajes',
+  'alerts.desktop': 'Notificaciones del escritorio',
+  'alerts.test': 'Probar el sonido',
+  'alerts.blocked': 'Tu navegador las bloqueó. Permite las notificaciones de este sitio en sus ajustes y vuelve a intentarlo.',
+  'alerts.unsupported': 'Este navegador no admite notificaciones.',
 
   'role.member': 'miembro',
   'role.moderator': 'moderador',

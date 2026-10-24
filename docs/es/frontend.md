@@ -36,6 +36,8 @@ sequenceDiagram
 
 El access token nunca se persiste (ver D6 en [Decisiones de diseño](decisions.md)). `PrivateRoute` protege el grupo `(private)`.
 
+Las sesiones sobreviven al cierre de la pestaña: el paso de restauración reintenta los fallos transitorios (`lib/sessionRestore.ts`) y se cierra la sesión solo cuando el servidor rechaza el refresh token (401/403), nunca por un error de red (D20). Las páginas `/forgot-password` y `/reset-password/[token]` implementan el restablecimiento de contraseña (D21); sus mensajes de error se traducen con `lib/resetErrors.ts`, así que nunca se muestra texto del servidor tal cual.
+
 ## 3. Tiempo real en la interfaz
 
 ```mermaid
@@ -73,6 +75,7 @@ La interfaz sigue la dirección **Foco**, elegida entre tres propuestas (Foco, C
 | Personas | `PeoplePanel`: una columna a la derecha, siempre visible en pantallas anchas (al final de la barra lateral en las pequeñas), con buscador, conectados primero y puntos de presencia; pulsa una persona para escribirle |
 | Explorar | `DiscoverRooms` en la barra lateral: las salas públicas tienen botón Unirme; las privadas muestran un candado y "solo con invitación" |
 | Invitaciones | las recibidas aparecen arriba de la barra lateral con Aceptar y Rechazar; propietarios y admins tienen un botón de invitar en la cabecera de la sala (`InviteUsers`) |
+| Notificaciones | la campana de la cabecera de la barra lateral abre dos interruptores (guardados por navegador): un breve sonido sintetizado (una nota para salas, un par ascendente para mensajes directos) y las notificaciones del sistema, que piden permiso al navegador al activarlas. No se avisa de tus propios mensajes ni de la conversación que estás leyendo; las notificaciones del escritorio solo salen con la página en segundo plano, y pulsar una abre esa conversación. El título de la pestaña muestra el total sin leer, por ejemplo `(3) WebChat`. Las reglas de decisión están en `lib/alerts.ts` (con tests); el audio necesita un clic previo en la página, algo que una sesión normal siempre tiene |
 | Onboarding | `OnboardingDialog`: una bienvenida de tres pasos (personas, salas, conversar) que se muestra una vez por persona; omitirla o terminarla guarda `onboarding:<userId>` en `localStorage`, y el botón de ayuda junto al selector de idioma la reabre. Los estados vacíos (sin salas, sin sala abierta) dicen qué hacer a continuación |
 | Miembros de la sala | panel lateral (superpuesto en pantallas pequeñas) que se mantiene para roles, expulsar y vetar |
 | Tipografía | Inter para el texto, JetBrains Mono (`font-mono`) para almohadillas, horas y contadores |

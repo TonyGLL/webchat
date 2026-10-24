@@ -35,6 +35,8 @@ flowchart LR
 | POST | `/auth/login` | `{ user, password }` devuelve `{ user, token }` (el access token) y fija la cookie `refresh_token` *(público)* |
 | POST | `/auth/refresh-token` | Rota la cookie de refresh y devuelve un nuevo access token *(público, necesita la cookie)* |
 | POST | `/auth/logout` | Revoca el refresh token y borra la cookie |
+| POST | `/auth/forgot-password` | `{ email }` envía por correo un enlace de restablecimiento de un solo uso (30 min). Siempre responde `200`, tenga o no cuenta esa dirección *(pública)* |
+| POST | `/auth/reset-password` | `{ token, password }` fija la contraseña nueva, quema el enlace y cierra la sesión en todas partes *(pública)* |
 | POST | `/auth/send-verify-email/:user_id` | Envía un correo de verificación *(público; verificación pausada)* |
 | POST | `/auth/verify-email/:token` | Confirma un correo *(público; pausada)* |
 

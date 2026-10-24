@@ -4,7 +4,7 @@
 
 ## 1. Requisitos
 
-Go 1.24.3+, Bun (y Node 20+), Docker con Compose, Make, `air` (recarga automática; `make watch` ofrece instalarlo) y `openssl`.
+Go 1.26.10+, Bun (y Node 20+), Docker con Compose, Make, `air` (recarga automática; `make watch` ofrece instalarlo) y `openssl`.
 
 ## 2. Puertos
 
@@ -55,6 +55,7 @@ La plantilla `backend/.env.example` es la fuente de verdad. Las importantes:
 | `REDIS_URL` | Una de las dos | Tiene prioridad sobre `REDIS_*` |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASS` | Si no hay `REDIS_URL` | El Redis local está en el puerto 6380 |
 | `CORS_ALLOWED_ORIGINS` | En la práctica sí | Separada por comas; debe incluir el origen del frontend. También se usa para validar el `Origin` del WebSocket |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD` | Solo para restablecer contraseña | Sin ellas «¿Olvidaste tu contraseña?» no envía nada (el error solo queda en el log). En local sirve un servidor SMTP de pruebas como Mailpit |
 | `PORT` | No | Por defecto 8081 |
 | `FRONTEND_URL` | No | Se usa en los enlaces de los correos |
 | `APP_ENV` | No | `prod` / `production` activa el modo producción |
