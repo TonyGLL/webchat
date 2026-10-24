@@ -32,6 +32,12 @@ export const messageService = {
     return response.data;
   },
 
+  /** Searches the messages of the user's rooms (or one room). Newest first. */
+  search: async (query: string, roomId?: string, limit = 20): Promise<IGetRoomMessages[]> => {
+    const response = await api.get('/messages/search', { params: { q: query, room_id: roomId, limit } });
+    return response.data ?? [];
+  },
+
   getPinned: async (roomId: string): Promise<IGetRoomMessages[]> => {
     const response = await api.get(`/messages/${roomId}/pinned`);
     return response.data ?? [];

@@ -14,10 +14,12 @@ import (
 
 // fakeRepo is an in-memory MessageRepository and ReactionRepository for tests.
 type fakeRepo struct {
-	members   map[uuid.UUID]map[int]bool
-	messages  map[uuid.UUID]*domain.Message
-	reactions int
-	roles     map[int]string // overrides the default "member" role
+	members      map[uuid.UUID]map[int]bool
+	messages     map[uuid.UUID]*domain.Message
+	reactions    int
+	searched     string
+	searchedRoom *uuid.UUID
+	roles        map[int]string // overrides the default "member" role
 }
 
 func newFakeRepo() *fakeRepo {
@@ -77,6 +79,10 @@ func (f *fakeRepo) FindPinned(_ context.Context, room uuid.UUID) ([]*domain.Mess
 		}
 	}
 	return out, nil
+}
+func (f *fakeRepo) Search(_ context.Context, user int, q string, room *uuid.UUID, _ int) ([]*domain.Message, error) {
+	f.searchedRoom, f.searched = room, q
+	return []*domain.Message{}, nil
 }
 func (f *fakeRepo) FindByRoomID(context.Context, uuid.UUID, int, *uuid.UUID) ([]*domain.Message, error) {
 	return []*domain.Message{}, nil
@@ -244,5 +250,26 @@ func TestListPinnedRequiresMembership(t *testing.T) {
 	uc := NewListPinnedUseCase(repo)
 	if _, err := uc.Execute(context.Background(), room.String(), outsiderID); !errors.Is(err, shared_domain.ErrForbidden) {
 		t.Fatalf("outsider: err = %v, want ErrForbidden", err)
+	}
+}
+
+func TestSearchValidatesInputAndScopesToMembership(t *testing.T) {
+	repo, room, _ := setup()
+	uc := NewSearchMessagesUseCase(repo)
+	ctx := context.Background()
+
+	for name, q := range map[string]string{"empty": "", "one char": "a", "blank": "   "} {
+		if _, err := uc.Execute(ctx, memberID, q, "", 0); !errors.Is(err, shared_domain.ErrInvalidInput) {
+			t.Fatalf("%s: err = %v, want ErrInvalidInput", name, err)
+		}
+	}
+	if _, err := uc.Execute(ctx, memberID, "hello", "not-a-uuid", 0); !errors.Is(err, shared_domain.ErrInvalidInput) {
+		t.Fatalf("bad room id: err = %v", err)
+	}
+	if _, err := uc.Execute(ctx, outsiderID, "hello", room.String(), 0); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Fatalf("searching a room you are not in: err = %v, want ErrForbidden", err)
+	}
+	if _, err := uc.Execute(ctx, memberID, "  hello  ", room.String(), 0); err != nil || repo.searched != "hello" || repo.searchedRoom == nil {
+		t.Fatalf("member search: err=%v searched=%q room=%v", err, repo.searched, repo.searchedRoom)
 	}
 }

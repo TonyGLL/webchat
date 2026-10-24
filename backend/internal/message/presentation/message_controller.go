@@ -25,6 +25,7 @@ type MessageController struct {
 	deleteMessageUseCase  *application.DeleteMessageUseCase
 	pinMessageUseCase     *application.PinMessageUseCase
 	listPinnedUseCase     *application.ListPinnedUseCase
+	searchMessagesUseCase *application.SearchMessagesUseCase
 	validate              *validator.Validate
 }
 
@@ -37,6 +38,7 @@ func NewMessageController(
 	deleteMessageUseCase *application.DeleteMessageUseCase,
 	pinMessageUseCase *application.PinMessageUseCase,
 	listPinnedUseCase *application.ListPinnedUseCase,
+	searchMessagesUseCase *application.SearchMessagesUseCase,
 	validate *validator.Validate,
 ) *MessageController {
 	return &MessageController{
@@ -48,6 +50,7 @@ func NewMessageController(
 		deleteMessageUseCase:  deleteMessageUseCase,
 		pinMessageUseCase:     pinMessageUseCase,
 		listPinnedUseCase:     listPinnedUseCase,
+		searchMessagesUseCase: searchMessagesUseCase,
 		validate:              validate,
 	}
 }
@@ -166,6 +169,22 @@ func (ctrl *MessageController) FetchPinned(c *gin.Context) {
 	messages, err := ctrl.listPinnedUseCase.Execute(c.Request.Context(), c.Param("roomId"), userID)
 	if err != nil {
 		respondError(c, err, "Failed to fetch pinned messages")
+		return
+	}
+	response.JSON(c, http.StatusOK, messages)
+}
+
+// SearchMessages handles GET /messages/search?q=text[&room_id=uuid][&limit=n]
+func (ctrl *MessageController) SearchMessages(c *gin.Context) {
+	userID, err := request.GetUserID(c)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, err.Error())
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	messages, err := ctrl.searchMessagesUseCase.Execute(c.Request.Context(), userID, c.Query("q"), c.Query("room_id"), limit)
+	if err != nil {
+		respondError(c, err, "Failed to search messages")
 		return
 	}
 	response.JSON(c, http.StatusOK, messages)

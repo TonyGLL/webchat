@@ -160,3 +160,28 @@ func (r *PgMessageRepository) FindPinned(ctx context.Context, roomID uuid.UUID) 
 	}
 	return messages, rows.Err()
 }
+
+func (r *PgMessageRepository) Search(ctx context.Context, userID int, query string, roomID *uuid.UUID, limit int) ([]*domain.Message, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT m.id, m.content, m.author_id, m.room_id, m.reply_to_message_id, m.created_at, m.edited_at, m.deleted_at, m.pinned_at
+		FROM messages m
+		JOIN room_members rm ON rm.room_id = m.room_id AND rm.user_id = $1
+		WHERE m.deleted_at IS NULL
+		  AND to_tsvector('simple', search_unaccent(m.content)) @@ websearch_to_tsquery('simple', search_unaccent($2))
+		  AND ($3::uuid IS NULL OR m.room_id = $3)
+		ORDER BY m.created_at DESC
+		LIMIT $4`, userID, query, roomID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	messages := []*domain.Message{}
+	for rows.Next() {
+		var msg domain.Message
+		if err := rows.Scan(&msg.ID, &msg.Content, &msg.AuthorID, &msg.RoomID, &msg.ReplyToMessageID, &msg.CreatedAt, &msg.EditedAt, &msg.DeletedAt, &msg.PinnedAt); err != nil {
+			return nil, err
+		}
+		messages = append(messages, &msg)
+	}
+	return messages, rows.Err()
+}

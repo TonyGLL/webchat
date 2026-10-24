@@ -112,6 +112,7 @@ func main() {
 		{Method: "POST", Path: "/api/v1/auth/send-verify-email/:user_id", Limit: 5, Window: 10 * time.Minute},
 		{Method: "POST", Path: "/api/v1/ws-ticket", Limit: 30, Window: time.Minute},
 		{Method: "POST", Path: "/api/v1/messages", Limit: 120, Window: time.Minute},
+		{Method: "GET", Path: "/api/v1/messages/search", Limit: 60, Window: time.Minute},
 	}))
 
 	// Websocket endpoints: an authenticated call to /ws-ticket returns a short-lived,

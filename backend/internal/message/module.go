@@ -25,6 +25,7 @@ func RegisterModule(
 	deleteMessageUseCase := application.NewDeleteMessageUseCase(messageRepository, wsBroadcaster)
 	pinMessageUseCase := application.NewPinMessageUseCase(messageRepository, wsBroadcaster)
 	listPinnedUseCase := application.NewListPinnedUseCase(messageRepository)
+	searchMessagesUseCase := application.NewSearchMessagesUseCase(messageRepository)
 
 	messageController := presentation.NewMessageController(
 		createMessageUseCase,
@@ -35,6 +36,7 @@ func RegisterModule(
 		deleteMessageUseCase,
 		pinMessageUseCase,
 		listPinnedUseCase,
+		searchMessagesUseCase,
 		validate,
 	)
 
@@ -42,6 +44,7 @@ func RegisterModule(
 	messageRoutes := router.Group("/messages")
 	messageRoutes.Use(authMiddleware)
 	{
+		messageRoutes.GET("/search", messageController.SearchMessages)
 		messageRoutes.GET("/:roomId/messages", messageController.FetchMessages)
 		messageRoutes.POST("", messageController.CreateMessage)
 		messageRoutes.PATCH("/:id", messageController.UpdateMessage)

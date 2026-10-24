@@ -47,6 +47,7 @@ Prefijo `/api/v1`, excepto `/health` y `/ready`. Salvo registro, login, refresh 
 | `POST /rooms/invite/:room_id` | Crear invitación (solo dueño o admin) |
 | `POST /rooms/accept-invite/:code` | Aceptar una invitación |
 | `GET /messages/:roomId/messages` | Historial paginado por cursor (`limit`, `before`=id del mensaje más antiguo cargado); solo miembros |
+| `GET /messages/search?q=&room_id=&limit=` | Buscar mensajes por texto (sin acentos ni mayúsculas), solo en tus salas; `q` de 2 a 100 caracteres |
 | `POST /messages` · `PATCH /messages/:id` · `DELETE /messages/:id` | Enviar (con `reply_to_message_id` opcional para responder) · editar · borrar (solo el autor; borrado lógico) |
 | `PUT /messages/:id/pin` · `DELETE /messages/:id/pin` · `GET /messages/:roomId/pinned` | Fijar/desfijar (solo dueño o admin de la sala) · listar fijados |
 | `POST/DELETE /messages/:id/reactions` | Añadir · quitar reacción |
