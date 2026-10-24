@@ -14,7 +14,7 @@ Este es el backend de la aplicación, desarrollado en Go utilizando el framework
     ```bash
     cp dev.env.example dev.env
     ```
-2.  Abre el archivo `dev.env` y ajusta las variables de entorno según sea necesario. Como mínimo, deberás configurar las credenciales de la base de datos PostgreSQL. También puedes configurar la variable `PORT` para cambiar el puerto en el que se ejecuta la aplicación (el valor predeterminado es `3000`).
+2.  Abre el archivo `dev.env` y ajusta las variables de entorno según sea necesario. Como mínimo, deberás configurar las credenciales de la base de datos PostgreSQL. También puedes configurar la variable `PORT` para cambiar el puerto en el que se ejecuta la aplicación (el valor predeterminado es `8081`).
 
 ## Cómo ejecutar la aplicación
 
@@ -33,7 +33,7 @@ Este es el método recomendado para el desarrollo, ya que utiliza `air` para rec
     make watch
     ```
 
-La aplicación estará disponible en `http://localhost:3000`.
+La aplicación estará disponible en `http://localhost:8081`.
 
 ### Ejecución con Docker
 
@@ -44,7 +44,7 @@ Este método ejecuta la aplicación en un contenedor de Docker, lo que es ideal 
     docker-compose up --build
     ```
 
-La aplicación estará disponible en `http://localhost:3000`.
+La aplicación estará disponible en `http://localhost:8081`.
 
 ## Endpoints de la API
 

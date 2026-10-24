@@ -17,11 +17,13 @@ Backend (run from `backend/`):
 - `make run` — `go run cmd/server/main.go` with `CONFIG_FILE=local.env`
 - `make build` / `make test` (`go test -v ./...`); single test: `go test -v ./internal/<pkg> -run TestName`
 - `make database-up` — start only the `db` service; `make up-dev` / `make up-prod` / `make down` — full docker compose stack (`dev.env` / `prod.env`)
+- Docker naming standard: `<project>-<service>` in kebab-case (e.g. `webchat-api`, `webchat-db`, `webchat-redis`); volumes `webchat-<service>-data`; compose project `name: webchat`. Compose service keys stay short (`app`, `db`, `redis`).
+- Ports (chosen to avoid clashing with other local projects): frontend 3100, backend 8081, Postgres 5433, Redis 6380 (host side; all published on 127.0.0.1). Keep `PORT`, `CORS_ALLOWED_ORIGINS` and `NEXT_PUBLIC_API_URL` in the env files consistent with these.
 - The compose file is `backend/docker-compose.yml` (the root README mentions a root-level one, which does not exist).
 
 Frontend (run from `frontend/`, uses Bun): `bun install`, `bun dev`, `bun run build`, `bun run lint`.
 
-Config: `config.NewConfig` reads env vars, optionally pre-loading the file named by `CONFIG_FILE` via godotenv. `DATABASE_URL` (or `DB_USER/DB_HOST/DB_PORT/DB_NAME`) is required; `REDIS_URL` can likewise be built from `REDIS_*` parts. Schema lives in `backend/migrations/schema.sql` (applied manually, no migration tool). Frontend uses `NEXT_PUBLIC_API_URL` (default `http://localhost:8080/api/v1`).
+Config: `config.NewConfig` reads env vars, optionally pre-loading the file named by `CONFIG_FILE` via godotenv. `DATABASE_URL` (or `DB_USER/DB_HOST/DB_PORT/DB_NAME`) is required; `REDIS_URL` can likewise be built from `REDIS_*` parts. Schema lives in `backend/migrations/schema.sql` (applied manually, no migration tool). Frontend uses `NEXT_PUBLIC_API_URL` (default `http://localhost:8081/api/v1`).
 
 ## Backend architecture
 

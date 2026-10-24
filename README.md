@@ -91,8 +91,8 @@ This is the simplest way to get the entire application stack (backend, frontend,
     ```
 
 2.  The application will be available at the following URLs:
-    *   **Frontend:** `http://localhost:3000`
-    *   **Backend:** `http://localhost:8080`
+    *   **Frontend:** `http://localhost:3100`
+    *   **Backend:** `http://localhost:8081`
 
 ### Running Locally
 
@@ -114,7 +114,7 @@ This method is ideal for development, as it provides hot-reloading for both the 
     make watch
     ```
 
-    The backend will be running on `http://localhost:8080`.
+    The backend will be running on `http://localhost:8081`.
 
 3.  **Run the frontend:**
 
@@ -124,7 +124,7 @@ This method is ideal for development, as it provides hot-reloading for both the 
     bun dev
     ```
 
-    The frontend will be running on `http://localhost:3000`.
+    The frontend will be running on `http://localhost:3100`.
 
 ## Project Structure
 

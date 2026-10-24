@@ -140,14 +140,16 @@ Plantilla para añadir uno nuevo:
 
 ### Operación y documentación
 
+### H-050 Rutas del frontend que no coinciden con el backend
+- **Severidad:** 🟠 · **Fase:** 0 · **Área:** front + back · **Verificación:** Confirmado en el código (falta probarlo en ejecución)
+- **Descripción:** el frontend llama `POST /auth/refresh` y `GET /auth/verify/:token`, pero el backend expone `POST /auth/refresh-token` y `POST /auth/verify-email/:token`.
+- **Ubicación:** `frontend/src/services/authService.ts`, `backend/internal/auth/module.go`
+- **Propuesta:** alinear las rutas y generar el cliente desde OpenAPI para que no se desincronicen.
+
 ### H-040 README raíz y de backend desactualizados
 - **Severidad:** 🟡 · **Fase:** 0 · **Área:** docs · **Verificación:** Confirmado
 - **Descripción:** el README raíz menciona un `docker-compose.yml` en la raíz que no existe (está en `backend/`); el del backend describe `POST /messages` con `authorId`/`channelId` y el puerto 3000, mientras la app usa 8080 por defecto.
 - **Propuesta:** reescribir ambos y mantener la lista de endpoints en OpenAPI.
-
-### H-041 Puertos inconsistentes
-- **Severidad:** 🟢 · **Fase:** 0 · **Área:** backend/infra · **Verificación:** Confirmado
-- **Descripción:** el `Dockerfile` expone 3000, la configuración usa 8080 por defecto y el frontend apunta a 8080.
 
 ### H-042 Sin health check ni métricas
 - **Severidad:** 🟡 · **Fase:** 0 y 5 · **Área:** backend · **Verificación:** Confirmado (no hay ruta `/health` registrada en `main.go`)
@@ -173,5 +175,6 @@ _(nada por ahora)_
 
 | ID | Título | Fecha | Commit / PR |
 |----|--------|-------|-------------|
+| H-041 | Puertos inconsistentes (ahora: front 3100, back 8081, db 5433, redis 6380) | 2026-10-23 | _(este commit)_ |
 | H-001 | Secreto JWT con valor por defecto | 2026-10-23 | 8e8d3ce |
 | H-000 | Falta `CLAUDE.md` con guía del repositorio | 2026-10-23 | 8b94309 |

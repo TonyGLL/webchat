@@ -11,7 +11,7 @@ export const SocketContext = createContext<IRawSocketContext>({
   socket: null,
 });
 
-const WS_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1')
+const WS_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1')
   .replace(/^http/, 'ws') + '/ws';
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {

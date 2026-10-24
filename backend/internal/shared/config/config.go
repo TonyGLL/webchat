@@ -21,7 +21,7 @@ func NewConfig(envFile string) (*Config, error) {
 	}
 
 	cfg := &Config{
-		Port:               Getenv("PORT", "8080"),
+		Port:               Getenv("PORT", "8081"),
 		DatabaseURL:        Getenv("DATABASE_URL", ""),
 		RedisURL:           Getenv("REDIS_URL", ""),
 		JWTSecret:          Getenv("JWT_SECRET", ""),

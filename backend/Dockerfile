@@ -13,5 +13,5 @@ WORKDIR /app
 COPY --from=build /main /main
 COPY --from=build /main /app/main
 
-EXPOSE 3000
+EXPOSE 8081
 CMD ["/main"]
