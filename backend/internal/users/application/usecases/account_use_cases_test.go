@@ -21,6 +21,9 @@ func (f *fakeUsers) PasswordHash(context.Context, int) (string, error)          
 func (f *fakeUsers) ListDirectory(context.Context, int, string, int) ([]*domain.DirectoryEntry, error) {
 	return nil, nil
 }
+func (f *fakeUsers) ListDirectoryByIDs(context.Context, int, string, []int, int) ([]*domain.DirectoryEntry, error) {
+	return nil, nil
+}
 func (f *fakeUsers) ExportAccount(context.Context, int) (*domain.AccountExport, error) {
 	return &domain.AccountExport{}, nil
 }

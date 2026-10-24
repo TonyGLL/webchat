@@ -16,4 +16,6 @@ type UsersRepository interface {
 	DeleteAccount(ctx context.Context, id int) error
 	// ListDirectory returns active users other than selfID whose name or username contains q.
 	ListDirectory(ctx context.Context, selfID int, q string, limit int) ([]*DirectoryEntry, error)
+	// ListDirectoryByIDs is ListDirectory restricted to the given user ids.
+	ListDirectoryByIDs(ctx context.Context, selfID int, q string, ids []int, limit int) ([]*DirectoryEntry, error)
 }
