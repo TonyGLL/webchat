@@ -43,6 +43,7 @@ flowchart LR
 | Method | Path | Description |
 |---|---|---|
 | GET | `/users/profile` | Current user's profile, including the global `role` |
+| GET | `/users/directory?q=` | People directory with online status, online first |
 | DELETE | `/users/deactivate` | Disable the account and sign out |
 | GET | `/users/export` | Download all of the user's data as JSON |
 | DELETE | `/users/me` | Delete the account permanently; body carries the password |
@@ -53,6 +54,10 @@ flowchart LR
 |---|---|---|
 | POST | `/rooms` | Create a room: `name`, `topic`, `is_private`. The creator becomes owner |
 | GET | `/rooms` | The user's rooms, with `unread_count`, `is_direct` and `my_role` |
+| GET | `/rooms/discover` | Every non-direct room; private ones are listed but need an invitation |
+| POST | `/rooms/invite-user/:room_id` | Invite a specific user (admin or above) |
+| GET | `/rooms/invitations` | My pending invitations |
+| POST | `/rooms/invitations/:id/accept` · `/decline` | Answer an invitation; accepting makes me a member |
 | POST | `/rooms/join/:room_id` | Join a public room (fails if banned) |
 | POST | `/rooms/direct/:user_id` | Open (or reuse) the one-to-one room with that user |
 | GET | `/rooms/members/:room_id` | Members with role and online status |

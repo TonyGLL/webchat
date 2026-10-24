@@ -23,6 +23,7 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D15 | Dependency-free i18n and CSS-variable theming | Accepted |
 | D16 | Optimistic sending with explicit states | Accepted |
 | D17 | Visual direction "Foco" | Accepted |
+| D18 | People directory, discoverable rooms and personal invitations | Accepted |
 
 ---
 
@@ -155,3 +156,11 @@ sequenceDiagram
 - **Why:** the product's centre of gravity is rooms, roles and moderation, which need information density and clear role labels more than personality. Cards show author, role and time compactly, and one accent keeps unread counts and selection unambiguous in both themes.
 - **Alternatives:** Calidez has the friendliest mobile experience but spends width on bubbles; Redacción is the most distinctive but is harder to keep consistent as features grow.
 - **Consequences:** all colour comes from semantic tokens (`primary`, `soft`, `success`...), so the direction can still be retuned in one file (`globals.css`).
+
+## D18. People directory, discoverable rooms and personal invitations
+
+- **Context:** until now you could only reach someone through a room you shared, and the only way into a private room was an anonymous code sent by hand through the API.
+- **Decision:** three separate ideas. (1) *Presence is global:* an always-visible people panel lists everyone with online status, and you can write to anyone (a direct conversation needs no shared room). (2) *Rooms are discoverable:* every room is listed; public ones can be joined, private ones are visible but their messages are readable only by members. (3) *Personal invitations:* an owner or admin invites a specific person; it appears in that person's app and, only once accepted, makes them a member with history and write access.
+- **Why:** being online, talking privately and belonging to a room are different questions. Mixing them (members only visible inside rooms) made the app feel empty. Keeping privacy at the room level protects private content while still advertising that the room exists.
+- **Alternatives:** hiding private rooms entirely (nothing to ask an invitation for), or invite codes only (clumsy and unaddressed).
+- **Consequences:** the directory exposes names and usernames to every signed-in user, which suits a team server; for a public deployment it would need a visibility setting. Invitations are polled every 15 s rather than pushed.

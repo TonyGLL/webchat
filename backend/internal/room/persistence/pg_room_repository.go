@@ -72,6 +72,30 @@ func (r *PgRoomRepository) FindRoomsByUserID(ctx context.Context, userID int) ([
 	return rooms, nil
 }
 
+func (r *PgRoomRepository) ListDiscoverable(ctx context.Context, userID int) ([]*domain.RoomSummary, error) {
+	query := `
+		SELECT r.id, r.name, r.topic, r.is_private,
+			(SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id) AS member_count,
+			EXISTS (SELECT 1 FROM room_members m WHERE m.room_id = r.id AND m.user_id = $1) AS is_member
+		FROM rooms r
+		WHERE NOT r.is_direct
+		ORDER BY r.name`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	rooms := []*domain.RoomSummary{}
+	for rows.Next() {
+		room := &domain.RoomSummary{}
+		if err := rows.Scan(&room.ID, &room.Name, &room.Topic, &room.IsPrivate, &room.MemberCount, &room.IsMember); err != nil {
+			return nil, err
+		}
+		rooms = append(rooms, room)
+	}
+	return rooms, rows.Err()
+}
+
 const directRoomQuery = `SELECT r.id, r.owner_id, r.name, r.topic, r.is_private, r.is_direct, r.created_at, r.updated_at
 	FROM direct_rooms d JOIN rooms r ON r.id = d.room_id WHERE d.user_a = $1 AND d.user_b = $2`
 

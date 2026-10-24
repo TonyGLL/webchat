@@ -32,6 +32,17 @@ type Room struct {
 	MyRole RoomRole `json:"my_role,omitempty"`
 }
 
+// RoomSummary is a non-direct room as shown in the discovery list: everyone can see that a
+// room exists, but only members (or anyone, for public rooms, after joining) can read it.
+type RoomSummary struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Topic       *string   `json:"topic"`
+	IsPrivate   bool      `json:"is_private"`
+	MemberCount int       `json:"member_count"`
+	IsMember    bool      `json:"is_member"`
+}
+
 type RoomMember struct {
 	RoomID   uuid.UUID `json:"room_id"`
 	UserID   int       `json:"user_id"`

@@ -25,6 +25,27 @@ export interface RoomMember {
   online: boolean;
 }
 
+/** A room in the discovery list: visible to everyone, readable only by members. */
+export interface RoomSummary {
+  id: string;
+  name: string;
+  topic: string | null;
+  is_private: boolean;
+  member_count: number;
+  is_member: boolean;
+}
+
+/** An invitation addressed to the current user. */
+export interface Invitation {
+  id: string;
+  room_id: string;
+  room_name: string;
+  inviter_id: number;
+  inviter_name: string;
+  invitee_id: number;
+  created_at: string;
+}
+
 export interface CreateRoomData {
   name: string;
   is_private: boolean;
@@ -70,6 +91,30 @@ export const roomService = {
   joinRoom: async (roomId: string) => {
     const response = await api.post(`/rooms/join/${roomId}`);
     return response.data;
+  },
+
+  discoverRooms: async (): Promise<RoomSummary[]> => {
+    const response = await api.get('/rooms/discover');
+    return response.data ?? [];
+  },
+
+  /** Sends a personal invitation; only the owner or an admin of the room can. */
+  inviteUser: async (roomId: string, userId: number): Promise<Invitation> => {
+    const response = await api.post(`/rooms/invite-user/${roomId}`, { user_id: userId });
+    return response.data;
+  },
+
+  getInvitations: async (): Promise<Invitation[]> => {
+    const response = await api.get('/rooms/invitations');
+    return response.data ?? [];
+  },
+
+  acceptInvitation: async (id: string): Promise<void> => {
+    await api.post(`/rooms/invitations/${id}/accept`);
+  },
+
+  declineInvitation: async (id: string): Promise<void> => {
+    await api.post(`/rooms/invitations/${id}/decline`);
   },
 
   /** `expiresIn` is a Go duration such as "24h". Only the room owner or an admin can invite. */

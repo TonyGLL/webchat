@@ -19,16 +19,20 @@ import (
 
 // RoomController handles HTTP requests related to rooms.
 type RoomController struct {
-	createRoomUseCase    *application.CreateRoomUseCase
-	listUserRoomsUseCase *application.ListUserRoomsUseCase
-	markRoomReadUseCase  *application.MarkRoomReadUseCase
-	leaveRoomUseCase     *application.LeaveRoomUseCase
-	listMembersUseCase   *application.ListMembersUseCase
-	openDirectUseCase    *application.OpenDirectUseCase
-	joinRoomUseCase      *application.JoinRoomUseCase
-	createInviteUseCase  *application.CreateInviteUseCase
-	acceptInviteUseCase  *application.AcceptInviteUseCase
-	validate             *validator.Validate
+	createRoomUseCase        *application.CreateRoomUseCase
+	listUserRoomsUseCase     *application.ListUserRoomsUseCase
+	markRoomReadUseCase      *application.MarkRoomReadUseCase
+	leaveRoomUseCase         *application.LeaveRoomUseCase
+	listMembersUseCase       *application.ListMembersUseCase
+	openDirectUseCase        *application.OpenDirectUseCase
+	joinRoomUseCase          *application.JoinRoomUseCase
+	createInviteUseCase      *application.CreateInviteUseCase
+	acceptInviteUseCase      *application.AcceptInviteUseCase
+	discoverRoomsUseCase     *application.DiscoverRoomsUseCase
+	inviteUserUseCase        *application.InviteUserUseCase
+	listInvitationsUseCase   *application.ListInvitationsUseCase
+	respondInvitationUseCase *application.RespondInvitationUseCase
+	validate                 *validator.Validate
 }
 
 // NewRoomController creates a new instance of RoomController.
@@ -42,19 +46,27 @@ func NewRoomController(
 	joinRoomUseCase *application.JoinRoomUseCase,
 	createInviteUseCase *application.CreateInviteUseCase,
 	acceptInviteUseCase *application.AcceptInviteUseCase,
+	discoverRoomsUseCase *application.DiscoverRoomsUseCase,
+	inviteUserUseCase *application.InviteUserUseCase,
+	listInvitationsUseCase *application.ListInvitationsUseCase,
+	respondInvitationUseCase *application.RespondInvitationUseCase,
 	validate *validator.Validate,
 ) *RoomController {
 	return &RoomController{
-		createRoomUseCase:    createRoomUseCase,
-		listUserRoomsUseCase: listUserRoomsUseCase,
-		markRoomReadUseCase:  markRoomReadUseCase,
-		leaveRoomUseCase:     leaveRoomUseCase,
-		listMembersUseCase:   listMembersUseCase,
-		openDirectUseCase:    openDirectUseCase,
-		joinRoomUseCase:      joinRoomUseCase,
-		createInviteUseCase:  createInviteUseCase,
-		acceptInviteUseCase:  acceptInviteUseCase,
-		validate:             validate,
+		createRoomUseCase:        createRoomUseCase,
+		listUserRoomsUseCase:     listUserRoomsUseCase,
+		markRoomReadUseCase:      markRoomReadUseCase,
+		leaveRoomUseCase:         leaveRoomUseCase,
+		listMembersUseCase:       listMembersUseCase,
+		openDirectUseCase:        openDirectUseCase,
+		joinRoomUseCase:          joinRoomUseCase,
+		createInviteUseCase:      createInviteUseCase,
+		acceptInviteUseCase:      acceptInviteUseCase,
+		discoverRoomsUseCase:     discoverRoomsUseCase,
+		inviteUserUseCase:        inviteUserUseCase,
+		listInvitationsUseCase:   listInvitationsUseCase,
+		respondInvitationUseCase: respondInvitationUseCase,
+		validate:                 validate,
 	}
 }
 
@@ -297,3 +309,107 @@ func (c *RoomController) AcceptInvite(ctx *gin.Context) {
 
 	response.JSON(ctx, http.StatusOK, invite)
 }
+
+// DiscoverRooms handles the endpoint for GET /api/v1/rooms/discover
+func (c *RoomController) DiscoverRooms(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	rooms, err := c.discoverRoomsUseCase.Execute(ctx, userID)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSON(ctx, http.StatusOK, rooms)
+}
+
+// InviteUser handles the endpoint for POST /api/v1/rooms/invite-user/:room_id
+func (c *RoomController) InviteUser(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+	roomID, err := uuid.Parse(ctx.Param("room_id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
+		return
+	}
+	var body struct {
+		UserID int `json:"user_id" validate:"required,gt=0"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil || c.validate.Struct(body) != nil {
+		response.Error(ctx, http.StatusBadRequest, "user_id is required")
+		return
+	}
+
+	invitation, err := c.inviteUserUseCase.Execute(ctx, roomID, userID, body.UserID)
+	switch {
+	case err == nil:
+		response.JSON(ctx, http.StatusCreated, invitation)
+	case errors.Is(err, shared_domain.ErrInvalidInput):
+		response.Error(ctx, http.StatusBadRequest, "You cannot invite yourself")
+	case errors.Is(err, shared_domain.ErrForbidden):
+		response.Error(ctx, http.StatusForbidden, "You cannot invite people to this room")
+	case errors.Is(err, application.ErrBannedFromRoom):
+		response.Error(ctx, http.StatusForbidden, err.Error())
+	case errors.Is(err, application.ErrRoomNotFound), errors.Is(err, domain.ErrUserNotFound):
+		response.Error(ctx, http.StatusNotFound, "Room or user not found")
+	case errors.Is(err, application.ErrAlreadyMember), errors.Is(err, domain.ErrAlreadyInvited):
+		response.Error(ctx, http.StatusConflict, err.Error())
+	default:
+		log.Printf("failed to invite user: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to invite user")
+	}
+}
+
+// ListInvitations handles the endpoint for GET /api/v1/rooms/invitations
+func (c *RoomController) ListInvitations(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+	invitations, err := c.listInvitationsUseCase.Execute(ctx, userID)
+	if err != nil {
+		log.Printf("failed to list invitations: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to list invitations")
+		return
+	}
+	response.JSON(ctx, http.StatusOK, invitations)
+}
+
+func (c *RoomController) respondInvitation(ctx *gin.Context, accept bool) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid invitation ID format")
+		return
+	}
+	err = c.respondInvitationUseCase.Execute(ctx, id, userID, accept)
+	switch {
+	case err == nil:
+		response.JSON(ctx, http.StatusOK, gin.H{"message": "Invitation answered"})
+	case errors.Is(err, shared_domain.ErrNotFound):
+		response.Error(ctx, http.StatusNotFound, "Invitation not found")
+	case errors.Is(err, application.ErrBannedFromRoom):
+		response.Error(ctx, http.StatusForbidden, err.Error())
+	default:
+		log.Printf("failed to answer invitation: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to answer invitation")
+	}
+}
+
+// AcceptInvitation handles POST /api/v1/rooms/invitations/:id/accept
+func (c *RoomController) AcceptInvitation(ctx *gin.Context) { c.respondInvitation(ctx, true) }
+
+// DeclineInvitation handles POST /api/v1/rooms/invitations/:id/decline
+func (c *RoomController) DeclineInvitation(ctx *gin.Context) { c.respondInvitation(ctx, false) }

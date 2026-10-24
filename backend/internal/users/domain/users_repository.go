@@ -14,4 +14,6 @@ type UsersRepository interface {
 	// DeleteAccount permanently removes the user. Rooms they own pass to the longest-standing
 	// admin (else member); rooms with nobody else are deleted; their messages stay, anonymised.
 	DeleteAccount(ctx context.Context, id int) error
+	// ListDirectory returns active users other than selfID whose name or username contains q.
+	ListDirectory(ctx context.Context, selfID int, q string, limit int) ([]*DirectoryEntry, error)
 }

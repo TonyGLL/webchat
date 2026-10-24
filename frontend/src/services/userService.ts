@@ -1,7 +1,22 @@
 import { api } from '@/lib/api';
 import type { User } from './authService';
 
+export interface DirectoryUser {
+  id: number;
+  username: string;
+  name: string;
+  last_name: string | null;
+  avatar_url: string | null;
+  online: boolean;
+}
+
 export const userService = {
+  /** Everyone else, online people first; `q` filters by name or username. */
+  getDirectory: async (q = ''): Promise<DirectoryUser[]> => {
+    const response = await api.get('/users/directory', { params: { q: q || undefined } });
+    return response.data ?? [];
+  },
+
   getProfile: async (): Promise<User> => {
     const response = await api.get('/users/profile');
     return response.data;

@@ -16,6 +16,8 @@ type RoomRepository interface {
 	// ErrUserNotFound is returned when the other user does not exist.
 	FindOrCreateDirect(ctx context.Context, userID, otherID int) (*Room, error)
 	FindRoomsByUserID(ctx context.Context, userID int) ([]*Room, error)
+	// ListDiscoverable returns every non-direct room, flagging the ones userID already belongs to.
+	ListDiscoverable(ctx context.Context, userID int) ([]*RoomSummary, error)
 }
 
 type RoomMemberRepository interface {

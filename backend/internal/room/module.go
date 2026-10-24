@@ -14,6 +14,7 @@ func RegisterModule(
 	roomRepo domain.RoomRepository,
 	memberRepo domain.RoomMemberRepository,
 	inviteRepo domain.InviteRepository,
+	invitationRepo domain.InvitationRepository,
 	router *gin.RouterGroup,
 	validate *validator.Validate,
 	authMiddleware gin.HandlerFunc,
@@ -32,6 +33,10 @@ func RegisterModule(
 	leaveRoomUseCase := application.NewLeaveRoomUseCase(memberRepo, subscriber)
 	listMembersUseCase := application.NewListMembersUseCase(memberRepo, presence)
 	openDirectUseCase := application.NewOpenDirectUseCase(roomRepo, memberRepo, subscriber)
+	discoverRoomsUseCase := application.NewDiscoverRoomsUseCase(roomRepo)
+	inviteUserUseCase := application.NewInviteUserUseCase(invitationRepo, roomRepo, memberRepo, bans)
+	listInvitationsUseCase := application.NewListInvitationsUseCase(invitationRepo)
+	respondInvitationUseCase := application.NewRespondInvitationUseCase(invitationRepo, memberRepo, subscriber, bans)
 
 	// Initialize the controller, reusing the provided use case
 	roomController := presentation.NewRoomController(
@@ -44,6 +49,10 @@ func RegisterModule(
 		joinRoomUseCase,
 		createInviteUseCase,
 		acceptInviteUseCase,
+		discoverRoomsUseCase,
+		inviteUserUseCase,
+		listInvitationsUseCase,
+		respondInvitationUseCase,
 		validate,
 	)
 
@@ -53,6 +62,11 @@ func RegisterModule(
 	{
 		roomsRoutes.POST("", roomController.CreateRoom)
 		roomsRoutes.GET("", roomController.GetUserRooms)
+		roomsRoutes.GET("/discover", roomController.DiscoverRooms)
+		roomsRoutes.POST("/invite-user/:room_id", roomController.InviteUser)
+		roomsRoutes.GET("/invitations", roomController.ListInvitations)
+		roomsRoutes.POST("/invitations/:id/accept", roomController.AcceptInvitation)
+		roomsRoutes.POST("/invitations/:id/decline", roomController.DeclineInvitation)
 		roomsRoutes.POST("/direct/:user_id", roomController.OpenDirect)
 		roomsRoutes.GET("/members/:room_id", roomController.ListMembers)
 		roomsRoutes.POST("/leave/:room_id", roomController.LeaveRoom)

@@ -271,6 +271,31 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /users/directory:
+    get:
+      tags: [Users]
+      operationId: listDirectory
+      summary: People directory
+      description: Every other active user with live online status, online first. Anyone can write to anyone through `POST /rooms/direct/{user_id}`.
+      parameters:
+        - name: q
+          in: query
+          description: Filters by name or username (case-insensitive substring).
+          schema: { type: string }
+        - name: limit
+          in: query
+          description: Defaults to 50, at most 100.
+          schema: { type: integer }
+      responses:
+        "200":
+          description: The people.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DirectoryEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /users/deactivate:
     delete:
       tags: [Users]
@@ -358,6 +383,104 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/Room" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /rooms/discover:
+    get:
+      tags: [Rooms]
+      operationId: discoverRooms
+      summary: Discover rooms
+      description: Every non-direct room. Public ones can be joined; private ones are listed but readable only by members, so people need an invitation.
+      responses:
+        "200":
+          description: The rooms, with the caller's membership flag.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RoomSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /rooms/invite-user/{room_id}:
+    post:
+      tags: [Rooms]
+      operationId: inviteUser
+      summary: Invite a specific user
+      description: Requires admin rank or above in the room. The invited user sees it in `GET /rooms/invitations` and joins only by accepting.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { type: integer }
+      responses:
+        "201":
+          description: Invitation sent.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The user is already a member or already has a pending invitation.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /rooms/invitations:
+    get:
+      tags: [Rooms]
+      operationId: listInvitations
+      summary: My pending invitations
+      responses:
+        "200":
+          description: Invitations waiting for the caller's answer, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invitation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /rooms/invitations/{id}/accept:
+    post:
+      tags: [Rooms]
+      operationId: acceptInvitation
+      summary: Accept an invitation
+      description: Makes the caller a member, with access to the history and the right to write.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /rooms/invitations/{id}/decline:
+    post:
+      tags: [Rooms]
+      operationId: declineInvitation
+      summary: Decline an invitation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /rooms/join/{room_id}:
     post:
@@ -1145,6 +1268,37 @@ components:
         updated_at: { type: string, format: date-time }
         unread_count: { type: integer, description: Messages newer than the user's last read. }
         my_role: { $ref: "#/components/schemas/RoomRole" }
+
+    RoomSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        topic: { type: [string, "null"] }
+        is_private: { type: boolean }
+        member_count: { type: integer }
+        is_member: { type: boolean }
+
+    Invitation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        room_id: { type: string, format: uuid }
+        room_name: { type: string }
+        inviter_id: { type: integer }
+        inviter_name: { type: string }
+        invitee_id: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    DirectoryEntry:
+      type: object
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        name: { type: string }
+        last_name: { type: [string, "null"] }
+        avatar_url: { type: [string, "null"] }
+        online: { type: boolean }
 
     MemberInfo:
       type: object

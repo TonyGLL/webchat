@@ -74,10 +74,17 @@ export const useRoom = (activeRoomId: string | null = null) => {
     return room.id;
   };
 
+  /** Joins a public room and returns its id once it shows up in the list. */
+  const joinRoom = async (roomId: string) => {
+    await roomService.joinRoom(roomId);
+    await fetchRooms();
+    return roomId;
+  };
+
   const leaveRoom = async (roomId: string) => {
     await roomService.leaveRoom(roomId);
     setRooms((prev) => prev.filter((r) => r.id !== roomId));
   };
 
-  return { rooms, loading, createRoom, leaveRoom, openDirect };
+  return { rooms, loading, createRoom, leaveRoom, openDirect, joinRoom, refreshRooms: fetchRooms };
 };

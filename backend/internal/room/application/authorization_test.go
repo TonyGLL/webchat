@@ -21,6 +21,9 @@ func (f *fakeRooms) FindOrCreateDirect(context.Context, int, int) (*domain.Room,
 	return &domain.Room{ID: uuid.New(), IsDirect: true}, nil
 }
 func (f *fakeRooms) FindRoomsByUserID(context.Context, int) ([]*domain.Room, error) { return nil, nil }
+func (f *fakeRooms) ListDiscoverable(context.Context, int) ([]*domain.RoomSummary, error) {
+	return nil, nil
+}
 
 type fakeMembers struct {
 	members map[uuid.UUID]map[int]domain.RoomRole

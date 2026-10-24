@@ -8,6 +8,11 @@ import Spinner from '@/components/Spinner';
 import RoomList from '@/components/RoomList';
 import CreateRoomForm from '@/components/CreateRoomForm';
 import MessageView from '@/components/MessageView';
+import PeoplePanel from '@/components/PeoplePanel';
+import DiscoverRooms from '@/components/DiscoverRooms';
+import InvitationList from '@/components/InvitationList';
+import { useDiscoverRooms } from '@/hooks/useDiscoverRooms';
+import { useInvitations } from '@/hooks/useInvitations';
 import UserProfile from '@/components/UserProfile';
 import SearchResults from '@/components/SearchResults';
 import { Input } from '@/components/ui/input';
@@ -19,7 +24,13 @@ import { useT } from '@/lib/i18n/useT';
 export default function DashboardPage() {
   const { t } = useT();
   const [chosenRoom, setSelectedRoom] = useState<string | null>(null);
-  const { rooms, loading, createRoom, leaveRoom, openDirect } = useRoom(chosenRoom);
+  const { rooms, loading, createRoom, leaveRoom, openDirect, joinRoom, refreshRooms } = useRoom(chosenRoom);
+  const { rooms: discoverable, refresh: refreshDiscover } = useDiscoverRooms(rooms.length);
+  const { invitations, error: invitationError, respond } = useInvitations(async (roomId) => {
+    await refreshRooms();
+    setSelectedRoom(roomId);
+  });
+  const openPerson = async (userId: number) => setSelectedRoom(await openDirect(userId));
   // A room we were removed from (or left elsewhere) disappears from the list: close its chat.
   const selectedRoom = loading || rooms.some((r) => r.id === chosenRoom) ? chosenRoom : null;
   const room = rooms.find((r) => r.id === selectedRoom);
@@ -80,6 +91,7 @@ export default function DashboardPage() {
               </button>
             )}
           </div>
+          <InvitationList invitations={invitations} error={invitationError} onRespond={respond} />
           <div className="flex-1 overflow-y-auto">
             {searching ? (
               <SearchResults
@@ -94,12 +106,25 @@ export default function DashboardPage() {
                 <Spinner />
               </div>
             ) : (
-              <RoomList
-                rooms={rooms}
-                onSelectRoom={setSelectedRoom}
-                selectedRoom={selectedRoom}
-                action={<CreateRoomForm createRoom={createRoom} />}
-              />
+              <>
+                <RoomList
+                  rooms={rooms}
+                  onSelectRoom={setSelectedRoom}
+                  selectedRoom={selectedRoom}
+                  action={<CreateRoomForm createRoom={createRoom} />}
+                />
+                <DiscoverRooms
+                  rooms={discoverable}
+                  onJoin={async (id) => {
+                    setSelectedRoom(await joinRoom(id));
+                    refreshDiscover();
+                  }}
+                />
+                {/* Small screens have no side column: people live here instead. */}
+                <div className="border-t lg:hidden">
+                  <PeoplePanel onOpenDirect={openPerson} />
+                </div>
+              </>
             )}
           </div>
         </aside>
@@ -120,6 +145,10 @@ export default function DashboardPage() {
             }}
           />
         </main>
+        {/* Always visible on wide screens, whichever room (or none) is open. */}
+        <aside className="hidden w-[248px] shrink-0 border-l bg-card lg:block">
+          <PeoplePanel onOpenDirect={openPerson} />
+        </aside>
       </div>
     </PrivateRoute>
   );

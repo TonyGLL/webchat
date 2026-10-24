@@ -21,6 +21,7 @@ func RegisterModule(
 	store shared_app.Store,
 	authMiddleware gin.HandlerFunc,
 	realtime usecases.Realtime,
+	presence usecases.PresenceChecker,
 ) {
 	// Initialize use cases
 	deactivateUserUseCase := usecases.NewDeactivateUserUseCase(usersRepository)
@@ -29,14 +30,17 @@ func RegisterModule(
 	exportAccountUseCase := usecases.NewExportAccountUseCase(usersRepository)
 	deleteAccountUseCase := usecases.NewDeleteAccountUseCase(usersRepository, auth_domain.NewPasswordService(), realtime)
 
+	listDirectoryUseCase := usecases.NewListDirectoryUseCase(usersRepository, presence)
+
 	// Initialize the controller
-	usersController := presentation.NewUsersController(deactivateUserUseCase, getUserProfileUseCase, exportAccountUseCase, deleteAccountUseCase, validate)
+	usersController := presentation.NewUsersController(deactivateUserUseCase, getUserProfileUseCase, exportAccountUseCase, deleteAccountUseCase, listDirectoryUseCase, validate)
 
 	// Register authenticated routes
 	usersRoutes := router.Group("/users")
 	usersRoutes.Use(authMiddleware)
 	{
 		usersRoutes.GET("/profile", usersController.GetUserProfile)
+		usersRoutes.GET("/directory", usersController.ListDirectory)
 		usersRoutes.DELETE("/deactivate", usersController.DeactivateUser)
 		usersRoutes.GET("/export", usersController.ExportAccount)
 		usersRoutes.DELETE("/me", usersController.DeleteAccount)

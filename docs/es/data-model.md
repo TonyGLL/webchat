@@ -17,6 +17,8 @@ erDiagram
     users ||--o{ reactions : "añade"
     rooms ||--o| direct_rooms : "es un DM"
     rooms ||--o{ invites : "tiene"
+    rooms ||--o{ room_invitations : "envía"
+    users ||--o{ room_invitations : "recibe"
     rooms ||--o{ bans : "tiene"
     users ||--o{ bans : "recibe"
     messages ||--o{ reports : "denunciado en"
@@ -120,5 +122,6 @@ erDiagram
 | 8 | Roles globales y `audit_log` |
 | 9 | Una denuncia por persona y mensaje |
 | 10 | Soporte para borrar la cuenta |
+| 11 | Invitaciones dirigidas a un usuario (`room_invitations`) |
 
 Regla: nunca se edita una migración ya aplicada. Se añade un nuevo par numerado de archivos `.up.sql` y `.down.sql`.

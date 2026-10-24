@@ -23,6 +23,7 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D15 | i18n sin dependencias y temas con variables CSS | Aceptada |
 | D16 | Envío optimista con estados explícitos | Aceptada |
 | D17 | Dirección visual "Foco" | Aceptada |
+| D18 | Directorio de personas, salas descubribles e invitaciones personales | Aceptada |
 
 ---
 
@@ -155,3 +156,11 @@ sequenceDiagram
 - **Por qué:** el centro del producto son las salas, los roles y la moderación, que necesitan densidad de información y etiquetas de rol claras más que personalidad. Las tarjetas muestran autor, rol y hora de forma compacta, y un solo acento mantiene sin ambigüedad los contadores de no leídos y la selección en ambos temas.
 - **Alternativas:** Calidez ofrece el móvil más amable pero gasta ancho en burbujas; Redacción es la más distintiva pero es más difícil de mantener coherente según crecen las funciones.
 - **Consecuencias:** todo el color sale de tokens semánticos (`primary`, `soft`, `success`...), así que la dirección puede reajustarse en un solo archivo (`globals.css`).
+
+## D18. Directorio de personas, salas descubribles e invitaciones personales
+
+- **Contexto:** hasta ahora solo podías llegar a alguien por una sala compartida, y la única forma de entrar en una sala privada era un código anónimo enviado a mano desde la API.
+- **Decisión:** tres ideas separadas. (1) *La presencia es global:* un panel de personas siempre visible lista a todos con su estado de conexión y puedes escribir a cualquiera (una conversación directa no necesita sala compartida). (2) *Las salas son descubribles:* todas se listan; las públicas se pueden abrir, las privadas se ven pero sus mensajes solo los leen los miembros. (3) *Invitaciones personales:* un propietario o admin invita a una persona concreta; le aparece en su app y, solo al aceptarla, pasa a ser miembro con historial y permiso para escribir.
+- **Por qué:** estar en línea, hablar en privado y pertenecer a una sala son preguntas distintas. Mezclarlas (miembros solo visibles dentro de las salas) hacía que la app se sintiera vacía. Mantener la privacidad a nivel de sala protege el contenido privado y aun así anuncia que la sala existe.
+- **Alternativas:** ocultar del todo las salas privadas (no habría nada a lo que pedir invitación), o solo códigos de invitación (incómodo y sin destinatario).
+- **Consecuencias:** el directorio expone nombres y usuarios a cualquier persona con sesión, algo adecuado para un servidor de equipo; en un despliegue público haría falta un ajuste de visibilidad. Las invitaciones se consultan cada 15 s en lugar de enviarse en vivo.

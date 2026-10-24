@@ -43,6 +43,7 @@ flowchart LR
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/users/profile` | Perfil del usuario actual, incluido el `role` global |
+| GET | `/users/directory?q=` | Directorio de personas con estado de conexión, las conectadas primero |
 | DELETE | `/users/deactivate` | Desactiva la cuenta y cierra la sesión |
 | GET | `/users/export` | Descarga todos los datos del usuario en JSON |
 | DELETE | `/users/me` | Borra la cuenta de forma permanente; el cuerpo lleva la contraseña |
@@ -53,6 +54,10 @@ flowchart LR
 |---|---|---|
 | POST | `/rooms` | Crea una sala: `name`, `topic`, `is_private`. Quien la crea queda como propietario |
 | GET | `/rooms` | Las salas del usuario, con `unread_count`, `is_direct` y `my_role` |
+| GET | `/rooms/discover` | Todas las salas no directas; las privadas se listan pero requieren invitación |
+| POST | `/rooms/invite-user/:room_id` | Invitar a un usuario concreto (admin o superior) |
+| GET | `/rooms/invitations` | Mis invitaciones pendientes |
+| POST | `/rooms/invitations/:id/accept` · `/decline` | Responder una invitación; al aceptar paso a ser miembro |
 | POST | `/rooms/join/:room_id` | Unirse a una sala pública (falla si está vetado) |
 | POST | `/rooms/direct/:user_id` | Abre (o reutiliza) la sala 1 a 1 con ese usuario |
 | GET | `/rooms/members/:room_id` | Miembros con rol y estado en línea |

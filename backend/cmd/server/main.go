@@ -90,6 +90,7 @@ func main() {
 	roomRepository := room_persistence.NewPgRoomRepository(database)
 	memberRepository := room_persistence.NewPgRoomMemberRepository(database)
 	inviteRepository := room_persistence.NewPgInviteRepository(database)
+	invitationRepository := room_persistence.NewPgInvitationRepository(database)
 
 	// --- Websocket Hub ---
 	wsHub := websocket.NewHub()
@@ -140,9 +141,9 @@ func main() {
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL, cfg.IsProduction())
-	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService), wsHub)
+	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService), wsHub, presence)
 	moderationRepository := moderation_persistence.NewPgRepository(database)
-	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub, presence, moderationRepository)
+	room.RegisterModule(roomRepository, memberRepository, inviteRepository, invitationRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub, presence, moderationRepository)
 	moderation.RegisterModule(moderationRepository, wsHub, apiV1, http.JWTMiddleware(jwtService))
 	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, http.JWTMiddleware(jwtService), moderationRepository)
 

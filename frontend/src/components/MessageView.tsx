@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, LogOut, Shield, Users, Flag, MessageSquare, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
+import { ArrowLeft, LogOut, Smile, UserPlus, Shield, Users, Flag, MessageSquare, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
 import { IGetRoomMessages } from '@/services/messageService';
 import { useMessages } from '@/hooks/useMessages';
 import { useRoomActivity } from '@/hooks/useRoomActivity';
@@ -13,6 +13,8 @@ import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
 import Reaction from './Reaction';
 import Avatar from './Avatar';
+import EmojiPicker from './EmojiPicker';
+import InviteUsers from './InviteUsers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -127,6 +129,8 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   };
 
   const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
+  const [showInvite, setShowInvite] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
   const memberById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
   const fullName = (m: { name: string; last_name?: string | null }) => [m.name, m.last_name].filter(Boolean).join(' ');
   const authorName = (id: number) => {
@@ -302,6 +306,19 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
               <Shield className="h-4 w-4" />
             </Button>
           )}
+          {!isDirect && myRank >= RANK.admin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(iconButton, showInvite && 'bg-soft text-primary hover:bg-soft')}
+              onClick={() => setShowInvite((v) => !v)}
+              aria-label={t('invite.button')}
+              aria-expanded={showInvite}
+              title={t('invite.button')}
+            >
+              <UserPlus className="h-4 w-4" />
+            </Button>
+          )}
           {!isDirect && (
             <Button
               variant="ghost"
@@ -319,6 +336,10 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
             <LogOut className="h-4 w-4" />
           </Button>
         </header>
+
+        {showInvite && !isDirect && roomId && (
+          <InviteUsers roomId={roomId} roomName={roomName ?? t('rooms.fallbackName')} memberIds={members.map((m) => m.user_id)} onClose={() => setShowInvite(false)} />
+        )}
 
         {showModeration && !isDirect && roomId && <ModerationPanel roomId={roomId} rank={myRank} members={members} />}
 
@@ -433,11 +454,11 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                         )}
                         <p className="mt-1 whitespace-pre-wrap break-words text-sm">{msg.content}</p>
                       </div>
-                      {msg.reactions && profile && (
+                      {profile && (
                         <div className="mt-1.5">
                           <Reaction
                             messageId={msg.id}
-                            reactions={msg.reactions}
+                            reactions={msg.reactions ?? []}
                             onAddReaction={addReaction}
                             onRemoveReaction={removeReaction}
                             currentUserId={profile.id}
@@ -505,11 +526,23 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
               aria-label={t('chat.message')}
               className="h-auto flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setShowEmoji(true)} aria-label={t('chat.emoji')} title={t('chat.emoji')}>
+              <Smile className="h-4 w-4" />
+            </Button>
             <Button type="submit" size="icon" className="h-8 w-8" disabled={!content.trim()} aria-label={t('chat.send')}>
               <Send className="h-4 w-4" />
             </Button>
           </div>
         </form>
+        {showEmoji && (
+          <EmojiPicker
+            onSelect={(emoji) => {
+              setContent((c) => c + emoji);
+              setShowEmoji(false);
+            }}
+            onClose={() => setShowEmoji(false)}
+          />
+        )}
       </div>
 
       {showMembers && !isDirect && (

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -18,6 +19,7 @@ type UsersController struct {
 	GetUserProfileUseCase *usecases.GetUserProfileUseCase
 	ExportAccountUseCase  *usecases.ExportAccountUseCase
 	DeleteAccountUseCase  *usecases.DeleteAccountUseCase
+	ListDirectoryUseCase  *usecases.ListDirectoryUseCase
 	Validate              *validator.Validate
 }
 
@@ -26,6 +28,7 @@ func NewUsersController(
 	getUserProfileUseCase *usecases.GetUserProfileUseCase,
 	exportAccountUseCase *usecases.ExportAccountUseCase,
 	deleteAccountUseCase *usecases.DeleteAccountUseCase,
+	listDirectoryUseCase *usecases.ListDirectoryUseCase,
 	validate *validator.Validate,
 ) *UsersController {
 	return &UsersController{
@@ -33,6 +36,7 @@ func NewUsersController(
 		GetUserProfileUseCase: getUserProfileUseCase,
 		ExportAccountUseCase:  exportAccountUseCase,
 		DeleteAccountUseCase:  deleteAccountUseCase,
+		ListDirectoryUseCase:  listDirectoryUseCase,
 		Validate:              validate,
 	}
 }
@@ -127,4 +131,22 @@ func (ctrl *UsersController) DeleteAccount(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+// ListDirectory handles the endpoint for GET /api/v1/users/directory?q=&limit=
+func (ctrl *UsersController) ListDirectory(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+	limit, _ := strconv.Atoi(ctx.Query("limit"))
+
+	entries, err := ctrl.ListDirectoryUseCase.Execute(ctx.Request.Context(), userID, ctx.Query("q"), limit)
+	if err != nil {
+		log.Printf("list directory: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	response.JSON(ctx, http.StatusOK, entries)
 }

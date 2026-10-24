@@ -17,6 +17,8 @@ erDiagram
     users ||--o{ reactions : "adds"
     rooms ||--o| direct_rooms : "is a DM"
     rooms ||--o{ invites : "has"
+    rooms ||--o{ room_invitations : "sends"
+    users ||--o{ room_invitations : "receives"
     rooms ||--o{ bans : "has"
     users ||--o{ bans : "receives"
     messages ||--o{ reports : "reported in"
@@ -120,5 +122,6 @@ erDiagram
 | 8 | Global roles and `audit_log` |
 | 9 | One report per person per message |
 | 10 | Account deletion support |
+| 11 | Invitations addressed to a user (`room_invitations`) |
 
 Rule: never edit an applied migration. Add a new numbered pair of `.up.sql` and `.down.sql` files.

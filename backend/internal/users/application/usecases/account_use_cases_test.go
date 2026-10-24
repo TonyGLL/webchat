@@ -18,6 +18,9 @@ type fakeUsers struct {
 func (f *fakeUsers) GetUserByID(context.Context, int) (*auth_domain.User, error) { return nil, nil }
 func (f *fakeUsers) DeactivateUser(context.Context, int) error                   { return nil }
 func (f *fakeUsers) PasswordHash(context.Context, int) (string, error)           { return f.hash, nil }
+func (f *fakeUsers) ListDirectory(context.Context, int, string, int) ([]*domain.DirectoryEntry, error) {
+	return nil, nil
+}
 func (f *fakeUsers) ExportAccount(context.Context, int) (*domain.AccountExport, error) {
 	return &domain.AccountExport{}, nil
 }

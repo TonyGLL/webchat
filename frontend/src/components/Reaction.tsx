@@ -1,10 +1,10 @@
-import data from '@emoji-mart/data'
-import Picker from '@emoji-mart/react'
-import esPickerStrings from '@emoji-mart/data/i18n/es.json'
 import { useState } from 'react';
 import { SmilePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/useT';
+import EmojiPicker from './EmojiPicker';
+
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '😮', '🙏'];
 
 interface ReactionProps {
   messageId: string;
@@ -15,45 +15,41 @@ interface ReactionProps {
 }
 
 export default function Reaction({ messageId, reactions, onAddReaction, onRemoveReaction, currentUserId }: ReactionProps) {
-  const { t, locale } = useT();
-  const [showPicker, setShowPicker] = useState(false);
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const [full, setFull] = useState(false);
 
-  const handleEmojiSelect = (emoji: { native: string }) => {
-    const existingReaction = reactions.find((r) => r.emoji === emoji.native && r.user_id === currentUserId);
-    if (existingReaction) {
-      onRemoveReaction(messageId, emoji.native);
-    } else {
-      onAddReaction(messageId, emoji.native);
-    }
-    setShowPicker(false);
+  const toggle = (emoji: string) => {
+    const mine = reactions.some((r) => r.emoji === emoji && r.user_id === currentUserId);
+    if (mine) onRemoveReaction(messageId, emoji);
+    else onAddReaction(messageId, emoji);
+    setOpen(false);
+    setFull(false);
   };
 
-  const groupReactions = (reactions: { user_id: number; emoji: string }[]) => {
-    return reactions.reduce((acc, reaction) => {
-      const existing = acc.find((item) => item.emoji === reaction.emoji);
+  const grouped = reactions.reduce(
+    (acc, r) => {
+      const existing = acc.find((item) => item.emoji === r.emoji);
       if (existing) {
         existing.count++;
-        existing.users.push(reaction.user_id);
+        existing.users.push(r.user_id);
       } else {
-        acc.push({ emoji: reaction.emoji, count: 1, users: [reaction.user_id] });
+        acc.push({ emoji: r.emoji, count: 1, users: [r.user_id] });
       }
       return acc;
-    }, [] as { emoji: string; count: number; users: number[] }[]);
-  };
-
-  const groupedReactions = groupReactions(reactions);
+    },
+    [] as { emoji: string; count: number; users: number[] }[]
+  );
 
   return (
     <div className="relative flex flex-wrap items-center gap-1">
-      {groupedReactions.map((reaction) => {
+      {grouped.map((reaction) => {
         const mine = reaction.users.includes(currentUserId);
         return (
           <button
             key={reaction.emoji}
             type="button"
-            onClick={() =>
-              mine ? onRemoveReaction(messageId, reaction.emoji) : onAddReaction(messageId, reaction.emoji)
-            }
+            onClick={() => toggle(reaction.emoji)}
             className={cn(
               'h-6 rounded-full border bg-card px-2 text-xs transition-colors hover:bg-accent',
               mine && 'border-primary bg-soft font-medium text-primary hover:bg-soft'
@@ -66,17 +62,45 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
       })}
       <button
         type="button"
-        onClick={() => setShowPicker(!showPicker)}
-        className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        aria-label={t('chat.addReaction')}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+          // With no reactions yet the button only shows on hover (always on touch screens).
+          grouped.length === 0 && 'md:opacity-0 md:focus:opacity-100 md:group-hover:opacity-100'
+        )}
+        aria-label={t('chat.react')}
+        aria-expanded={open}
+        title={t('chat.react')}
       >
         <SmilePlus className="h-4 w-4" />
       </button>
-      {showPicker && (
-        <div className="absolute bottom-full right-0 z-20 mb-2">
-          <Picker data={data} onEmojiSelect={handleEmojiSelect} theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'} previewPosition="none" locale={locale} i18n={locale === 'es' ? esPickerStrings : undefined} />
-        </div>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div className="absolute bottom-full left-0 z-20 mb-1 flex items-center gap-0.5 rounded-full border bg-card p-1 shadow-lg">
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => toggle(emoji)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-lg transition-colors hover:bg-accent"
+              >
+                {emoji}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFull(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent"
+              aria-label={t('chat.addReaction')}
+              title={t('chat.addReaction')}
+            >
+              <SmilePlus className="h-4 w-4" />
+            </button>
+          </div>
+        </>
       )}
+      {full && <EmojiPicker onSelect={toggle} onClose={() => setFull(false)} />}
     </div>
   );
 }
