@@ -113,6 +113,8 @@ func main() {
 		{Method: "POST", Path: "/api/v1/auth/login", Limit: 10, Window: time.Minute},
 		{Method: "POST", Path: "/api/v1/auth/register", Limit: 20, Window: 10 * time.Minute},
 		{Method: "POST", Path: "/api/v1/auth/refresh-token", Limit: 30, Window: time.Minute},
+		{Method: "POST", Path: "/api/v1/auth/forgot-password", Limit: 5, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/auth/reset-password", Limit: 10, Window: 10 * time.Minute},
 		{Method: "POST", Path: "/api/v1/auth/send-verify-email/:user_id", Limit: 5, Window: 10 * time.Minute},
 		{Method: "POST", Path: "/api/v1/ws-ticket", Limit: 30, Window: time.Minute},
 		{Method: "POST", Path: "/api/v1/messages", Limit: 120, Window: time.Minute},

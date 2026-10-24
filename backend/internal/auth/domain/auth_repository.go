@@ -13,4 +13,6 @@ type AuthRepository interface {
 	RegisterWithPassword(ctx context.Context, user *User, hashedPassword string) (*User, error)
 	SetLastAccess(ctx context.Context, id int) error
 	VerifyEmail(ctx context.Context, id int) error
+	// UpdatePassword replaces the stored hash of an existing user.
+	UpdatePassword(ctx context.Context, id int, hashedPassword string) error
 }

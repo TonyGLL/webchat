@@ -15,13 +15,15 @@ import (
 )
 
 type AuthController struct {
-	LoginUseCase           *usecases.LoginUseCase
-	RegisterUseCase        *usecases.RegisterUseCase
-	RefreshTokenUseCase    *usecases.RefreshTokenUseCase
-	SendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase
-	VerifyEmailUseCase     *usecases.VerifyEmailUseCase
-	LogoutUseCase          *usecases.LogoutUseCase
-	Validate               *validator.Validate
+	LoginUseCase                *usecases.LoginUseCase
+	RegisterUseCase             *usecases.RegisterUseCase
+	RefreshTokenUseCase         *usecases.RefreshTokenUseCase
+	SendVerifyEmailUseCase      *usecases.SendVerifyEmailUseCase
+	VerifyEmailUseCase          *usecases.VerifyEmailUseCase
+	LogoutUseCase               *usecases.LogoutUseCase
+	RequestPasswordResetUseCase *usecases.RequestPasswordResetUseCase
+	ResetPasswordUseCase        *usecases.ResetPasswordUseCase
+	Validate                    *validator.Validate
 	// SecureCookies marks the refresh cookie as HTTPS-only (set in production).
 	SecureCookies bool
 }
@@ -33,18 +35,22 @@ func NewAuthController(
 	sendVerifyEmailUseCase *usecases.SendVerifyEmailUseCase,
 	verifyEmailUseCase *usecases.VerifyEmailUseCase,
 	logoutUseCase *usecases.LogoutUseCase,
+	requestPasswordResetUseCase *usecases.RequestPasswordResetUseCase,
+	resetPasswordUseCase *usecases.ResetPasswordUseCase,
 	validate *validator.Validate,
 	secureCookies bool,
 ) *AuthController {
 	return &AuthController{
-		LoginUseCase:           loginUseCase,
-		RegisterUseCase:        registerUseCase,
-		RefreshTokenUseCase:    refreshTokenUseCase,
-		SendVerifyEmailUseCase: sendVerifyEmailUseCase,
-		VerifyEmailUseCase:     verifyEmailUseCase,
-		LogoutUseCase:          logoutUseCase,
-		Validate:               validate,
-		SecureCookies:          secureCookies,
+		LoginUseCase:                loginUseCase,
+		RegisterUseCase:             registerUseCase,
+		RefreshTokenUseCase:         refreshTokenUseCase,
+		SendVerifyEmailUseCase:      sendVerifyEmailUseCase,
+		VerifyEmailUseCase:          verifyEmailUseCase,
+		LogoutUseCase:               logoutUseCase,
+		RequestPasswordResetUseCase: requestPasswordResetUseCase,
+		ResetPasswordUseCase:        resetPasswordUseCase,
+		Validate:                    validate,
+		SecureCookies:               secureCookies,
 	}
 }
 
@@ -216,4 +222,40 @@ func (ctrl *AuthController) VerifyEmail(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "Email verified successfully"})
+}
+
+// ForgotPassword handles POST /auth/forgot-password. The answer is always the same, whether or
+// not the address has an account, so it cannot be used to discover who is registered.
+func (ctrl *AuthController) ForgotPassword(ctx *gin.Context) {
+	var input dtos.ForgotPasswordInputDTO
+	if err := ctx.ShouldBindJSON(&input); err != nil || ctrl.Validate.Struct(input) != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "A valid email is required"})
+		return
+	}
+	if err := ctrl.RequestPasswordResetUseCase.Execute(ctx.Request.Context(), input.Email); err != nil {
+		log.Printf("password reset request failed: %v", err)
+	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "If the address has an account, a reset link is on its way"})
+}
+
+// ResetPassword handles POST /auth/reset-password.
+func (ctrl *AuthController) ResetPassword(ctx *gin.Context) {
+	var input dtos.ResetPasswordInputDTO
+	if err := ctx.ShouldBindJSON(&input); err != nil || ctrl.Validate.Struct(input) != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "token and a password of 8 to 72 characters are required"})
+		return
+	}
+	err := ctrl.ResetPasswordUseCase.Execute(ctx.Request.Context(), input.Token, input.Password)
+	switch {
+	case err == nil:
+		ctx.JSON(http.StatusOK, gin.H{"message": "Password updated"})
+	case errors.Is(err, shared_domain.ErrInvalidToken):
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "This link is invalid or has expired"})
+	case errors.Is(err, domain.ErrPasswordTooShort), errors.Is(err, domain.ErrPasswordTooLong),
+		errors.Is(err, domain.ErrPasswordCommon), errors.Is(err, domain.ErrPasswordPersonal):
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	default:
+		log.Printf("failed to reset password: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset password"})
+	}
 }

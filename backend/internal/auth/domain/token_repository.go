@@ -14,4 +14,9 @@ type TokenRepository interface {
 	GetToken(ctx context.Context, key string, tokenID string) (int, error)
 	// DeleteRefreshToken deletes a specific refresh token from the store.
 	DeleteToken(ctx context.Context, key string, tokenID string) error
+	// RevokeUserSessions ends every session the user has open right now: refresh tokens issued
+	// before this moment stop working. The marker only needs to outlive the longest refresh token.
+	RevokeUserSessions(ctx context.Context, userID int, ttl time.Duration) error
+	// SessionsRevokedAt returns when the user's sessions were last revoked (zero if never).
+	SessionsRevokedAt(ctx context.Context, userID int) (time.Time, error)
 }

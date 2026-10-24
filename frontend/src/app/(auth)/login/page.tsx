@@ -67,6 +67,11 @@ export default function LoginPage() {
           error={errors.password?.message}
           {...register('password')}
         />
+        <p className="text-right text-sm">
+          <Link href="/forgot-password" className="text-muted-foreground hover:text-foreground hover:underline">
+            {t('login.forgot')}
+          </Link>
+        </p>
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? <Spinner className="h-4 w-4 text-primary-foreground" /> : t('login.submit')}
         </Button>

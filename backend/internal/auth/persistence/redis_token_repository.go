@@ -63,6 +63,27 @@ func (r *RedisTokenRepository) DeleteToken(ctx context.Context, keyIn string, to
 	return nil
 }
 
+const sessionsRevokedKey = "sessions_revoked_at"
+
+func (r *RedisTokenRepository) RevokeUserSessions(ctx context.Context, userID int, ttl time.Duration) error {
+	key := r.getRedisKey(sessionsRevokedKey, strconv.Itoa(userID))
+	if err := r.client.Set(ctx, key, time.Now().Unix(), ttl).Err(); err != nil {
+		return fmt.Errorf("could not revoke user sessions in redis: %w", err)
+	}
+	return nil
+}
+
+func (r *RedisTokenRepository) SessionsRevokedAt(ctx context.Context, userID int) (time.Time, error) {
+	value, err := r.client.Get(ctx, r.getRedisKey(sessionsRevokedKey, strconv.Itoa(userID))).Int64()
+	if err == redis.Nil {
+		return time.Time{}, nil
+	}
+	if err != nil {
+		return time.Time{}, fmt.Errorf("could not read session revocation from redis: %w", err)
+	}
+	return time.Unix(value, 0), nil
+}
+
 // getRedisKey creates a consistent key for storing refresh tokens in Redis.
 func (r *RedisTokenRepository) getRedisKey(key string, tokenID string) string {
 	return fmt.Sprintf("%s:%s", key, tokenID)

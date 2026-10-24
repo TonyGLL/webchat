@@ -212,6 +212,57 @@ paths:
       responses:
         "204": { description: Signed out. }
 
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      operationId: forgotPassword
+      summary: Ask for a password reset link
+      description: |
+        Emails a single-use link (valid 30 minutes) when the address has an account. The answer is
+        **always** `200`, whether or not the address is registered, so it cannot be used to discover
+        who has an account. At most one email per address per minute; rate limited per client.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      operationId: resetPassword
+      summary: Choose a new password with a reset link
+      description: |
+        Sets the new password (same policy as registration), burns the link and **signs the user out
+        everywhere**: refresh tokens issued before this moment stop working (access tokens expire
+        within the hour). A password the policy refuses leaves the link valid for another try.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string, description: The secret from the emailed link. }
+                password: { type: string, minLength: 8, maxLength: 72 }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "400":
+          description: The link is invalid or expired, or the password is refused by the policy.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /auth/send-verify-email/{user_id}:
     post:
       tags: [Auth]

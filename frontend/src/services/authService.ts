@@ -42,6 +42,22 @@ export const makeLoginSchema = (t: Translate) =>
     password: z.string().min(6, { message: t('validation.passwordMin', { min: 6 }) }),
   });
 
+export const makeForgotPasswordSchema = (t: Translate) =>
+  z.object({ email: z.string().email({ message: t('validation.invalidEmail') }) });
+
+export const makeResetPasswordSchema = (t: Translate) =>
+  z
+    .object({
+      password: z
+        .string()
+        .min(8, { message: t('validation.passwordMin', { min: 8 }) })
+        .max(72, { message: t('validation.passwordMax', { max: 72 }) }),
+      confirm: z.string(),
+    })
+    .refine((v) => v.password === v.confirm, { path: ['confirm'], message: t('validation.passwordMatch') });
+
+export type ForgotPasswordData = z.infer<ReturnType<typeof makeForgotPasswordSchema>>;
+export type ResetPasswordData = z.infer<ReturnType<typeof makeResetPasswordSchema>>;
 export type RegisterData = z.infer<ReturnType<typeof makeRegisterSchema>>;
 export type LoginData = z.infer<ReturnType<typeof makeLoginSchema>>;
 
@@ -59,6 +75,15 @@ export const authService = {
   sendVerifyEmail: async (userId: number, email: string) => {
     const response = await api.post(`/auth/send-verify-email/${userId}`, { email });
     return response.data;
+  },
+
+  /** Always resolves the same way, whether or not the address has an account. */
+  forgotPassword: async (email: string): Promise<void> => {
+    await api.post('/auth/forgot-password', { email });
+  },
+
+  resetPassword: async (token: string, password: string): Promise<void> => {
+    await api.post('/auth/reset-password', { token, password });
   },
 
   logout: async (): Promise<void> => {

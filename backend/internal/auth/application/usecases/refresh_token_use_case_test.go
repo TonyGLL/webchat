@@ -21,9 +21,10 @@ func (fakeAuthRepo) GetUserByID(_ context.Context, id int) (*domain.User, error)
 
 // fakeTokens keeps tokens with an absolute expiry so tests can move the clock.
 type fakeTokens struct {
-	now     time.Time
-	expires map[string]time.Time
-	users   map[string]int
+	now       time.Time
+	expires   map[string]time.Time
+	users     map[string]int
+	revokedAt time.Time
 }
 
 func newFakeTokens() *fakeTokens {
@@ -40,6 +41,13 @@ func (f *fakeTokens) GetToken(_ context.Context, _, id string) (int, error) {
 	}
 	return f.users[id], nil
 }
+func (f *fakeTokens) RevokeUserSessions(context.Context, int, time.Duration) error {
+	f.revokedAt = f.now
+	return nil
+}
+func (f *fakeTokens) SessionsRevokedAt(context.Context, int) (time.Time, error) {
+	return f.revokedAt, nil
+}
 func (f *fakeTokens) DeleteToken(_ context.Context, _, id string) error {
 	delete(f.expires, id)
 	return nil
@@ -53,8 +61,13 @@ func (fakeJWT) GenerateRefreshToken(_ int, id string, _ time.Duration) (string, 
 	return "refresh:" + id, nil
 }
 
+// ParseToken stamps every token as issued at the Unix epoch plus one second, i.e. long before
+// any revocation moment the tests create.
 func (fakeJWT) ParseToken(token string) (*domain.CustomClaims, error) {
-	return &domain.CustomClaims{UserID: 7, RegisteredClaims: jwt.RegisteredClaims{ID: token[len("refresh:"):]}}, nil
+	return &domain.CustomClaims{UserID: 7, RegisteredClaims: jwt.RegisteredClaims{
+		ID:       token[len("refresh:"):],
+		IssuedAt: jwt.NewNumericDate(time.Unix(1, 0)),
+	}}, nil
 }
 
 func newRefreshFixture() (*RefreshTokenUseCase, *fakeTokens, string) {

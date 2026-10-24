@@ -190,3 +190,16 @@ func (r *PgAuthRepository) VerifyEmail(ctx context.Context, id int) error {
 	}
 	return nil
 }
+
+func (r *PgAuthRepository) UpdatePassword(ctx context.Context, id int, hashedPassword string) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE passwords SET hash = $2, updated_at = NOW() WHERE user_id = $1`, id, hashedPassword)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return shared_domain.ErrNotFound
+	}
+	return nil
+}

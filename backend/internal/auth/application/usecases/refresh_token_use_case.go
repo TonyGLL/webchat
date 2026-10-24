@@ -41,6 +41,16 @@ func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input dtos.RefreshTo
 		return nil, shared_domain.ErrInvalidToken
 	}
 
+	// A password reset ends every session that started before it, even though those tokens are
+	// otherwise still valid.
+	revokedAt, err := uc.tokenRepo.SessionsRevokedAt(ctx, claims.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if !revokedAt.IsZero() && claims.IssuedAt != nil && claims.IssuedAt.Time.Before(revokedAt) {
+		return nil, shared_domain.ErrInvalidToken
+	}
+
 	// 2. Verify the token exists in our store (Redis)
 	storedUserID, err := uc.tokenRepo.GetToken(ctx, "refresh_token", claims.ID)
 	if err != nil {
