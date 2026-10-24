@@ -180,7 +180,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
           <li key={m.user_id} className="space-y-1">
             <div className="flex items-center gap-2 text-sm">
               <span
-                className={cn('h-2 w-2 shrink-0 rounded-full', m.online ? 'bg-success' : 'border border-muted-foreground/60')}
+                className={cn('h-2 w-2 shrink-0 rounded-full', m.online ? 'bg-success' : 'border border-presence-offline')}
                 role="img"
                 aria-label={m.online ? t('chat.online') : t('chat.offline')}
               />
@@ -260,7 +260,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                   aria-label={peer.online ? t('chat.online') : t('chat.offline')}
                   className={cn(
                     'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card',
-                    peer.online ? 'bg-success' : 'bg-muted-foreground/50'
+                    peer.online ? 'bg-success' : 'bg-presence-offline'
                   )}
                 />
               )}

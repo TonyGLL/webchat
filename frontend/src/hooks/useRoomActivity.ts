@@ -5,6 +5,7 @@ import { RoomRole } from '@/lib/permissions';
 import { useSocket } from './useSocket';
 import { useSocketEvent } from './useSocketEvents';
 import { useUser } from './useUser';
+import { logError } from '@/lib/logError';
 
 const TYPING_VISIBLE_MS = 4000;
 const TYPING_SEND_INTERVAL_MS = 2000;
@@ -26,7 +27,7 @@ export const useRoomActivity = (roomId: string | null) => {
     try {
       setMembers(await roomService.getMembers(roomId));
     } catch (error) {
-      console.error('Failed to fetch members', error);
+      logError('Failed to fetch members', error);
     }
   }, [roomId]);
 

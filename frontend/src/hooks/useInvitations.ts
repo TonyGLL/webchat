@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Invitation, roomService } from '@/services/roomService';
 import { usePolling } from './usePolling';
+import { logError } from '@/lib/logError';
 
 const POLL_MS = 15_000;
 
@@ -13,7 +14,7 @@ export const useInvitations = (onAccepted?: (roomId: string) => void) => {
     try {
       setInvitations(await roomService.getInvitations());
     } catch (e) {
-      console.error('Failed to load invitations', e);
+      logError('Failed to load invitations', e);
     }
   }, []);
 

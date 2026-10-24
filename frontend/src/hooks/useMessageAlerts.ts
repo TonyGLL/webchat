@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { decideAlert, formatTitle, previewText } from '@/lib/alerts';
+import { decideAlert, previewText } from '@/lib/alerts';
+import { setUnreadCount } from '@/lib/documentTitle';
 import { playMessageSound } from '@/lib/sound';
 import { useT } from '@/lib/i18n/useT';
 import type { Room } from '@/services/roomService';
@@ -60,10 +61,7 @@ export const useMessageAlerts = (rooms: Room[], activeRoomId: string | null, onO
   // Unread total in the tab title, so a background tab shows there is something new.
   const unread = rooms.reduce((sum, r) => sum + (r.unread_count || 0), 0);
   useEffect(() => {
-    const base = t('common.appName');
-    document.title = formatTitle(base, unread);
-    return () => {
-      document.title = base;
-    };
-  }, [unread, t]);
+    setUnreadCount(unread);
+    return () => setUnreadCount(0);
+  }, [unread]);
 };

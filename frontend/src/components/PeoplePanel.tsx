@@ -17,7 +17,7 @@ export function PresenceDot({ online, className }: { online: boolean; className?
     <span
       role="img"
       aria-label={online ? t('chat.online') : t('chat.offline')}
-      className={cn('h-2 w-2 shrink-0 rounded-full', online ? 'bg-success' : 'border border-muted-foreground/60', className)}
+      className={cn('h-2 w-2 shrink-0 rounded-full', online ? 'bg-success' : 'border border-presence-offline', className)}
     />
   );
 }

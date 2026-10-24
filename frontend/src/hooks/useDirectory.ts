@@ -4,6 +4,7 @@ import { useDebounce } from '@/lib/useDebounce';
 import { useSocket } from './useSocket';
 import { usePolling } from './usePolling';
 import { useSocketEvent } from './useSocketEvents';
+import { logError } from '@/lib/logError';
 
 const REFRESH_MS = 60_000;
 
@@ -25,7 +26,7 @@ export const useDirectory = (query = '') => {
     userService
       .getDirectory(q)
       .then((list) => isLatest() && setPeople(list))
-      .catch((error) => console.error('Failed to load people', error))
+      .catch((error) => logError('Failed to load people', error))
       .finally(() => isLatest() && setLoading(false));
   }, [q, socket]);
   usePolling(load, REFRESH_MS);

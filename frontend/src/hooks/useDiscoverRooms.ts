@@ -41,7 +41,7 @@ export const useDiscoverRooms = (refreshKey: unknown) => {
     try {
       await fetchPages(false);
     } catch (error) {
-      console.error('Failed to load more rooms', error);
+      logError('Failed to load more rooms', error);
     } finally {
       setLoadingMore(false);
     }

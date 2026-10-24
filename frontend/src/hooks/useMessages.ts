@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { IGetRoomMessages, messageService } from '@/services/messageService';
 import { useSocket } from './useSocket';
 import { useSocketEvent } from './useSocketEvents';
+import { logError } from '@/lib/logError';
 
 const PAGE_SIZE = 50;
 
@@ -34,7 +35,7 @@ export const useMessages = (roomId: string | null) => {
       setMessages(data ?? []);
       setHasMore((data?.length ?? 0) === PAGE_SIZE);
     } catch (error) {
-      console.error('Failed to fetch messages', error);
+      logError('Failed to fetch messages', error);
     } finally {
       setLoading(false);
     }
@@ -55,7 +56,7 @@ export const useMessages = (roomId: string | null) => {
     try {
       setPinned(await messageService.getPinned(roomId));
     } catch (error) {
-      console.error('Failed to fetch pinned messages', error);
+      logError('Failed to fetch pinned messages', error);
     }
   }, [roomId]);
 
@@ -135,7 +136,7 @@ export const useMessages = (roomId: string | null) => {
       setMessages((prev) => [...prev, ...older.filter((o) => !prev.some((m) => m.id === o.id))]);
       setHasMore(older.length === PAGE_SIZE);
     } catch (error) {
-      console.error('Failed to load older messages', error);
+      logError('Failed to load older messages', error);
     } finally {
       setLoadingMore(false);
     }
@@ -155,7 +156,7 @@ export const useMessages = (roomId: string | null) => {
         setMessages((prev) => (prev.some((m) => m.id === created.id) ? prev : [created, ...prev]));
       }
     } catch (error) {
-      console.error('Failed to send message', error);
+      logError('Failed to send message', error);
       setPending((prev) => prev.map((p) => (p.tempId === item.tempId ? { ...p, status: 'failed' } : p)));
     }
   };
@@ -180,7 +181,7 @@ export const useMessages = (roomId: string | null) => {
       markPinned(messageId, pin);
       await fetchPinned();
     } catch (error) {
-      console.error('Failed to update pin', error);
+      logError('Failed to update pin', error);
     }
   };
 
@@ -189,7 +190,7 @@ export const useMessages = (roomId: string | null) => {
       await messageService.deleteMessage(messageId);
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
     } catch (error) {
-      console.error('Failed to delete message', error);
+      logError('Failed to delete message', error);
     }
   };
 
@@ -197,7 +198,7 @@ export const useMessages = (roomId: string | null) => {
     try {
       await messageService.addReaction(messageId, { emoji });
     } catch (error) {
-      console.error('Failed to add reaction', error);
+      logError('Failed to add reaction', error);
     }
   };
 
@@ -205,7 +206,7 @@ export const useMessages = (roomId: string | null) => {
     try {
       await messageService.removeReaction(messageId, { emoji });
     } catch (error) {
-      console.error('Failed to remove reaction', error);
+      logError('Failed to remove reaction', error);
     }
   };
 
