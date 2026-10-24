@@ -48,6 +48,10 @@ export default function DashboardPage() {
   const room = rooms.find((r) => r.id === selectedRoom);
   useMessageAlerts(rooms, selectedRoom, setSelectedRoom);
 
+  // Below md only one pane shows; with no room open the list pane has to be the page's main landmark.
+  const isWide = useMediaQuery('(min-width: 768px)');
+  const listIsMain = !isWide && !selectedRoom;
+
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search.trim(), 300);
   const searching = search.trim().length >= 2;
@@ -78,7 +82,9 @@ export default function DashboardPage() {
     <PrivateRoute>
       {tour.open && <OnboardingDialog name={profile?.name ?? profile?.username ?? ''} onFinish={tour.finish} />}
       <div className="flex h-dvh bg-background">
+        <h1 className="sr-only">{t('dashboard.heading')}</h1>
         <aside
+          aria-label={t('dashboard.sidebar')}
           className={cn(
             'w-full flex-col border-r bg-card md:flex md:w-[272px] md:shrink-0',
             selectedRoom ? 'hidden' : 'flex'
@@ -99,14 +105,14 @@ export default function DashboardPage() {
                 type="button"
                 onClick={() => setSearch('')}
                 aria-label={t('dashboard.clearSearch')}
-                className="absolute right-5 top-[1.35rem] text-muted-foreground hover:text-foreground"
+                className="absolute right-4 top-4 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
           <InvitationList invitations={invitations} error={invitationError} onRespond={respond} />
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto" role={listIsMain ? 'main' : undefined}>
             {searching ? (
               <SearchResults
                 query={search.trim()}
@@ -166,7 +172,7 @@ export default function DashboardPage() {
         </main>
         {/* Always visible on wide screens, whichever room (or none) is open. */}
         {wide && (
-          <aside className="w-[248px] shrink-0 border-l bg-card">
+          <aside aria-label={t('people.title')} className="w-[248px] shrink-0 border-l bg-card">
             <PeoplePanel onOpenDirect={openPerson} />
           </aside>
         )}

@@ -11,11 +11,12 @@ import { logError } from '@/lib/logError';
 export default function CreateRoomForm({
   createRoom,
 }: {
-  createRoom: (data: { name: string; is_private: boolean; topic: string }) => Promise<void> | void;
+  createRoom: (data: { name: string; is_private: boolean; topic: string | null }) => Promise<void> | void;
 }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [topic, setTopic] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -24,8 +25,9 @@ export default function CreateRoomForm({
     if (!name.trim() || submitting) return;
     setSubmitting(true);
     try {
-      await createRoom({ name: name.trim(), is_private: !isPublic, topic: 'Games' });
+      await createRoom({ name: name.trim(), is_private: !isPublic, topic: topic.trim() || null });
       setName('');
+      setTopic('');
       setOpen(false);
     } catch (err) {
       logError('Failed to create room', err);
@@ -58,6 +60,14 @@ export default function CreateRoomForm({
             onChange={(e) => setName(e.target.value)}
             placeholder={t('rooms.name')}
             aria-label={t('rooms.name')}
+            required
+          />
+          <Input
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            maxLength={255}
+            placeholder={t('rooms.topic')}
+            aria-label={t('rooms.topic')}
           />
           <div className="flex items-center justify-between">
             <label htmlFor="public-room" className="flex items-center gap-2 text-sm">

@@ -205,9 +205,9 @@ const en = {
   'typing.two': '{a} and {b} are typing…',
   'typing.many': 'Several people are typing…',
 
-  'mod.reports': 'reports',
-  'mod.bans': 'bans',
-  'mod.audit': 'audit',
+  'mod.reports': 'Reports',
+  'mod.bans': 'Bans',
+  'mod.audit': 'Audit',
   'mod.loadError': 'Could not load this list.',
   'mod.noReports': 'No pending reports.',
   'mod.reported': '{reporter} reported {author} · {when}',
@@ -247,6 +247,12 @@ const en = {
   'title.verify': 'Verify email',
   'title.dashboard': 'Chats',
   'title.profile': 'Your profile',
+  // Dashboard landmarks, panels, form hints
+  'dashboard.heading': 'Chats',
+  'dashboard.sidebar': 'Sidebar',
+  'validation.passwordRules': 'At least 8 characters (maximum 72). Avoid common passwords and your username or email.',
+  'register.success': 'Account created. Sign in to continue.',
+  'rooms.topic': 'Topic (optional)',
 } as const;
 
 export type MessageKey = keyof typeof en;

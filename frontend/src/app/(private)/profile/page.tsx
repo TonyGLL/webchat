@@ -105,6 +105,7 @@ export default function ProfilePage() {
                     placeholder={t('profile.confirmPassword')}
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                     autoComplete="current-password"
+                    required
                   />
                   <Button variant="destructive" disabled={!deactivatePassword} onClick={handleDeactivate} className="w-full">
                     {t('profile.deactivate')}
@@ -128,6 +129,7 @@ export default function ProfilePage() {
                     onChange={(e) => setPassword(e.target.value)}
                     aria-describedby="delete-warning"
                     autoComplete="current-password"
+                    required
                   />
                   <Button variant="destructive" disabled={!password} onClick={handleDelete} className="w-full">
                     {t('profile.deleteForever')}

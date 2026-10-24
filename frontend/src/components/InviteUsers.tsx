@@ -1,7 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Avatar from '@/components/Avatar';
 import { fullName, PresenceDot } from '@/components/PeoplePanel';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useDirectory } from '@/hooks/useDirectory';
 import { roomService } from '@/services/roomService';
 import { useT } from '@/lib/i18n/useT';
+import { useRestoreFocus } from '@/hooks/useRestoreFocus';
 
 /** Picker to send personal invitations to a room; shown to the people who may invite. */
 export default function InviteUsers({
@@ -27,6 +28,11 @@ export default function InviteUsers({
   const { people } = useDirectory(query);
   const [sent, setSent] = useState<number[]>([]);
   const [error, setError] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useRestoreFocus();
+  useEffect(() => {
+    searchRef.current?.focus();
+  }, []);
   const candidates = people.filter((p) => !memberIds.includes(p.id));
 
   const invite = async (userId: number) => {
@@ -40,14 +46,23 @@ export default function InviteUsers({
   };
 
   return (
-    <div className="shrink-0 border-b bg-card px-4 py-3 md:px-6">
+    <section
+      aria-labelledby="invite-title"
+      className="shrink-0 border-b bg-card px-4 py-3 md:px-6"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+    >
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-[13px] font-semibold">{t('invite.title', { room: roomName })}</h3>
-        <button type="button" onClick={onClose} aria-label={t('common.cancel')} className="text-muted-foreground hover:text-foreground">
+        <h2 id="invite-title" className="text-[13px] font-semibold">{t('invite.title', { room: roomName })}</h2>
+        <button type="button" onClick={onClose} aria-label={t('common.cancel')} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
       </div>
-      <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('people.search')} aria-label={t('people.search')} className="mb-2 h-9" />
+      <Input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('people.search')} aria-label={t('people.search')} className="mb-2 h-9" />
       <ul className="max-h-48 space-y-px overflow-y-auto">
         {candidates.length === 0 && <li className="py-2 text-sm text-muted-foreground">{t('people.empty')}</li>}
         {candidates.map((p) => (
@@ -72,6 +87,6 @@ export default function InviteUsers({
           {t('invite.failed')}
         </p>
       )}
-    </div>
+    </section>
   );
 }

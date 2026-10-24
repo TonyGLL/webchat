@@ -81,7 +81,7 @@ export default function RoomList({
   };
 
   return (
-    <div className="pb-4">
+    <nav aria-label={t('rooms.section')} className="pb-4">
       <SectionHeader label={t('rooms.section')} action={action} />
       {channels.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-6 py-8 text-center text-muted-foreground">
@@ -97,6 +97,6 @@ export default function RoomList({
           <ul className="space-y-px px-2">{directs.map(renderRoom)}</ul>
         </>
       )}
-    </div>
+    </nav>
   );
 }

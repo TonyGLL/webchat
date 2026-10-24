@@ -207,9 +207,9 @@ const es: Record<MessageKey, string> = {
   'typing.two': '{a} y {b} están escribiendo…',
   'typing.many': 'Varias personas están escribiendo…',
 
-  'mod.reports': 'denuncias',
-  'mod.bans': 'vetos',
-  'mod.audit': 'auditoría',
+  'mod.reports': 'Denuncias',
+  'mod.bans': 'Vetos',
+  'mod.audit': 'Auditoría',
   'mod.loadError': 'No se pudo cargar esta lista.',
   'mod.noReports': 'No hay denuncias pendientes.',
   'mod.reported': '{reporter} denunció a {author} · {when}',
@@ -249,6 +249,12 @@ const es: Record<MessageKey, string> = {
   'title.verify': 'Verificar correo',
   'title.dashboard': 'Chats',
   'title.profile': 'Tu perfil',
+  // Puntos de referencia del panel, paneles, pistas de formularios
+  'dashboard.heading': 'Chats',
+  'dashboard.sidebar': 'Barra lateral',
+  'validation.passwordRules': 'Al menos 8 caracteres (máximo 72). Evita contraseñas comunes y tu usuario o correo.',
+  'register.success': 'Cuenta creada. Inicia sesión para continuar.',
+  'rooms.topic': 'Tema (opcional)',
 };
 
 export default es;

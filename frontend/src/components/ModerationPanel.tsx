@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RANK } from '@/lib/permissions';
 import { AuditEntry, Ban, moderationService, Report } from '@/services/moderationService';
@@ -6,6 +6,8 @@ import { RoomMember } from '@/services/roomService';
 import { cn } from '@/lib/utils';
 import { intlLocale } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/useT';
+import { nextTabIndex } from '@/lib/tabs';
+import { useRestoreFocus } from '@/hooks/useRestoreFocus';
 
 type Tab = 'reports' | 'bans' | 'audit';
 
@@ -27,6 +29,22 @@ export default function ModerationPanel({ roomId, rank, members }: ModerationPan
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const canSeeAudit = rank >= RANK.admin;
+  const tabs: Tab[] = ['reports', 'bans', ...(canSeeAudit ? (['audit'] as Tab[]) : [])];
+  const baseId = useId();
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  useRestoreFocus();
+  // The panel opens from a button elsewhere: move focus in, to the active tab.
+  useEffect(() => {
+    tabRefs.current.reports?.focus();
+  }, []);
+
+  const onTabKeyDown = (e: React.KeyboardEvent) => {
+    const next = nextTabIndex(tabs.length, tabs.indexOf(tab), e.key);
+    if (next === null) return;
+    e.preventDefault();
+    setTab(tabs[next]);
+    tabRefs.current[tabs[next]]?.focus();
+  };
 
   const nameOf = useCallback(
     (id: number | null | undefined) => (id == null ? t('common.deletedUser') : (members.find((m) => m.user_id === id)?.name ?? t('common.userNumber', { id }))),
@@ -60,15 +78,21 @@ export default function ModerationPanel({ roomId, rank, members }: ModerationPan
 
   return (
     <section className="max-h-64 shrink-0 overflow-y-auto border-b bg-muted/40 px-4 py-2 text-xs" aria-label={t('chat.moderation')}>
-      <div className="mb-2 flex gap-1" role="tablist">
-        {(['reports', 'bans', ...(canSeeAudit ? ['audit'] : [])] as Tab[]).map((name) => (
+      <div className="mb-2 flex gap-1" role="tablist" aria-label={t('chat.moderation')} onKeyDown={onTabKeyDown}>
+        {tabs.map((name) => (
           <button
             key={name}
+            ref={(el) => {
+              tabRefs.current[name] = el;
+            }}
             role="tab"
+            id={`${baseId}-tab-${name}`}
             aria-selected={tab === name}
+            aria-controls={`${baseId}-panel`}
+            tabIndex={tab === name ? 0 : -1}
             type="button"
             onClick={() => setTab(name)}
-            className={cn('rounded px-2 py-1 capitalize', tab === name ? 'bg-primary text-primary-foreground' : 'hover:bg-accent')}
+            className={cn('min-h-6 rounded px-2 py-1', tab === name ? 'bg-primary text-primary-foreground' : 'hover:bg-accent')}
           >
             {t(`mod.${name}`)}
           </button>
@@ -80,6 +104,7 @@ export default function ModerationPanel({ roomId, rank, members }: ModerationPan
         </p>
       )}
 
+      <div role="tabpanel" id={`${baseId}-panel`} aria-labelledby={`${baseId}-tab-${tab}`}>
       {tab === 'reports' &&
         (reports.length === 0 ? (
           <p className="text-muted-foreground">{t('mod.noReports')}</p>
@@ -119,7 +144,7 @@ export default function ModerationPanel({ roomId, rank, members }: ModerationPan
                   {nameOf(b.user_id)} · {b.expires_at ? t('mod.until', { when: when(b.expires_at) }) : t('mod.permanent')}
                   {b.reason && <span className="text-muted-foreground"> · {b.reason}</span>}
                 </span>
-                <button type="button" className="underline hover:text-foreground" onClick={() => act(() => moderationService.unban(roomId, b.user_id))}>
+                <button type="button" className="inline-flex min-h-6 items-center px-1 underline hover:text-foreground" onClick={() => act(() => moderationService.unban(roomId, b.user_id))}>
                   {t('mod.unban')}
                 </button>
               </li>
@@ -140,6 +165,7 @@ export default function ModerationPanel({ roomId, rank, members }: ModerationPan
             ))}
           </ul>
         ))}
+      </div>
     </section>
   );
 }

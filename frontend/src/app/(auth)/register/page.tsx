@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import Spinner from '@/components/Spinner';
 import { logError } from '@/lib/logError';
+import { setRegisteredFlash } from '@/lib/flash';
 import { registerErrorKey } from '@/lib/registerErrors';
 
 export default function RegisterPage() {
@@ -34,6 +35,7 @@ export default function RegisterPage() {
     setError(null);
     try {
       await registerUser(data);
+      setRegisteredFlash(sessionStorage);
       router.push('/login');
     } catch (err) {
       setError(t(registerErrorKey(err)));
@@ -59,12 +61,14 @@ export default function RegisterPage() {
           <FormField
             label={t('register.name')}
             autoComplete="given-name"
+            required
             error={errors.name?.message}
             {...register('name')}
           />
           <FormField
             label={t('register.lastName')}
             autoComplete="family-name"
+            required
             error={errors.last_name?.message}
             {...register('last_name')}
           />
@@ -72,6 +76,7 @@ export default function RegisterPage() {
         <FormField
           label={t('register.username')}
           autoComplete="username"
+          required
           error={errors.username?.message}
           {...register('username')}
         />
@@ -79,6 +84,7 @@ export default function RegisterPage() {
           label={t('common.email')}
           type="email"
           autoComplete="email"
+          required
           error={errors.email?.message}
           {...register('email')}
         />
@@ -86,6 +92,7 @@ export default function RegisterPage() {
           label={t('register.phone')}
           type="tel"
           autoComplete="tel"
+          required
           error={errors.phone?.message}
           {...register('phone')}
         />
@@ -93,6 +100,8 @@ export default function RegisterPage() {
           label={t('common.password')}
           type="password"
           autoComplete="new-password"
+          required
+          hint={t('validation.passwordRules')}
           error={errors.password?.message}
           {...register('password')}
         />

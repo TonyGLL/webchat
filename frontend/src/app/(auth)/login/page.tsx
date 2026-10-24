@@ -7,7 +7,8 @@ import { useT } from '@/lib/i18n/useT';
 import { LoginData, makeLoginSchema } from '@/services/authService';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { takeRegisteredFlash } from '@/lib/flash';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import Spinner from '@/components/Spinner';
@@ -20,6 +21,12 @@ export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [registered, setRegistered] = useState(false);
+  useEffect(() => {
+    // sessionStorage only exists in the browser: reading it during render would break hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRegistered(takeRegisteredFlash(sessionStorage));
+  }, []);
   const {
     register,
     handleSubmit,
@@ -49,6 +56,11 @@ export default function LoginPage() {
         <p className="text-sm text-muted-foreground">{t('login.subtitle')}</p>
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        {registered && (
+          <p role="status" className="rounded-md bg-success/10 px-3 py-2 text-sm text-success">
+            {t('register.success')}
+          </p>
+        )}
         {error && (
           <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
@@ -57,7 +69,8 @@ export default function LoginPage() {
         <FormField
           label={t('common.email')}
           type="email"
-          autoComplete="email"
+          autoComplete="username"
+          required
           error={errors.user?.message}
           {...register('user')}
         />
@@ -65,6 +78,7 @@ export default function LoginPage() {
           label={t('common.password')}
           type="password"
           autoComplete="current-password"
+          required
           error={errors.password?.message}
           {...register('password')}
         />
