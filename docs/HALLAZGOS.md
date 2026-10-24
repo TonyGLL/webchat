@@ -160,7 +160,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
-| H-006 | Autorización por sala: enviar, leer, editar y reaccionar exigen ser miembro; editar exige ser el autor (403 si no). Verificado en vivo y con tests | 2026-10-23 | _(este commit)_ |
+| H-006 | Autorización por sala: enviar, leer, editar y reaccionar exigen ser miembro; editar exige ser el autor (403 si no). Verificado en vivo y con tests | 2026-10-23 | 8d991fd |
 | H-003 | Token JWT en la URL del WebSocket; ahora se canjea por un ticket de un solo uso (30 s) vía `POST /ws-ticket` | 2026-10-23 | b1ca39e |
 | H-002 | WebSocket aceptaba cualquier origen; ahora solo los de `CORS_ALLOWED_ORIGINS` (y respuesta 401 clara sin token) | 2026-10-23 | b2791fd |
 | H-055 | Registro dejaba usuarios huérfanos sin contraseña (el escaneo de `last_access` NULL fallaba y la "transacción" no usaba la conexión transaccional) | 2026-10-23 | 8e79c4c |
