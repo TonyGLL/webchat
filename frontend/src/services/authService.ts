@@ -30,7 +30,10 @@ export const RegisterSchema = z.object({
     .max(30, { message: 'Username must be at most 30 characters' }),
   email: z.string().email({ message: 'Invalid email address' }),
   phone: z.string().min(1, { message: 'Phone is required' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters' }),
+  password: z
+    .string()
+    .min(8, { message: 'Password must be at least 8 characters' })
+    .max(72, { message: 'Password must be at most 72 characters' }),
 });
 
 const LoginSchema = z.object({

@@ -29,6 +29,9 @@ func NewServer(config *config.Config) *Server {
 		config: config,
 		Router: router,
 	}
+	// Trust no proxy headers: the client IP is the TCP peer, so X-Forwarded-For
+	// cannot be spoofed to dodge rate limits. Configure trusted proxies when deploying behind one.
+	_ = router.SetTrustedProxies(nil)
 	server.setupMiddleware()
 	return server
 }

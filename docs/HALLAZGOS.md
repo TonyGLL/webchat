@@ -29,20 +29,11 @@ Plantilla para añadir uno nuevo:
 - **Ubicación:** `frontend/src/hooks/useAuth.ts` y otros 3 puntos que leen `authTokens`.
 - **Propuesta:** cookies httpOnly + SameSite, o al menos centralizar el acceso en un único módulo.
 
-### H-005 Sin rate limiting
-- **Severidad:** 🟠 · **Fase:** 1 · **Área:** backend · **Verificación:** Confirmado (no hay middleware de límite)
-- **Descripción:** login, registro, reenvío de verificación y envío de mensajes no tienen límite.
-- **Propuesta:** middleware con Redis (token bucket) por IP y por usuario.
-
 ### H-008 Endpoint de envío de verificación sin autenticación
 - **Nota:** la verificación de email está pausada (decisión del 2026-10-23); retomar junto con este hallazgo.
 - **Severidad:** 🟡 · **Fase:** 1 · **Área:** backend · **Verificación:** Confirmado (la ruta `POST /auth/send-verify-email/:user_id` es pública)
 - **Descripción:** cualquiera puede disparar correos a un usuario por su id.
 - **Propuesta:** rate limiting y evitar que el id sea enumerable; revisar si debe exigir autenticación.
-
-### H-009 Política de contraseña débil
-- **Severidad:** 🟢 · **Fase:** 1 · **Área:** front + back · **Verificación:** Confirmado (mínimo 6 en el esquema del frontend)
-- **Propuesta:** mínimo 10, comprobación contra contraseñas comunes, validar también en el backend.
 
 ### H-010 Imagen Docker sobre `scratch` y como root
 - **Severidad:** 🟢 · **Fase:** 5 · **Área:** backend · **Verificación:** Confirmado
@@ -154,6 +145,8 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-005 | Sin rate limiting: ahora login (10/min), registro (20/10 min), refresh (30/min), reenvío de verificación (5/10 min), ws-ticket y mensajes, por IP, con Redis y respuesta 429 | 2026-10-23 | _(este commit)_ |
+| H-009 | Política de contraseña: 8–72 caracteres, rechaza contraseñas comunes y las que contienen tu usuario o email (validado en backend y frontend) | 2026-10-23 | _(este commit)_ |
 | H-007 | Salas y acceso: unirse a salas públicas fallaba con 500; las salas "privadas" del frontend quedaban públicas (`is_public` vs `is_private`); cualquiera podía crear invitaciones de salas ajenas (ahora solo dueño/admin); invitaciones repetidas/inexistentes dan 409/404 | 2026-10-23 | 7cada01 |
 | H-006 | Autorización por sala: enviar, leer, editar y reaccionar exigen ser miembro; editar exige ser el autor (403 si no). Verificado en vivo y con tests | 2026-10-23 | 8d991fd |
 | H-003 | Token JWT en la URL del WebSocket; ahora se canjea por un ticket de un solo uso (30 s) vía `POST /ws-ticket` | 2026-10-23 | b1ca39e |

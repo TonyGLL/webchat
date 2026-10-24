@@ -7,7 +7,7 @@ type LoginInputDTO struct {
 
 type RegisterInputDTO struct {
 	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8"`
+	Password string `json:"password" validate:"required,min=8,max=72"`
 	Name     string `json:"name" validate:"required"`
 	LastName string `json:"last_name" validate:"required"`
 	Username string `json:"username" validate:"required,min=3,max=30"`

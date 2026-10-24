@@ -32,10 +32,16 @@ export default function RegisterPage() {
       await registerUser(data);
       router.push('/login');
     } catch (err) {
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+      const serverMessage = axios.isAxiosError(err) ? err.response?.data?.error : undefined;
       setError(
-        axios.isAxiosError(err) && err.response?.status === 409
+        status === 409
           ? 'A user with this email or username already exists.'
-          : 'Failed to register. Please try again.'
+          : status === 400 && serverMessage
+            ? serverMessage
+            : status === 429
+              ? 'Too many attempts. Please wait a moment and try again.'
+              : 'Failed to register. Please try again.'
       );
       console.error(err);
     } finally {

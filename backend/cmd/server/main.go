@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"backend/internal/auth"
 	auth_persistence "backend/internal/auth/persistence"
@@ -91,6 +92,14 @@ func main() {
 	// --- Server Setup ---
 	server := http.NewServer(cfg)
 	apiV1 := server.Router.Group("/api/v1")
+	apiV1.Use(http.RateLimit(http.NewRedisCounter(redisClient), []http.Rule{
+		{Method: "POST", Path: "/api/v1/auth/login", Limit: 10, Window: time.Minute},
+		{Method: "POST", Path: "/api/v1/auth/register", Limit: 20, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/auth/refresh-token", Limit: 30, Window: time.Minute},
+		{Method: "POST", Path: "/api/v1/auth/send-verify-email/:user_id", Limit: 5, Window: 10 * time.Minute},
+		{Method: "POST", Path: "/api/v1/ws-ticket", Limit: 30, Window: time.Minute},
+		{Method: "POST", Path: "/api/v1/messages", Limit: 120, Window: time.Minute},
+	}))
 
 	// Websocket endpoints: an authenticated call to /ws-ticket returns a short-lived,
 	// single-use ticket that /ws redeems, so the JWT never appears in the URL.

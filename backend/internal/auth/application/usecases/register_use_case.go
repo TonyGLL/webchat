@@ -28,6 +28,10 @@ func NewRegisterUseCase(
 // Execute handles user registration; the user and password are created atomically by the repository.
 // It returns the newly created user or an error.
 func (uc *RegisterUseCase) Execute(ctx context.Context, input dtos.RegisterInputDTO) (*dtos.UserResponseDTO, error) {
+	if err := domain.ValidatePassword(input.Password, input.Username, input.Email); err != nil {
+		return nil, err
+	}
+
 	hashedPassword, err := uc.passwordService.HashPassword(input.Password)
 	if err != nil {
 		return nil, err

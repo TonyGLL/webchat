@@ -2,10 +2,12 @@ package presentation
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"backend/internal/auth/application/dtos"
 	"backend/internal/auth/application/usecases"
+	"backend/internal/auth/domain"
 	shared_domain "backend/internal/shared/domain"
 
 	"github.com/gin-gonic/gin"
@@ -107,6 +109,12 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "User with this email or username already exists"})
 			return
 		}
+		if errors.Is(err, domain.ErrPasswordTooShort) || errors.Is(err, domain.ErrPasswordTooLong) ||
+			errors.Is(err, domain.ErrPasswordCommon) || errors.Is(err, domain.ErrPasswordPersonal) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		log.Printf("failed to register user: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
 		return
 	}
