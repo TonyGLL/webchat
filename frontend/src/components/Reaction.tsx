@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { SmilePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/useT';
-import EmojiPicker from './EmojiPicker';
+import EmojiPicker from './LazyEmojiPicker';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '😮', '🙏'];
 

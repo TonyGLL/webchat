@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
 import Reaction from './Reaction';
 import Avatar from './Avatar';
-import EmojiPicker from './EmojiPicker';
+import EmojiPicker from './LazyEmojiPicker';
 import InviteUsers from './InviteUsers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
