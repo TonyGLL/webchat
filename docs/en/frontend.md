@@ -73,6 +73,7 @@ The interface follows the **Foco** direction, chosen from three proposals (Foco,
 | People | `PeoplePanel`: a right column, always visible on wide screens (at the end of the sidebar on small ones), with search, online first and presence dots; click a person to write to them |
 | Explore | `DiscoverRooms` in the sidebar: public rooms have a Join button; private ones show a lock and "invitation only" |
 | Invitations | received ones appear on top of the sidebar with Accept and Decline; owners and admins get an invite button in the room header (`InviteUsers`) |
+| Onboarding | `OnboardingDialog`: a three-step welcome (people, rooms, talking) shown once per person; skipping or finishing stores `onboarding:<userId>` in `localStorage`, and the help button next to the language switch reopens it. Empty states (no rooms, no room open) say what to do next |
 | Room members | side panel (overlay on small screens) kept for roles, removing and banning |
 | Type | Inter for text, JetBrains Mono (`font-mono`) for hashes, times and counters |
 | Shape | 8 px base radius, hairline borders, no shadows except overlays |

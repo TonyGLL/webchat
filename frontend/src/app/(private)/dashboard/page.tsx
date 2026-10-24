@@ -13,6 +13,9 @@ import DiscoverRooms from '@/components/DiscoverRooms';
 import InvitationList from '@/components/InvitationList';
 import { useDiscoverRooms } from '@/hooks/useDiscoverRooms';
 import { useInvitations } from '@/hooks/useInvitations';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { useUser } from '@/hooks/useUser';
+import OnboardingDialog from '@/components/OnboardingDialog';
 import UserProfile from '@/components/UserProfile';
 import SearchResults from '@/components/SearchResults';
 import { Input } from '@/components/ui/input';
@@ -23,6 +26,8 @@ import { useT } from '@/lib/i18n/useT';
 
 export default function DashboardPage() {
   const { t } = useT();
+  const { profile } = useUser();
+  const tour = useOnboarding(profile?.id);
   const [chosenRoom, setSelectedRoom] = useState<string | null>(null);
   const { rooms, loading, createRoom, leaveRoom, openDirect, joinRoom, refreshRooms } = useRoom(chosenRoom);
   const { rooms: discoverable, refresh: refreshDiscover } = useDiscoverRooms(rooms.length);
@@ -63,6 +68,7 @@ export default function DashboardPage() {
   // On small screens only one pane is visible: the room list, or the open chat.
   return (
     <PrivateRoute>
+      {tour.open && <OnboardingDialog name={profile?.name ?? profile?.username ?? ''} onFinish={tour.finish} />}
       <div className="flex h-dvh bg-background">
         <aside
           className={cn(
@@ -70,7 +76,7 @@ export default function DashboardPage() {
             selectedRoom ? 'hidden' : 'flex'
           )}
         >
-          <UserProfile />
+          <UserProfile onHelp={tour.reopen} />
           <div className="relative px-3 pb-1 pt-3">
             <Search className="pointer-events-none absolute left-6 top-[1.35rem] h-4 w-4 text-muted-foreground" />
             <Input

@@ -86,7 +86,7 @@ export default function RoomList({
       {channels.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-6 py-8 text-center text-muted-foreground">
           <MessageSquare className="h-5 w-5" aria-hidden="true" />
-          <p className="text-sm">{t('rooms.empty')}</p>
+          <p className="text-sm">{t('rooms.emptyHint')}</p>
         </div>
       ) : (
         <ul className="space-y-px px-2">{channels.map(renderRoom)}</ul>

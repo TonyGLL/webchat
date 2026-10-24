@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LogOut } from 'lucide-react';
+import { CircleHelp, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,7 @@ import { useT } from '@/lib/i18n/useT';
 import { Button } from '@/components/ui/button';
 import Avatar from '@/components/Avatar';
 
-export default function UserProfile() {
+export default function UserProfile({ onHelp }: { onHelp?: () => void }) {
   const { logout } = useAuth();
   const { profile } = useUser();
   const router = useRouter();
@@ -32,6 +32,11 @@ export default function UserProfile() {
         </div>
       </Link>
       <div className="flex shrink-0 items-center">
+      {onHelp && (
+        <Button variant="ghost" size="icon" onClick={onHelp} aria-label={t('onboarding.help')} title={t('onboarding.help')}>
+          <CircleHelp className="h-4 w-4" />
+        </Button>
+      )}
       <LanguageToggle />
       <ThemeToggle />
       <Button variant="ghost" size="icon" onClick={handleLogout} aria-label={t('nav.logOut')} title={t('nav.logOut')}>

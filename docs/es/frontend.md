@@ -73,6 +73,7 @@ La interfaz sigue la dirección **Foco**, elegida entre tres propuestas (Foco, C
 | Personas | `PeoplePanel`: una columna a la derecha, siempre visible en pantallas anchas (al final de la barra lateral en las pequeñas), con buscador, conectados primero y puntos de presencia; pulsa una persona para escribirle |
 | Explorar | `DiscoverRooms` en la barra lateral: las salas públicas tienen botón Unirme; las privadas muestran un candado y "solo con invitación" |
 | Invitaciones | las recibidas aparecen arriba de la barra lateral con Aceptar y Rechazar; propietarios y admins tienen un botón de invitar en la cabecera de la sala (`InviteUsers`) |
+| Onboarding | `OnboardingDialog`: una bienvenida de tres pasos (personas, salas, conversar) que se muestra una vez por persona; omitirla o terminarla guarda `onboarding:<userId>` en `localStorage`, y el botón de ayuda junto al selector de idioma la reabre. Los estados vacíos (sin salas, sin sala abierta) dicen qué hacer a continuación |
 | Miembros de la sala | panel lateral (superpuesto en pantallas pequeñas) que se mantiene para roles, expulsar y vetar |
 | Tipografía | Inter para el texto, JetBrains Mono (`font-mono`) para almohadillas, horas y contadores |
 | Forma | radio base de 8 px, bordes finos, sin sombras salvo en capas superpuestas |

@@ -165,7 +165,8 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
         <MessageSquare className="h-6 w-6" />
-        <p className="text-sm">{t('chat.selectRoom')}</p>
+        <p className="text-sm font-medium text-foreground">{t('chat.selectRoom')}</p>
+        <p className="max-w-xs text-xs">{t('chat.selectHint')}</p>
       </div>
     );
   }
