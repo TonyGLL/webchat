@@ -3,6 +3,7 @@ import { roomService, Room, CreateRoomData } from '@/services/roomService';
 import { countIncomingMessage } from '@/lib/unread';
 import { useSocket } from './useSocket';
 import { useUser } from './useUser';
+import { logError } from '@/lib/logError';
 
 /** `activeRoomId` is the room being viewed: its messages are read as they arrive. */
 export const useRoom = (activeRoomId: string | null = null) => {
@@ -16,7 +17,7 @@ export const useRoom = (activeRoomId: string | null = null) => {
       const data = await roomService.getUserRooms();
       setRooms(data ?? []);
     } catch (error) {
-      console.error('Failed to fetch rooms', error);
+      logError('Failed to fetch rooms', error);
     } finally {
       setLoading(false);
     }
@@ -30,7 +31,7 @@ export const useRoom = (activeRoomId: string | null = null) => {
   useEffect(() => {
     if (!activeRoomId) return;
     setRooms((prev) => prev.map((r) => (r.id === activeRoomId && r.unread_count ? { ...r, unread_count: 0 } : r)));
-    roomService.markRead(activeRoomId).catch((error) => console.error('Failed to mark room as read', error));
+    roomService.markRead(activeRoomId).catch((error) => logError('Failed to mark room as read', error));
   }, [activeRoomId]);
 
   // Live counters: count messages that arrive in rooms that are not open; keep the open one read.

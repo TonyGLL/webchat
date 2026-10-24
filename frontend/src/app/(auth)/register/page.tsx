@@ -8,10 +8,11 @@ import { useT } from '@/lib/i18n/useT';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import Spinner from '@/components/Spinner';
+import { logError } from '@/lib/logError';
+import { registerErrorKey } from '@/lib/registerErrors';
 
 export default function RegisterPage() {
   const { register: registerUser } = useAuth();
@@ -35,18 +36,8 @@ export default function RegisterPage() {
       await registerUser(data);
       router.push('/login');
     } catch (err) {
-      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
-      const serverMessage = axios.isAxiosError(err) ? err.response?.data?.error : undefined;
-      setError(
-        status === 409
-          ? t('register.conflict')
-          : status === 400 && serverMessage
-            ? serverMessage
-            : status === 429
-              ? t('register.rateLimited')
-              : t('register.failed')
-      );
-      console.error(err);
+      setError(t(registerErrorKey(err)));
+      logError('Register failed', err);
     } finally {
       setLoading(false);
     }

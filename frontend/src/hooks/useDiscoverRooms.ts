@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RoomSummary, roomService } from '@/services/roomService';
+import { logError } from '@/lib/logError';
 
 /** Rooms the user is not in yet: public ones can be joined, private ones need an invitation. */
 export const useDiscoverRooms = (refreshKey: unknown) => {
@@ -9,7 +10,7 @@ export const useDiscoverRooms = (refreshKey: unknown) => {
     try {
       setRooms(await roomService.discoverRooms());
     } catch (error) {
-      console.error('Failed to discover rooms', error);
+      logError('Failed to discover rooms', error);
     }
   }, []);
 

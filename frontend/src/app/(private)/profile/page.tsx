@@ -11,6 +11,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { userService } from '@/services/userService';
 import { useT } from '@/lib/i18n/useT';
+import { logError } from '@/lib/logError';
 
 export default function ProfilePage() {
   const { profile, loading, deactivate } = useUser();
@@ -24,7 +25,7 @@ export default function ProfilePage() {
       logout();
       router.push('/login');
     } catch (error) {
-      console.error('Failed to deactivate account', error);
+      logError('Failed to deactivate account', error);
     }
   };
 
