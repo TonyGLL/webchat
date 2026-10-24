@@ -19,6 +19,7 @@ func RegisterModule(
 	authMiddleware gin.HandlerFunc,
 	listUserRoomsUseCase *application.ListUserRoomsUseCase, // Pass the use case in
 	subscriber domain.RealtimeSubscriber,
+	presence domain.PresenceChecker,
 ) {
 	// Initialize other use cases
 	createRoomUseCase := application.NewCreateRoomUseCase(roomRepo, memberRepo, subscriber)
@@ -28,6 +29,7 @@ func RegisterModule(
 
 	markRoomReadUseCase := application.NewMarkRoomReadUseCase(memberRepo)
 	leaveRoomUseCase := application.NewLeaveRoomUseCase(memberRepo, subscriber)
+	listMembersUseCase := application.NewListMembersUseCase(memberRepo, presence)
 
 	// Initialize the controller, reusing the provided use case
 	roomController := presentation.NewRoomController(
@@ -35,6 +37,7 @@ func RegisterModule(
 		listUserRoomsUseCase,
 		markRoomReadUseCase,
 		leaveRoomUseCase,
+		listMembersUseCase,
 		joinRoomUseCase,
 		createInviteUseCase,
 		acceptInviteUseCase,
@@ -47,6 +50,7 @@ func RegisterModule(
 	{
 		roomsRoutes.POST("", roomController.CreateRoom)
 		roomsRoutes.GET("", roomController.GetUserRooms)
+		roomsRoutes.GET("/members/:room_id", roomController.ListMembers)
 		roomsRoutes.POST("/leave/:room_id", roomController.LeaveRoom)
 		roomsRoutes.POST("/read/:room_id", roomController.MarkRead)
 		roomsRoutes.POST("/join/:room_id", roomController.JoinRoom)

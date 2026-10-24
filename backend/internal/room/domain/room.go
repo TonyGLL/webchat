@@ -34,3 +34,14 @@ type RoomMember struct {
 	Role     RoomRole  `json:"role"`
 	JoinedAt time.Time `json:"joined_at"`
 }
+
+// MemberInfo is a room member as shown in the members list.
+type MemberInfo struct {
+	UserID    int      `json:"user_id"`
+	Username  string   `json:"username"`
+	Name      string   `json:"name"`
+	LastName  *string  `json:"last_name"`
+	AvatarURL *string  `json:"avatar_url"`
+	Role      RoomRole `json:"role"`
+	Online    bool     `json:"online"`
+}

@@ -166,3 +166,34 @@ func TestLeaveRoom(t *testing.T) {
 		t.Fatalf("websocket unsubscribe not requested: %v", spy.unsubscribed)
 	}
 }
+
+func (f *fakeMembers) ListMembers(_ context.Context, room uuid.UUID) ([]*domain.MemberInfo, error) {
+	out := []*domain.MemberInfo{}
+	for id, role := range f.members[room] {
+		out = append(out, &domain.MemberInfo{UserID: id, Role: role})
+	}
+	return out, nil
+}
+
+type fakePresence struct{ online map[int]bool }
+
+func (p fakePresence) OnlineUsers(context.Context, []int) (map[int]bool, error) { return p.online, nil }
+
+func TestListMembersShowsPresenceToMembersOnly(t *testing.T) {
+	room := uuid.New()
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{room: {1: domain.RoleOwner, 2: domain.RoleMember}}}
+	uc := NewListMembersUseCase(members, fakePresence{online: map[int]bool{2: true}})
+
+	if _, err := uc.Execute(context.Background(), room, 3); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Fatalf("outsider: err = %v, want ErrForbidden", err)
+	}
+	list, err := uc.Execute(context.Background(), room, 1)
+	if err != nil || len(list) != 2 {
+		t.Fatalf("member: err=%v len=%d", err, len(list))
+	}
+	for _, m := range list {
+		if m.Online != (m.UserID == 2) {
+			t.Fatalf("user %d online=%v", m.UserID, m.Online)
+		}
+	}
+}

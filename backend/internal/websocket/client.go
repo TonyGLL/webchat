@@ -1,6 +1,8 @@
 package websocket
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -17,9 +19,11 @@ const (
 	writeWait  = 10 * time.Second
 	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10
-	// maxMessageSize caps what a client may send us. Clients send nothing today (messages go
-	// through the REST API); raise it if client events such as "typing" or acks are added.
+	// maxMessageSize caps what a client may send us. Chat messages go through the REST API;
+	// over the socket clients only send small events such as "typing".
 	maxMessageSize = 512
+	// typingInterval limits how often one client may announce typing in the same room.
+	typingInterval = 2 * time.Second
 )
 
 // NewUpgrader builds the websocket upgrader. Browser connections are only accepted
@@ -66,29 +70,102 @@ type Client struct {
 	UserID int
 	// Unique ID for the client connection.
 	ID string
+	// presence, when set, is told about this connection's heartbeat.
+	presence PresenceStore
+	// lastTyping is only touched by readPump.
+	lastTyping map[string]time.Time
+}
+
+// clientEvent is what a client may send over the socket.
+type clientEvent struct {
+	Type   string `json:"type"`
+	RoomID string `json:"room_id"`
+}
+
+// handleClientEvent processes one event from the client. Unknown or malformed events are ignored.
+func (c *Client) handleClientEvent(data []byte, now time.Time) {
+	var event clientEvent
+	if err := json.Unmarshal(data, &event); err != nil || event.Type != "typing" {
+		return
+	}
+	// Only members (subscribed clients) may announce typing, and not more often than typingInterval.
+	if !c.hub.IsClientInRoom(c, event.RoomID) {
+		return
+	}
+	if last, ok := c.lastTyping[event.RoomID]; ok && now.Sub(last) < typingInterval {
+		return
+	}
+	if c.lastTyping == nil {
+		c.lastTyping = map[string]time.Time{}
+	}
+	c.lastTyping[event.RoomID] = now
+	c.hub.Broadcast("typing", map[string]interface{}{"room_id": event.RoomID, "user_id": c.UserID}, event.RoomID)
 }
 
 // readPump pumps messages from the websocket connection to the hub.
 func (c *Client) readPump() {
 	defer func() {
+		c.announceOffline()
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	c.conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		if c.presence != nil {
+			_ = c.presence.Touch(context.Background(), c.UserID, c.ID)
+		}
+		return nil
+	})
 
 	for {
-		_, _, err := c.conn.ReadMessage()
+		_, data, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %v", err)
 			}
 			break
 		}
-		// We are not processing any message from the client for now.
-		// The client-to-server communication will happen via REST API.
-		// This pump is mainly for handling connection lifecycle (e.g., pong, close).
+		c.handleClientEvent(data, time.Now())
+	}
+}
+
+// announceOnline marks the connection as present and, if it is the user's first one,
+// tells the rooms they belong to.
+func (c *Client) announceOnline(roomIDs []string) {
+	if c.presence == nil {
+		return
+	}
+	first, err := c.presence.Connect(context.Background(), c.UserID, c.ID)
+	if err != nil {
+		log.Printf("presence connect failed: %v", err)
+		return
+	}
+	if first {
+		c.broadcastPresence(roomIDs, true)
+	}
+}
+
+// announceOffline removes the connection and, if it was the user's last one, tells their rooms.
+func (c *Client) announceOffline() {
+	if c.presence == nil {
+		return
+	}
+	rooms := c.hub.RoomsOf(c)
+	last, err := c.presence.Disconnect(context.Background(), c.UserID, c.ID)
+	if err != nil {
+		log.Printf("presence disconnect failed: %v", err)
+		return
+	}
+	if last {
+		c.broadcastPresence(rooms, false)
+	}
+}
+
+func (c *Client) broadcastPresence(roomIDs []string, online bool) {
+	for _, roomID := range roomIDs {
+		c.hub.Broadcast("presence", map[string]interface{}{"user_id": c.UserID, "online": online}, roomID)
 	}
 }
 
@@ -135,7 +212,7 @@ func (c *Client) writePump() {
 
 // ServeWs handles websocket requests from the peer. The user authenticates with a
 // single-use ticket (see IssueTicket) so the JWT never travels in the URL.
-func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLister RoomLister, ctx *gin.Context) {
+func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLister RoomLister, presence PresenceStore, ctx *gin.Context) {
 	ticket := ctx.Query("ticket")
 	if ticket == "" {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "ticket is required"})
@@ -158,11 +235,12 @@ func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLi
 	}
 
 	client := &Client{
-		hub:    hub,
-		conn:   conn,
-		send:   make(chan []byte, 256),
-		UserID: id,
-		ID:     uuid.New().String(),
+		hub:      hub,
+		conn:     conn,
+		send:     make(chan []byte, 256),
+		UserID:   id,
+		ID:       uuid.New().String(),
+		presence: presence,
 	}
 	hub.Register(client)
 
@@ -176,6 +254,7 @@ func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLi
 		for _, roomID := range roomIDs {
 			hub.AddClientToRoom(client, roomID)
 		}
+		client.announceOnline(roomIDs)
 		log.Printf("Client %s subscribed to %d rooms", client.ID, len(roomIDs))
 	}()
 

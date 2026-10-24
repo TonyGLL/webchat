@@ -12,6 +12,16 @@ export interface Room {
   my_role: 'owner' | 'admin' | 'member';
 }
 
+export interface RoomMember {
+  user_id: number;
+  username: string;
+  name: string;
+  last_name: string | null;
+  avatar_url: string | null;
+  role: 'owner' | 'admin' | 'member';
+  online: boolean;
+}
+
 export interface CreateRoomData {
   name: string;
   is_private: boolean;
@@ -34,6 +44,11 @@ export const roomService = {
   getUserRooms: async (): Promise<Room[] | null> => {
     const response = await api.get('/rooms');
     return response.data;
+  },
+
+  getMembers: async (roomId: string): Promise<RoomMember[]> => {
+    const response = await api.get(`/rooms/members/${roomId}`);
+    return response.data ?? [];
   },
 
   leaveRoom: async (roomId: string): Promise<void> => {

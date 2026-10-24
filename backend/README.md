@@ -41,6 +41,7 @@ Prefijo `/api/v1`, excepto `/health` y `/ready`. Salvo registro, login, refresh 
 | `POST /rooms` · `GET /rooms` | Crear sala (`is_private`) · salas del usuario |
 | `POST /rooms/join/:room_id` | Unirse a una sala pública |
 | `POST /rooms/read/:room_id` | Marcar la sala como leída (el contador `unread_count` viene en `GET /rooms`) |
+| `GET /rooms/members/:room_id` | Miembros de la sala con estado en línea (solo miembros) |
 | `POST /rooms/leave/:room_id` | Salir de una sala (el dueño no puede; 409) |
 | `POST /rooms/invite/:room_id` | Crear invitación (solo dueño o admin) |
 | `POST /rooms/accept-invite/:code` | Aceptar una invitación |

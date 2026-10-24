@@ -22,6 +22,7 @@ type RoomController struct {
 	listUserRoomsUseCase *application.ListUserRoomsUseCase
 	markRoomReadUseCase  *application.MarkRoomReadUseCase
 	leaveRoomUseCase     *application.LeaveRoomUseCase
+	listMembersUseCase   *application.ListMembersUseCase
 	joinRoomUseCase      *application.JoinRoomUseCase
 	createInviteUseCase  *application.CreateInviteUseCase
 	acceptInviteUseCase  *application.AcceptInviteUseCase
@@ -34,6 +35,7 @@ func NewRoomController(
 	listUserRoomsUseCase *application.ListUserRoomsUseCase,
 	markRoomReadUseCase *application.MarkRoomReadUseCase,
 	leaveRoomUseCase *application.LeaveRoomUseCase,
+	listMembersUseCase *application.ListMembersUseCase,
 	joinRoomUseCase *application.JoinRoomUseCase,
 	createInviteUseCase *application.CreateInviteUseCase,
 	acceptInviteUseCase *application.AcceptInviteUseCase,
@@ -44,6 +46,7 @@ func NewRoomController(
 		listUserRoomsUseCase: listUserRoomsUseCase,
 		markRoomReadUseCase:  markRoomReadUseCase,
 		leaveRoomUseCase:     leaveRoomUseCase,
+		listMembersUseCase:   listMembersUseCase,
 		joinRoomUseCase:      joinRoomUseCase,
 		createInviteUseCase:  createInviteUseCase,
 		acceptInviteUseCase:  acceptInviteUseCase,
@@ -145,6 +148,31 @@ func (c *RoomController) MarkRead(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+// ListMembers handles the endpoint for GET /api/v1/rooms/members/:room_id
+func (c *RoomController) ListMembers(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+	roomID, err := uuid.Parse(ctx.Param("room_id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
+		return
+	}
+	members, err := c.listMembersUseCase.Execute(ctx, roomID, userID)
+	if err != nil {
+		if errors.Is(err, shared_domain.ErrForbidden) {
+			response.Error(ctx, http.StatusForbidden, "You are not a member of this room")
+			return
+		}
+		log.Printf("failed to list members: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to list members")
+		return
+	}
+	response.JSON(ctx, http.StatusOK, members)
 }
 
 // LeaveRoom handles the endpoint for POST /api/v1/rooms/leave/:room_id

@@ -16,6 +16,8 @@ type RoomMemberRepository interface {
 	AddMember(ctx context.Context, member *RoomMember) error
 	FindMember(ctx context.Context, roomID uuid.UUID, userID int) (*RoomMember, error)
 	// MarkRead sets the member's last-read time to now. It reports false if they are not a member.
+	// ListMembers returns the members of a room (Online is left false; see PresenceChecker).
+	ListMembers(ctx context.Context, roomID uuid.UUID) ([]*MemberInfo, error)
 	RemoveMember(ctx context.Context, roomID uuid.UUID, userID int) error
 	MarkRead(ctx context.Context, roomID uuid.UUID, userID int) (bool, error)
 }

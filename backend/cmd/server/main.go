@@ -117,9 +117,10 @@ func main() {
 	// Websocket endpoints: an authenticated call to /ws-ticket returns a short-lived,
 	// single-use ticket that /ws redeems, so the JWT never appears in the URL.
 	wsTickets := websocket.NewRedisTicketStore(redisClient)
+	presence := websocket.NewRedisPresence(redisClient)
 	apiV1.POST("/ws-ticket", http.JWTMiddleware(jwtService), websocket.IssueTicket(wsTickets))
 	apiV1.GET("/ws", func(c *gin.Context) {
-		websocket.ServeWs(wsHub, wsUpgrader, wsTickets, roomListerAdapter, c)
+		websocket.ServeWs(wsHub, wsUpgrader, wsTickets, roomListerAdapter, presence, c)
 	})
 
 	http.RegisterHealthRoutes(server.Router, map[string]http.Pinger{
@@ -131,7 +132,7 @@ func main() {
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL, cfg.IsProduction())
 	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
-	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub)
+	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub, presence)
 	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---

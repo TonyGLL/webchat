@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, LogOut, MessageSquare, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
+import { ArrowLeft, LogOut, Users, MessageSquare, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
 import { IGetRoomMessages } from '@/services/messageService';
 import { useMessages } from '@/hooks/useMessages';
+import { useRoomActivity } from '@/hooks/useRoomActivity';
+import { typingLabel } from '@/lib/typing';
 import Spinner from './Spinner';
 import { useUser } from '@/hooks/useUser';
 import dayjs from 'dayjs';
@@ -54,6 +56,9 @@ export default function MessageView({ roomId, roomName, canPin = false, onBack, 
   const { profile } = useUser();
   const [content, setContent] = useState('');
   const [replyingTo, setReplyingTo] = useState<IGetRoomMessages | null>(null);
+  const [showMembers, setShowMembers] = useState(false);
+  const { members, typingNames, notifyTyping } = useRoomActivity(roomId);
+  const onlineCount = members.filter((m) => m.online).length;
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -123,16 +128,50 @@ export default function MessageView({ roomId, roomName, canPin = false, onBack, 
         <Button variant="ghost" size="icon" className="md:hidden" onClick={onBack} aria-label="Back to rooms">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{roomName ?? 'Room'}</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-sm font-medium">{roomName ?? 'Room'}</h2>
+          {members.length > 0 && (
+            <p className="truncate text-[11px] text-muted-foreground">
+              {members.length} {members.length === 1 ? 'member' : 'members'} · {onlineCount} online
+            </p>
+          )}
+        </div>
         {leaveError && (
           <p className="text-xs text-destructive" role="alert">
             {leaveError}
           </p>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowMembers((v) => !v)}
+          aria-label="Members"
+          aria-expanded={showMembers}
+          title="Members"
+        >
+          <Users className="h-4 w-4" />
+        </Button>
         <Button variant="ghost" size="icon" onClick={handleLeave} aria-label="Leave room" title="Leave room">
           <LogOut className="h-4 w-4" />
         </Button>
       </header>
+
+      {showMembers && (
+        <ul className="max-h-40 shrink-0 space-y-1 overflow-y-auto border-b bg-muted/40 px-4 py-2 text-xs">
+          {members.map((m) => (
+            <li key={m.user_id} className="flex items-center gap-2">
+              <span
+                className={cn('h-2 w-2 shrink-0 rounded-full', m.online ? 'bg-green-500' : 'bg-muted-foreground/40')}
+                aria-label={m.online ? 'Online' : 'Offline'}
+              />
+              <span className="truncate">
+                {m.name} <span className="text-muted-foreground">@{m.username}</span>
+              </span>
+              {m.role !== 'member' && <span className="ml-auto text-[10px] uppercase text-muted-foreground">{m.role}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {pinned.length > 0 && (
         <div className="shrink-0 border-b bg-muted/40 px-4 py-2 text-xs">
@@ -258,10 +297,16 @@ export default function MessageView({ roomId, roomName, canPin = false, onBack, 
           </button>
         </div>
       )}
+      <p className="h-4 shrink-0 px-4 text-[11px] text-muted-foreground" aria-live="polite">
+        {typingLabel(typingNames)}
+      </p>
       <form onSubmit={handleSendMessage} className="flex shrink-0 items-center gap-2 border-t p-3">
         <Input
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => {
+            setContent(e.target.value);
+            if (e.target.value) notifyTyping();
+          }}
           placeholder="Write a message"
           aria-label="Message"
           className="flex-1"

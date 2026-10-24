@@ -110,6 +110,26 @@ func (h *Hub) handleBroadcast(message *Message) {
 	}
 }
 
+// IsClientInRoom reports whether the client is subscribed to the room.
+func (h *Hub) IsClientInRoom(client *Client, roomID string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.rooms[roomID][client]
+}
+
+// RoomsOf lists the rooms a client is subscribed to.
+func (h *Hub) RoomsOf(client *Client) []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var rooms []string
+	for roomID, members := range h.rooms {
+		if members[client] {
+			rooms = append(rooms, roomID)
+		}
+	}
+	return rooms
+}
+
 // AddClientToRoom subscribes a connected client to a room.
 func (h *Hub) AddClientToRoom(client *Client, roomID string) {
 	h.mu.Lock()

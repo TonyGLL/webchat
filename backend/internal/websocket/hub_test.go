@@ -172,3 +172,30 @@ func TestUnsubscribeUserStopsRoomEvents(t *testing.T) {
 	receive(t, stayer)
 	expectNothing(t, leaver)
 }
+
+func TestTypingIsRelayedOnlyForSubscribedRoomsAndRateLimited(t *testing.T) {
+	typer, watcher, outsider := newTestClient(1, 8), newTestClient(2, 8), newTestClient(3, 8)
+	hub := startHub(t, typer, watcher, outsider)
+	typer.hub, watcher.hub, outsider.hub = hub, hub, hub
+	hub.AddClientToRoom(typer, "room")
+	hub.AddClientToRoom(watcher, "room")
+
+	now := time.Now()
+	typer.handleClientEvent([]byte(`{"type":"typing","room_id":"room"}`), now)
+	want := `{"type":"typing","payload":{"room_id":"room","user_id":1}}`
+	if got := string(receive(t, watcher)); got != want {
+		t.Fatalf("watcher got %s", got)
+	}
+
+	// too soon: dropped; after the interval: relayed again
+	typer.handleClientEvent([]byte(`{"type":"typing","room_id":"room"}`), now.Add(500*time.Millisecond))
+	expectNothing(t, watcher)
+	typer.handleClientEvent([]byte(`{"type":"typing","room_id":"room"}`), now.Add(3*time.Second))
+	receive(t, watcher)
+
+	// not subscribed to the room, malformed and unknown events are ignored
+	outsider.handleClientEvent([]byte(`{"type":"typing","room_id":"room"}`), now)
+	typer.handleClientEvent([]byte(`not json`), now)
+	typer.handleClientEvent([]byte(`{"type":"something_else","room_id":"room"}`), now)
+	expectNothing(t, watcher)
+}

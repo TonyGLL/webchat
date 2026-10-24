@@ -51,3 +51,24 @@ func (r *PgRoomMemberRepository) RemoveMember(ctx context.Context, roomID uuid.U
 	_, err := r.db.ExecContext(ctx, `DELETE FROM room_members WHERE room_id = $1 AND user_id = $2`, roomID, userID)
 	return err
 }
+
+func (r *PgRoomMemberRepository) ListMembers(ctx context.Context, roomID uuid.UUID) ([]*domain.MemberInfo, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT u.id, u.username, u.name, u.last_name, u.avatar_url, rm.role
+		FROM room_members rm JOIN users u ON u.id = rm.user_id
+		WHERE rm.room_id = $1 AND u.deleted = FALSE
+		ORDER BY rm.joined_at`, roomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	members := []*domain.MemberInfo{}
+	for rows.Next() {
+		m := &domain.MemberInfo{}
+		if err := rows.Scan(&m.UserID, &m.Username, &m.Name, &m.LastName, &m.AvatarURL, &m.Role); err != nil {
+			return nil, err
+		}
+		members = append(members, m)
+	}
+	return members, rows.Err()
+}
