@@ -30,7 +30,7 @@ flowchart LR
 | [Security](docs/en/security.md) | Authentication, permissions, rate limits, audit |
 | [Real-time](docs/en/realtime.md) | WebSocket hub, presence, scaling out |
 | [Data model](docs/en/data-model.md) | Entity-relationship diagram and conventions |
-| [API reference](docs/en/api.md) | Every endpoint |
+| [API reference](docs/en/api.md) | Every endpoint; interactive [Scalar](https://scalar.com) reference at `/docs` when the backend runs |
 | [Frontend](docs/en/frontend.md) | Structure, session, i18n, theming |
 | [Contributing](docs/en/contributing.md) | Workflow, rules and quality gates |
 

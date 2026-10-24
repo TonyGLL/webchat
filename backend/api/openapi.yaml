@@ -1,0 +1,1275 @@
+openapi: 3.1.0
+
+info:
+  title: WebChat API
+  version: 1.0.0
+  summary: REST and WebSocket API of the WebChat real-time chat platform.
+  description: |
+    Everything under `/api/v1` except the public endpoints needs an **access token**:
+    `Authorization: Bearer <token>`.
+
+    ## Sessions
+
+    `POST /auth/login` returns a short-lived (1 hour) access token in the body and sets a
+    **single-use rotating refresh token** in an httpOnly, `SameSite=Strict` cookie scoped to
+    `/api/v1/auth`. Call `POST /auth/refresh-token` (the browser sends the cookie) to get a new
+    pair before or after the access token expires.
+
+    ## Real time
+
+    Browsers cannot set headers on a WebSocket, so the flow is: `POST /ws-ticket` with the
+    access token, then connect to `GET /ws?ticket=…` within 30 seconds. A ticket works once.
+    Events are described in the **Real time** tag below.
+
+    ## Errors
+
+    Failures answer with `{ "error": "message" }`. A rate-limited request answers `429` with a
+    `Retry-After` header (seconds).
+
+    ## Roles
+
+    Room roles rank `member < moderator < admin < owner`; a global `moderator` acts as a
+    moderator in every room and a global `admin` outranks every room owner. Actions on another
+    person require **strictly outranking** them.
+  license:
+    name: See repository LICENSE
+    url: https://github.com/TonyGLL/webchat
+
+servers:
+  - url: http://localhost:8081/api/v1
+    description: Local development
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes (outside the `/api/v1` prefix).
+  - name: Auth
+    description: Registration, login and token refresh.
+  - name: Users
+    description: The signed-in user's profile, data export and account removal.
+  - name: Rooms
+    description: Rooms, direct messages, membership and invitations.
+  - name: Messages
+    description: Messages, history, search, pinning and reactions.
+  - name: Moderation
+    description: Reports, bans, role changes, removals and the audit log.
+  - name: Real time
+    description: |
+      WebSocket connection and the events the server pushes. Every event is JSON
+      `{ "type": "…", "payload": … }` sent to the members of the room it concerns.
+
+      | `type` | `payload` |
+      |---|---|
+      | `new_message` | the created `Message` |
+      | `update_message` | `{ message_id, content }` |
+      | `delete_message` | `{ message_id }` |
+      | `pin_message` | `{ message_id, pinned }` |
+      | `reaction_added` | a `Reaction` |
+      | `reaction_removed` | `{ message_id, user_id, emoji }` |
+      | `role_changed` | `{ room_id, user_id, role }` |
+      | `member_removed` | `{ room_id, user_id }` |
+      | `typing` | `{ room_id, user_id }` (ephemeral) |
+      | `presence` | `{ user_id, online }` |
+
+      The only message a client may send is `{ "type": "typing", "room_id": "…" }`, accepted from
+      members of that room and throttled.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Liveness
+      description: Always answers `200` while the process is running.
+      security: []
+      servers:
+        - url: http://localhost:8081
+      responses:
+        "200":
+          description: The process is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, examples: [ok] }
+
+  /ready:
+    get:
+      tags: [Health]
+      operationId: getReady
+      summary: Readiness
+      description: Pings PostgreSQL and Redis. `503` when any dependency does not answer.
+      security: []
+      servers:
+        - url: http://localhost:8081
+      responses:
+        "200":
+          description: Every dependency answers.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+        "503":
+          description: At least one dependency is unavailable.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Create an account
+      description: |
+        The password must be 8–72 characters, must not be among the most common passwords and
+        must not contain the username or the email's local part.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Account created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthUser" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409":
+          description: The email or username is already taken.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Sign in
+      description: Returns the access token and sets the `refresh_token` cookie.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              description: "`refresh_token=…; HttpOnly; SameSite=Strict; Path=/api/v1/auth`"
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/refresh-token:
+    post:
+      tags: [Auth]
+      operationId: refreshToken
+      summary: Renew the session
+      description: |
+        Consumes the refresh token (single use) and issues a new access token and a new refresh
+        cookie. Reusing a refresh token fails.
+      security:
+        - refreshCookie: []
+      responses:
+        "200":
+          description: New session.
+          headers:
+            Set-Cookie:
+              description: The rotated `refresh_token` cookie.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401":
+          description: The refresh token is missing, expired, revoked or already used.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Sign out
+      description: Revokes the current refresh token and clears the cookie.
+      security: []
+      responses:
+        "204": { description: Signed out. }
+
+  /auth/send-verify-email/{user_id}:
+    post:
+      tags: [Auth]
+      operationId: sendVerifyEmail
+      summary: Send a verification email
+      description: Email verification is currently **paused**; the login does not require it.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/verify-email/{token}:
+    post:
+      tags: [Auth]
+      operationId: verifyEmail
+      summary: Confirm an email address
+      description: Email verification is currently **paused**.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: The token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /users/profile:
+    get:
+      tags: [Users]
+      operationId: getProfile
+      summary: Current user's profile
+      responses:
+        "200":
+          description: The profile, including the global `role`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /users/deactivate:
+    delete:
+      tags: [Users]
+      operationId: deactivateAccount
+      summary: Deactivate the account
+      description: Disables access; the data is kept.
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /users/export:
+    get:
+      tags: [Users]
+      operationId: exportAccount
+      summary: Export my data
+      description: A JSON document with the user's profile, rooms, messages, reactions and reports filed. Limited to 5 per hour.
+      responses:
+        "200":
+          description: The export.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountExport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /users/me:
+    delete:
+      tags: [Users]
+      operationId: deleteAccount
+      summary: Delete my account permanently
+      description: |
+        Rooms the user owns pass to another member (or are removed when the user is alone);
+        their messages stay and are shown as "deleted user". Limited to 5 per hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, format: password }
+      responses:
+        "204": { description: Account deleted. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Wrong password.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /rooms:
+    post:
+      tags: [Rooms]
+      operationId: createRoom
+      summary: Create a room
+      description: The creator becomes the room's owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRoomRequest" }
+      responses:
+        "201":
+          description: Room created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    get:
+      tags: [Rooms]
+      operationId: listMyRooms
+      summary: My rooms
+      description: Rooms the user belongs to, including direct messages, with unread counters and the user's role.
+      responses:
+        "200":
+          description: The rooms.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Room" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /rooms/join/{room_id}:
+    post:
+      tags: [Rooms]
+      operationId: joinRoom
+      summary: Join a public room
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The room is private or the user is banned from it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Already a member.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /rooms/direct/{user_id}:
+    post:
+      tags: [Rooms]
+      operationId: openDirectRoom
+      summary: Open a one-to-one conversation
+      description: Returns the existing direct room with that user, or creates it. A direct room is a private room with `is_direct = true`.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: The direct room.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+        "400":
+          description: Invalid user id, or the user tried to message themselves.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /rooms/members/{room_id}:
+    get:
+      tags: [Rooms]
+      operationId: listRoomMembers
+      summary: List members
+      description: Members with their role and live online status. Members only.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: The members.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MemberInfo" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /rooms/leave/{room_id}:
+    post:
+      tags: [Rooms]
+      operationId: leaveRoom
+      summary: Leave a room
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204": { description: Left the room. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: The owner cannot leave.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /rooms/read/{room_id}:
+    post:
+      tags: [Rooms]
+      operationId: markRoomRead
+      summary: Mark a room as read
+      description: Resets the room's unread counter for the user.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "204": { description: Marked as read. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /rooms/invite/{room_id}:
+    post:
+      tags: [Rooms]
+      operationId: createInvite
+      summary: Create an invitation
+      description: Requires admin rank or above in the room.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateInviteRequest" }
+      responses:
+        "201":
+          description: Invitation created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invite" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /rooms/accept-invite/{code}:
+    post:
+      tags: [Rooms]
+      operationId: acceptInvite
+      summary: Join through an invitation
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Joined; returns the invitation.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invite" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The user is banned from the room.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Already a member.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /messages:
+    post:
+      tags: [Messages]
+      operationId: createMessage
+      summary: Send a message
+      description: Members only. Limited to 120 per minute. The message is pushed to the room as `new_message`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateMessageRequest" }
+      responses:
+        "201":
+          description: Message created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /messages/search:
+    get:
+      tags: [Messages]
+      operationId: searchMessages
+      summary: Search messages
+      description: Full-text, accent-insensitive search restricted to rooms the user belongs to. Limited to 60 per minute.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search text.
+          schema: { type: string }
+        - name: room_id
+          in: query
+          description: Restrict the search to one room.
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Matching messages.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /messages/{roomId}/messages:
+    get:
+      tags: [Messages]
+      operationId: listMessages
+      summary: Room history
+      description: |
+        Newest first, paginated by cursor: pass the `id` of the oldest message you already have
+        as `before` to get the next page. Members only.
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: before
+          in: query
+          description: Message id to continue from.
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: A page of messages, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /messages/{roomId}/pinned:
+    get:
+      tags: [Messages]
+      operationId: listPinnedMessages
+      summary: Pinned messages of a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Pinned messages.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /messages/{id}:
+    patch:
+      tags: [Messages]
+      operationId: updateMessage
+      summary: Edit a message
+      description: Author only. Pushed as `update_message`.
+      parameters:
+        - $ref: "#/components/parameters/MessageId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, minLength: 1 }
+      responses:
+        "202": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Messages]
+      operationId: deleteMessage
+      summary: Delete a message
+      description: Soft delete. The author, or a moderator or above. Pushed as `delete_message`.
+      parameters:
+        - $ref: "#/components/parameters/MessageId"
+      responses:
+        "204": { description: Message deleted. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /messages/{id}/pin:
+    put:
+      tags: [Messages]
+      operationId: pinMessage
+      summary: Pin a message
+      description: Requires admin rank or above. Pushed as `pin_message`.
+      parameters:
+        - $ref: "#/components/parameters/MessageId"
+      responses:
+        "204": { description: Pinned. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Messages]
+      operationId: unpinMessage
+      summary: Unpin a message
+      description: Requires admin rank or above.
+      parameters:
+        - $ref: "#/components/parameters/MessageId"
+      responses:
+        "204": { description: Unpinned. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /messages/{id}/reactions:
+    post:
+      tags: [Messages]
+      operationId: addReaction
+      summary: Add a reaction
+      description: One reaction per emoji and user. Pushed as `reaction_added`.
+      parameters:
+        - $ref: "#/components/parameters/MessageId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmojiRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Messages]
+      operationId: removeReaction
+      summary: Remove my reaction
+      description: Pushed as `reaction_removed`.
+      parameters:
+        - $ref: "#/components/parameters/MessageId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EmojiRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /moderation/messages/{message_id}/report:
+    post:
+      tags: [Moderation]
+      operationId: reportMessage
+      summary: Report a message
+      description: Any member. You cannot report your own message, and each person reports a message once.
+      parameters:
+        - name: message_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        "201": { description: Report filed. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /moderation/reports/{report_id}/resolve:
+    post:
+      tags: [Moderation]
+      operationId: resolveReport
+      summary: Resolve or ignore a report
+      description: Moderator or above in the report's room. Audited.
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResolveReportRequest" }
+      responses:
+        "204": { description: Report closed. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /moderation/rooms/{room_id}/reports:
+    get:
+      tags: [Moderation]
+      operationId: listReports
+      summary: Reports of a room
+      description: Moderator or above.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - name: status
+          in: query
+          description: Filter by status.
+          schema: { type: string, enum: [pending, resolved, ignored] }
+      responses:
+        "200":
+          description: The reports.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Report" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /moderation/rooms/{room_id}/bans:
+    get:
+      tags: [Moderation]
+      operationId: listBans
+      summary: Bans of a room
+      description: Moderator or above.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Active bans.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Ban" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /moderation/rooms/{room_id}/bans/{user_id}:
+    post:
+      tags: [Moderation]
+      operationId: banUser
+      summary: Ban a user from a room
+      description: |
+        Moderator or above, and strictly above the target. The user is removed from the room and
+        cannot return by id or invitation until the ban expires or is lifted. Audited.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BanRequest" }
+      responses:
+        "204": { description: User banned. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Moderation]
+      operationId: unbanUser
+      summary: Lift a ban
+      description: Moderator or above. Audited.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "204": { description: Ban lifted. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /moderation/rooms/{room_id}/members/{user_id}/role:
+    patch:
+      tags: [Moderation]
+      operationId: changeMemberRole
+      summary: Change a member's role
+      description: |
+        Admin or above, only for members below the actor. Admins can make moderators; only
+        owners (or global admins) can make admins. The `owner` role is never assigned this way.
+        Pushed as `role_changed`. Audited.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { $ref: "#/components/schemas/RoomRole" }
+      responses:
+        "204": { description: Role changed. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /moderation/rooms/{room_id}/members/{user_id}:
+    delete:
+      tags: [Moderation]
+      operationId: removeMember
+      summary: Remove a member
+      description: Moderator or above, strictly above the target. Pushed as `member_removed`. Audited.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "204": { description: Member removed. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /moderation/rooms/{room_id}/audit:
+    get:
+      tags: [Moderation]
+      operationId: listAudit
+      summary: Audit log of a room
+      description: Admin or above.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Entries, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AuditEntry" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /ws-ticket:
+    post:
+      tags: [Real time]
+      operationId: issueWebsocketTicket
+      summary: Get a WebSocket ticket
+      description: Returns a ticket valid for 30 seconds and usable once. Limited to 30 per minute.
+      responses:
+        "200":
+          description: The ticket.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ticket]
+                properties:
+                  ticket: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /ws:
+    get:
+      tags: [Real time]
+      operationId: connectWebsocket
+      summary: Open the WebSocket
+      description: |
+        Upgrades the connection. The `Origin` header must be one of the allowed origins. The
+        server subscribes the connection to every room the user belongs to and announces the
+        user as online.
+      security: []
+      parameters:
+        - name: ticket
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "101": { description: Switching protocols. }
+        "401":
+          description: Unknown, expired or already used ticket.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403": { description: Origin not allowed. }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: The access token returned by `/auth/login` or `/auth/refresh-token`.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+      description: Set by the server as httpOnly; sent automatically by browsers.
+
+  parameters:
+    RoomId:
+      name: room_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema: { type: integer }
+    MessageId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    BadRequest:
+      description: Invalid input.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing, invalid or expired access token.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: The user is not allowed to do this (not a member, or not enough rank).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: The resource does not exist.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Already done.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Too many requests from this IP.
+      headers:
+        Retry-After:
+          description: Seconds to wait.
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    MessageOk:
+      description: Done.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, examples: [You are not allowed to do this] }
+
+    Readiness:
+      type: object
+      properties:
+        status: { type: string, enum: [ready, not ready] }
+        checks:
+          type: object
+          additionalProperties: { type: string, enum: [ok, unavailable] }
+
+    RoomRole:
+      type: string
+      enum: [member, moderator, admin, owner]
+
+    GlobalRole:
+      type: string
+      enum: [user, moderator, admin]
+
+    RegisterRequest:
+      type: object
+      required: [email, password, name, last_name, username, phone]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password, minLength: 8, maxLength: 72 }
+        name: { type: string }
+        last_name: { type: string }
+        username: { type: string, minLength: 3, maxLength: 30 }
+        phone: { type: string }
+
+    LoginRequest:
+      type: object
+      required: [user, password]
+      properties:
+        user:
+          type: string
+          description: The account's email.
+        password: { type: string, format: password }
+
+    AuthUser:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        lastName: { type: string }
+        username: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        avatarUrl: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Session:
+      type: object
+      required: [user, token]
+      properties:
+        user: { $ref: "#/components/schemas/AuthUser" }
+        token:
+          type: string
+          description: Access token (JWT, 1 hour).
+
+    Profile:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        last_name: { type: string }
+        username: { type: string }
+        email: { type: string, format: email }
+        avatar_url: { type: [string, "null"] }
+        role: { $ref: "#/components/schemas/GlobalRole" }
+        created_at: { type: string, format: date-time }
+
+    AccountExport:
+      type: object
+      properties:
+        exported_at: { type: string, format: date-time }
+        profile: { type: object }
+        rooms: { type: array, items: { type: object } }
+        messages: { type: array, items: { type: object } }
+        reactions: { type: array, items: { type: object } }
+        reports_filed: { type: array, items: { type: object } }
+
+    CreateRoomRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 3, maxLength: 150 }
+        topic: { type: [string, "null"], maxLength: 255 }
+        is_private: { type: boolean, default: false }
+
+    Room:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        owner_id: { type: integer }
+        name: { type: string }
+        topic: { type: [string, "null"] }
+        is_private: { type: boolean }
+        is_direct: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        unread_count: { type: integer, description: Messages newer than the user's last read. }
+        my_role: { $ref: "#/components/schemas/RoomRole" }
+
+    MemberInfo:
+      type: object
+      properties:
+        user_id: { type: integer }
+        username: { type: string }
+        name: { type: string }
+        last_name: { type: [string, "null"] }
+        avatar_url: { type: [string, "null"] }
+        role: { $ref: "#/components/schemas/RoomRole" }
+        online: { type: boolean }
+
+    CreateInviteRequest:
+      type: object
+      required: [expires_in]
+      properties:
+        expires_in:
+          type: string
+          description: Lifetime of the invitation, for example `24h`.
+          examples: [24h]
+        email:
+          type: string
+          format: email
+          description: Optional; the address the invitation is meant for.
+
+    Invite:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        room_id: { type: string, format: uuid }
+        code: { type: string }
+        expires_at: { type: string, format: date-time }
+        invited_by_id: { type: integer }
+        created_at: { type: string, format: date-time }
+        email: { type: string }
+
+    CreateMessageRequest:
+      type: object
+      required: [content, room_id]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 4000 }
+        room_id: { type: string, format: uuid }
+        reply_to_message_id: { type: string, format: uuid }
+
+    Message:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        content: { type: string }
+        author_id: { type: integer }
+        room_id: { type: string, format: uuid }
+        reply_to_message_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        edited_at: { type: string, format: date-time }
+        deleted_at: { type: string, format: date-time }
+        pinned_at: { type: string, format: date-time }
+        reactions:
+          type: array
+          items: { $ref: "#/components/schemas/Reaction" }
+
+    Reaction:
+      type: object
+      properties:
+        message_id: { type: string, format: uuid }
+        user_id: { type: integer }
+        emoji: { type: string }
+        created_at: { type: string, format: date-time }
+
+    EmojiRequest:
+      type: object
+      required: [emoji]
+      properties:
+        emoji: { type: string, examples: ["👍"] }
+
+    ResolveReportRequest:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [resolve, ignore] }
+        delete_message:
+          type: boolean
+          default: false
+          description: Also delete the reported message.
+
+    Report:
+      type: object
+      properties:
+        id: { type: integer }
+        message_id: { type: string, format: uuid }
+        room_id: { type: string, format: uuid }
+        message_content: { type: string }
+        message_author_id: { type: [integer, "null"] }
+        reported_by_id: { type: integer }
+        reason: { type: string }
+        status: { type: string, enum: [pending, resolved, ignored] }
+        resolved_by_id: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    BanRequest:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 500 }
+        duration:
+          type: string
+          description: A Go duration such as `24h` or `168h`. Empty means permanent.
+          examples: [24h]
+
+    Ban:
+      type: object
+      properties:
+        user_id: { type: integer }
+        room_id: { type: string, format: uuid }
+        banned_by_id: { type: [integer, "null"] }
+        reason: { type: string }
+        expires_at: { type: [string, "null"], format: date-time, description: Null for a permanent ban. }
+        created_at: { type: string, format: date-time }
+
+    AuditEntry:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        actor_id: { type: [integer, "null"] }
+        action: { type: string }
+        room_id: { type: string, format: uuid }
+        target_user_id: { type: integer }
+        target_message_id: { type: string, format: uuid }
+        details: { type: object, additionalProperties: true }
+        created_at: { type: string, format: date-time }

@@ -44,6 +44,7 @@ bun run build
 | Database | Never edit an applied migration; add a numbered `.up.sql` / `.down.sql` pair | Every environment converges on one schema |
 | Layers | `domain` knows nothing about Gin, SQL or Redis; controllers call use cases, not repositories | Testable business rules |
 | Modules | Cross-module access through small interfaces wired in `main.go` | No import cycles; extractable modules |
+| API contract | Any change to a route, request or response updates `backend/api/openapi.yaml` in the same commit (`go test ./api/` guards its consistency) | `/docs` always matches the server |
 | Configuration | New variable ⇒ also add it to `backend/.env.example` | The template is the source of truth |
 | Secrets | Never read, paste or commit `.env*` files, keys or tokens | They stay out of the history |
 | UI text | No hard-coded strings: add the key to `en.ts` **and** `es.ts` and use `t()` | Both languages stay complete |
@@ -61,7 +62,7 @@ flowchart TB
     S5 --> S6[6 · module.go + main.go wiring]
     S6 --> S7[7 · permission rule in shared/permissions + realtime event if needed]
     S7 --> S8[8 · frontend service → hook → component → i18n keys]
-    S8 --> S9[9 · docs: API reference and, if it was a real choice, a design decision]
+    S8 --> S9[9 · docs: openapi.yaml and, if it was a real choice, a design decision]
 ```
 
 ## 5. Commits and pull requests

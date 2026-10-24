@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"backend/api"
 	"backend/internal/auth"
 	auth_persistence "backend/internal/auth/persistence"
 	"backend/internal/message"
@@ -132,6 +133,9 @@ func main() {
 		"database": http.PingFunc(database.PingContext),
 		"redis":    http.PingFunc(func(ctx context.Context) error { return redisClient.Ping(ctx).Err() }),
 	})
+
+	// Interactive API reference (Scalar) and the OpenAPI contract it renders.
+	api.RegisterDocs(server.Router)
 
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.

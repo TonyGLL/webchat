@@ -2,6 +2,8 @@
 
 # API reference
 
+> **Interactive reference:** run the backend and open **[http://localhost:8081/docs](http://localhost:8081/docs)** ([Scalar](https://scalar.com)). It renders the OpenAPI 3.1 contract, lets you try every endpoint and generates code samples. The raw contract is served at `/openapi.yaml` and lives in [`backend/api/openapi.yaml`](../../backend/api/openapi.yaml). The tables below are a quick overview; the contract is the detailed source of truth.
+
 Base URL in development: `http://localhost:8081/api/v1` (health checks live outside the prefix). JSON in, JSON out.
 
 **Authentication:** every endpoint except those marked *public* needs `Authorization: Bearer <access token>`.
@@ -30,7 +32,7 @@ flowchart LR
 | Method | Path | Description |
 |---|---|---|
 | POST | `/auth/register` | Create an account: `name`, `last_name`, `username` (3–30), `email`, `phone`, `password` (8–72) *(public)* |
-| POST | `/auth/login` | `{ user, password }` returns the access `token`; sets the `refresh_token` cookie *(public)* |
+| POST | `/auth/login` | `{ user, password }` returns `{ user, token }` (the access token) and sets the `refresh_token` cookie *(public)* |
 | POST | `/auth/refresh-token` | Rotates the refresh cookie and returns a new access token *(public, needs the cookie)* |
 | POST | `/auth/logout` | Revokes the refresh token and clears the cookie |
 | POST | `/auth/send-verify-email/:user_id` | Sends a verification email *(public; verification is paused)* |
@@ -77,10 +79,10 @@ flowchart LR
 | Method | Path | Minimum rank |
 |---|---|---|
 | POST | `/moderation/messages/:message_id/report` | member (not your own message, once per person) |
-| POST | `/moderation/reports/:report_id/resolve` | moderator (`resolve` or `ignore`, optionally deleting the message) |
+| POST | `/moderation/reports/:report_id/resolve` | moderator (`{ action: "resolve" \| "ignore", delete_message }`) |
 | GET | `/moderation/rooms/:room_id/reports` | moderator |
 | GET | `/moderation/rooms/:room_id/bans` | moderator |
-| POST | `/moderation/rooms/:room_id/bans/:user_id` | moderator, strictly above the target; `reason` and an optional duration such as `24h` |
+| POST | `/moderation/rooms/:room_id/bans/:user_id` | moderator, strictly above the target; body `{ reason, duration }` where `duration` is a Go duration such as `24h` (empty = permanent) |
 | DELETE | `/moderation/rooms/:room_id/bans/:user_id` | moderator |
 | PATCH | `/moderation/rooms/:room_id/members/:user_id/role` | admin (see [Security](security.md)) |
 | DELETE | `/moderation/rooms/:room_id/members/:user_id` | moderator, strictly above the target |
@@ -110,4 +112,8 @@ curl -s http://localhost:8081/api/v1/rooms -H "Authorization: Bearer $TOKEN"
 curl -s -b jar.txt -X POST http://localhost:8081/api/v1/auth/refresh-token
 ```
 
-> A formal OpenAPI contract is planned. Until then, the controllers in each module's `presentation/` package are the source of truth for request and response shapes.
+## Keeping the contract honest
+
+`backend/api/openapi.yaml` is written by hand and embedded in the binary (`go:embed`), so a running server always documents itself. **Any change to a route, a request body or a response must update the YAML in the same commit.** `go test ./api/` checks that the document is valid YAML, that every `$ref` resolves, that each operation has a unique `operationId`, a summary, a tag and responses, and that the set of public (no-auth) operations only changes on purpose.
+
+The page loads Scalar from a pinned version on the jsDelivr CDN, so viewing `/docs` needs internet access; `/openapi.yaml` works offline and can be imported into Postman, Insomnia or a code generator.

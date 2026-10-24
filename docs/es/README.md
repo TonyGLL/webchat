@@ -14,7 +14,7 @@ WebChat es una plataforma de chat en tiempo real: salas, mensajes directos, reac
 | Entender login, tokens, permisos y protección contra abuso | [Seguridad](security.md) |
 | Entender la mensajería en vivo, la presencia y el escalado | [Tiempo real](realtime.md) |
 | Ver las tablas y sus relaciones | [Modelo de datos](data-model.md) |
-| Llamar a la API | [Referencia de la API](api.md) |
+| Llamar a la API | [Referencia de la API](api.md) · interactiva en `/docs` (Scalar) |
 | Trabajar en la interfaz | [Frontend](frontend.md) |
 | Enviar un cambio | [Contribuir](contributing.md) |
 

@@ -14,7 +14,7 @@ WebChat is a real-time chat platform: rooms, direct messages, reactions, pinned 
 | Understand login, tokens, permissions and abuse protection | [Security](security.md) |
 | Understand live messaging, presence and scaling out | [Real-time](realtime.md) |
 | See the tables and their relationships | [Data model](data-model.md) |
-| Call the API | [API reference](api.md) |
+| Call the API | [API reference](api.md) · interactive at `/docs` (Scalar) |
 | Work on the UI | [Frontend](frontend.md) |
 | Send a change | [Contributing](contributing.md) |
 

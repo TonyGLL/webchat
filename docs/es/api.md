@@ -2,6 +2,8 @@
 
 # Referencia de la API
 
+> **Referencia interactiva:** levanta el backend y abre **[http://localhost:8081/docs](http://localhost:8081/docs)** ([Scalar](https://scalar.com)). Muestra el contrato OpenAPI 3.1, permite probar cada endpoint y genera ejemplos de código. El contrato en bruto se sirve en `/openapi.yaml` y vive en [`backend/api/openapi.yaml`](../../backend/api/openapi.yaml). Las tablas de abajo son un resumen rápido; el contrato es la fuente de verdad detallada.
+
 URL base en desarrollo: `http://localhost:8081/api/v1` (los health checks están fuera del prefijo). JSON de entrada y de salida.
 
 **Autenticación:** todos los endpoints, salvo los marcados como *público*, requieren `Authorization: Bearer <access token>`.
@@ -30,7 +32,7 @@ flowchart LR
 | Método | Ruta | Descripción |
 |---|---|---|
 | POST | `/auth/register` | Crea una cuenta: `name`, `last_name`, `username` (3–30), `email`, `phone`, `password` (8–72) *(público)* |
-| POST | `/auth/login` | `{ user, password }` devuelve el `token` de acceso y fija la cookie `refresh_token` *(público)* |
+| POST | `/auth/login` | `{ user, password }` devuelve `{ user, token }` (el access token) y fija la cookie `refresh_token` *(público)* |
 | POST | `/auth/refresh-token` | Rota la cookie de refresh y devuelve un nuevo access token *(público, necesita la cookie)* |
 | POST | `/auth/logout` | Revoca el refresh token y borra la cookie |
 | POST | `/auth/send-verify-email/:user_id` | Envía un correo de verificación *(público; verificación pausada)* |
@@ -77,10 +79,10 @@ flowchart LR
 | Método | Ruta | Rango mínimo |
 |---|---|---|
 | POST | `/moderation/messages/:message_id/report` | miembro (no tu propio mensaje, una vez por persona) |
-| POST | `/moderation/reports/:report_id/resolve` | moderador (`resolve` o `ignore`, pudiendo borrar el mensaje) |
+| POST | `/moderation/reports/:report_id/resolve` | moderador (`{ action: "resolve" \| "ignore", delete_message }`) |
 | GET | `/moderation/rooms/:room_id/reports` | moderador |
 | GET | `/moderation/rooms/:room_id/bans` | moderador |
-| POST | `/moderation/rooms/:room_id/bans/:user_id` | moderador, estrictamente por encima del objetivo; `reason` y una duración opcional como `24h` |
+| POST | `/moderation/rooms/:room_id/bans/:user_id` | moderador, estrictamente por encima del objetivo; cuerpo `{ reason, duration }` donde `duration` es una duración de Go como `24h` (vacía = permanente) |
 | DELETE | `/moderation/rooms/:room_id/bans/:user_id` | moderador |
 | PATCH | `/moderation/rooms/:room_id/members/:user_id/role` | admin (ver [Seguridad](security.md)) |
 | DELETE | `/moderation/rooms/:room_id/members/:user_id` | moderador, estrictamente por encima del objetivo |
@@ -110,4 +112,8 @@ curl -s http://localhost:8081/api/v1/rooms -H "Authorization: Bearer $TOKEN"
 curl -s -b jar.txt -X POST http://localhost:8081/api/v1/auth/refresh-token
 ```
 
-> Está planificado un contrato OpenAPI formal. Mientras tanto, los controladores del paquete `presentation/` de cada módulo son la fuente de verdad de la forma de las peticiones y respuestas.
+## Mantener el contrato al día
+
+`backend/api/openapi.yaml` se escribe a mano y va embebido en el binario (`go:embed`), así que un servidor en marcha siempre se documenta a sí mismo. **Todo cambio en una ruta, un cuerpo de petición o una respuesta debe actualizar el YAML en el mismo commit.** `go test ./api/` comprueba que el documento sea YAML válido, que cada `$ref` se resuelva, que cada operación tenga un `operationId` único, un resumen, una etiqueta y respuestas, y que el conjunto de operaciones públicas (sin autenticación) solo cambie a propósito.
+
+La página carga Scalar desde una versión fijada en el CDN de jsDelivr, así que ver `/docs` requiere internet; `/openapi.yaml` funciona sin conexión y se puede importar en Postman, Insomnia o un generador de código.
