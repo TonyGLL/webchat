@@ -16,22 +16,22 @@ test:
 	@echo "Testing..."
 	@go test -v ./...
 
-# Live Reload
+# Live Reload (uses .air.toml). `air` is looked up on the PATH and in Go's bin dir,
+# since `go install` puts it in $(go env GOBIN) or $(go env GOPATH)/bin.
+GO_BIN_DIR := $(or $(shell go env GOBIN),$(shell go env GOPATH)/bin)
+AIR = $(or $(shell command -v air),$(GO_BIN_DIR)/air)
+
 watch:
-	@if command -v air > /dev/null; then \
-	    CONFIG_FILE=.env.local air; \
-	    echo "Watching...";\
-	else \
+	@if [ ! -x "$(AIR)" ]; then \
 	    read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
-	    if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
-	        go install github.com/air-verse/air@latest; \
-	        CONFIG_FILE=.env.local air; \
-	        echo "Watching...";\
-	    else \
+	    if [ "$$choice" = "n" ] || [ "$$choice" = "N" ]; then \
 	        echo "You chose not to install air. Exiting..."; \
 	        exit 1; \
 	    fi; \
+	    go install github.com/air-verse/air@latest || exit 1; \
 	fi
+	@echo "Watching..."
+	@CONFIG_FILE=.env.local $(AIR)
 
 database-up:
 	@echo "Starting PostgreSQL database..."

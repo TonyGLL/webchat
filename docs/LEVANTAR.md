@@ -228,7 +228,7 @@ Para el backend y el frontend locales: `Ctrl+C` en cada terminal.
 | `bind: address already in use` | Otro proyecto usa el puerto | `ss -ltnp | grep <puerto>`; cambia el puerto del servicio (y actualiza esta guía). |
 | El frontend carga pero no hay datos o error CORS | `CORS_ALLOWED_ORIGINS` no incluye `http://localhost:3100` | Corrígelo en `.env.local` y reinicia el backend. |
 | Las peticiones del frontend van a `undefined/...` | Falta `frontend/.env.local` | Créalo y reinicia `bun dev`. |
-| `air: command not found` | `~/go/bin` no está en el `PATH` | `export PATH=$PATH:$(go env GOPATH)/bin` |
+| `air: command not found` | Versiones anteriores del Makefile; ahora `make watch` busca `air` en la carpeta de binarios de Go | Actualiza el repo; si aun así falla: `go install github.com/air-verse/air@latest` |
 
 ## Limitaciones conocidas hoy
 
