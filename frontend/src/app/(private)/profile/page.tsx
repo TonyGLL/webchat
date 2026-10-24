@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import PrivateRoute from '@/components/PrivateRoute';
 import Spinner from '@/components/Spinner';
 import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
@@ -95,17 +96,17 @@ export default function ProfilePage() {
                 {t('profile.deactivate')}
               </Button>
               <hr />
-              <p className="text-sm text-muted-foreground">
+              <p id="delete-warning" className="text-sm text-muted-foreground">
                 {t('profile.deleteBody')}
               </p>
               {confirming ? (
                 <div className="space-y-2">
-                  <input
+                  <FormField
+                    label={t('profile.confirmPassword')}
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={t('profile.confirmPassword')}
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    aria-describedby="delete-warning"
                     autoComplete="current-password"
                   />
                   <Button variant="destructive" disabled={!password} onClick={handleDelete} className="w-full">

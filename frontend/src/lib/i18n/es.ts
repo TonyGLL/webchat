@@ -237,6 +237,15 @@ const es: Record<MessageKey, string> = {
   'profile.deleteForever': 'Eliminar mi cuenta para siempre',
   'profile.delete': 'Eliminar cuenta',
   'profile.deleteError': 'Contraseña incorrecta, o no se pudo eliminar la cuenta.',
+
+  'title.login': 'Iniciar sesión',
+  'title.register': 'Crear cuenta',
+  'title.forgot': 'Restablecer contraseña',
+  'title.reset': 'Contraseña nueva',
+  'title.verifyEmail': 'Revisa tu correo',
+  'title.verify': 'Verificar correo',
+  'title.dashboard': 'Chats',
+  'title.profile': 'Tu perfil',
 };
 
 export default es;
