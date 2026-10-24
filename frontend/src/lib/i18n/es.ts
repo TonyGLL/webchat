@@ -54,14 +54,16 @@ const es: Record<MessageKey, string> = {
 
   'nav.logOut': 'Cerrar sesión',
   'nav.language': 'Idioma',
+  'nav.online': 'En línea',
   'nav.switchTheme': 'Cambiar al tema {theme}',
   'theme.light': 'claro',
   'theme.dark': 'oscuro',
 
-  'dashboard.chats': 'Chats',
   'dashboard.searchPlaceholder': 'Buscar mensajes',
   'dashboard.clearSearch': 'Borrar búsqueda',
 
+  'rooms.section': 'Salas',
+  'rooms.direct': 'Mensajes directos',
   'rooms.empty': 'Aún no hay salas. Crea la primera con +.',
   'rooms.unread': '{count} mensajes sin leer',
   'rooms.new': 'Nueva sala',
@@ -115,6 +117,9 @@ const es: Record<MessageKey, string> = {
   'chat.writeMessage': 'Escribe un mensaje',
   'chat.send': 'Enviar',
   'chat.addReaction': 'Añadir reacción',
+  'chat.dmStart': 'Este es el inicio de tu conversación con {name}.',
+  'chat.roomStart': 'Este es el inicio de {room}. ¡Saluda!',
+  'chat.messageUser': 'Enviar un mensaje directo a {name}',
 
   'role.member': 'miembro',
   'role.moderator': 'moderador',

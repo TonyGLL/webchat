@@ -22,6 +22,7 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D14 | Roles globales otorgados solo mediante una CLI | Aceptada |
 | D15 | i18n sin dependencias y temas con variables CSS | Aceptada |
 | D16 | Envío optimista con estados explícitos | Aceptada |
+| D17 | Dirección visual "Foco" | Aceptada |
 
 ---
 
@@ -146,3 +147,11 @@ sequenceDiagram
 
 - **Decisión:** el mensaje aparece al instante como *enviando* y, si falla, pasa a *no enviado* con **Reintentar** y **Descartar**.
 - **Por qué:** las redes inestables son normales en móvil; ocultar los fallos pierde mensajes en silencio.
+
+## D17. Dirección visual "Foco"
+
+- **Contexto:** la primera interfaz era un marcador neutro. Se prototiparon tres direcciones con el mismo contenido (chat de escritorio, móvil y acceso): **Foco** (densa, herramienta de equipo), **Calidez** (redondeada, burbujas, comunidad) y **Redacción** (editorial, serif, monocroma).
+- **Decisión:** Foco. Tarjetas de mensaje con borde, con autor y rol, lista de salas a la izquierda con prefijos `#`, panel lateral de miembros y un único acento índigo.
+- **Por qué:** el centro del producto son las salas, los roles y la moderación, que necesitan densidad de información y etiquetas de rol claras más que personalidad. Las tarjetas muestran autor, rol y hora de forma compacta, y un solo acento mantiene sin ambigüedad los contadores de no leídos y la selección en ambos temas.
+- **Alternativas:** Calidez ofrece el móvil más amable pero gasta ancho en burbujas; Redacción es la más distintiva pero es más difícil de mantener coherente según crecen las funciones.
+- **Consecuencias:** todo el color sale de tokens semánticos (`primary`, `soft`, `success`...), así que la dirección puede reajustarse en un solo archivo (`globals.css`).

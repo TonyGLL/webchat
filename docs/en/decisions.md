@@ -22,6 +22,7 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D14 | Global roles granted only through a CLI | Accepted |
 | D15 | Dependency-free i18n and CSS-variable theming | Accepted |
 | D16 | Optimistic sending with explicit states | Accepted |
+| D17 | Visual direction "Foco" | Accepted |
 
 ---
 
@@ -146,3 +147,11 @@ sequenceDiagram
 
 - **Decision:** a message appears immediately as *sending*, and becomes *not sent* with **Retry** and **Discard** on failure.
 - **Why:** unstable networks are normal on mobile; hiding failures loses messages silently.
+
+## D17. Visual direction "Foco"
+
+- **Context:** the first interface was a neutral placeholder. Three directions were prototyped with the same content (desktop chat, mobile and sign-in): **Foco** (dense, team tool), **Calidez** (rounded, bubbles, community) and **Redacción** (editorial, serif, monochrome).
+- **Decision:** Foco. Bordered message cards with author and role, a left room list with `#` prefixes, a members side panel and a single indigo accent.
+- **Why:** the product's centre of gravity is rooms, roles and moderation, which need information density and clear role labels more than personality. Cards show author, role and time compactly, and one accent keeps unread counts and selection unambiguous in both themes.
+- **Alternatives:** Calidez has the friendliest mobile experience but spends width on bubbles; Redacción is the most distinctive but is harder to keep consistent as features grow.
+- **Consequences:** all colour comes from semantic tokens (`primary`, `soft`, `success`...), so the direction can still be retuned in one file (`globals.css`).

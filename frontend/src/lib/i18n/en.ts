@@ -52,14 +52,16 @@ const en = {
 
   'nav.logOut': 'Log out',
   'nav.language': 'Language',
+  'nav.online': 'Online',
   'nav.switchTheme': 'Switch to {theme} theme',
   'theme.light': 'light',
   'theme.dark': 'dark',
 
-  'dashboard.chats': 'Chats',
   'dashboard.searchPlaceholder': 'Search messages',
   'dashboard.clearSearch': 'Clear search',
 
+  'rooms.section': 'Rooms',
+  'rooms.direct': 'Direct messages',
   'rooms.empty': 'No rooms yet. Create your first one with +.',
   'rooms.unread': '{count} unread messages',
   'rooms.new': 'New room',
@@ -113,6 +115,9 @@ const en = {
   'chat.writeMessage': 'Write a message',
   'chat.send': 'Send',
   'chat.addReaction': 'Add reaction',
+  'chat.dmStart': 'This is the start of your conversation with {name}.',
+  'chat.roomStart': 'This is the start of {room}. Say hello!',
+  'chat.messageUser': 'Send {name} a direct message',
 
   'role.member': 'member',
   'role.moderator': 'moderator',

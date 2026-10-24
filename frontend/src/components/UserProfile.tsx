@@ -9,6 +9,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import LanguageToggle from '@/components/LanguageToggle';
 import { useT } from '@/lib/i18n/useT';
 import { Button } from '@/components/ui/button';
+import Avatar from '@/components/Avatar';
 
 export default function UserProfile() {
   const { logout } = useAuth();
@@ -22,12 +23,13 @@ export default function UserProfile() {
   };
 
   return (
-    <div className="flex h-14 items-center justify-between border-b px-4">
-      <Link href="/profile" className="flex min-w-0 items-center gap-3 rounded-md hover:opacity-80">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
-          {profile?.username?.charAt(0).toUpperCase()}
+    <div className="flex h-14 items-center justify-between border-b px-4 pr-3">
+      <Link href="/profile" className="flex min-w-0 items-center gap-2.5 rounded-md hover:opacity-80">
+        <Avatar name={profile?.username} tone="me" size="sm" />
+        <div className="min-w-0 leading-tight">
+          <p className="truncate text-[13px] font-semibold">{profile?.username}</p>
+          <p className="text-[11px] text-muted-foreground">{t('nav.online')}</p>
         </div>
-        <p className="truncate text-sm font-medium">{profile?.username}</p>
       </Link>
       <div className="flex shrink-0 items-center">
       <LanguageToggle />

@@ -55,7 +55,24 @@ flowchart LR
 
 `lib/permissions.ts` mirrors the server matrix so the UI shows only the controls a user could use (pin button, role selector, moderation panel). It is a convenience: the server enforces every rule.
 
-## 5. Theming
+## 5. Visual design: "Foco"
+
+The interface follows the **Foco** direction, chosen from three proposals (Foco, Calidez, Redacción): a dense, fast, team-oriented look with a cool neutral scale and **one** indigo accent.
+
+| Element | Rule |
+|---|---|
+| Rooms | `#` prefix in the mono font, a lock for private rooms, `@` for direct messages; selected row uses the tinted accent (`bg-soft text-primary`) |
+| Unread | bold name plus a `bg-primary` pill |
+| Messages | bordered cards: avatar with initials, bold author (click it to open a direct message), role label for owner, admin and moderator, mono timestamp; yours are tinted and aligned right; reply, pin, report and delete appear on hover (always visible on touch screens) |
+| Direct messages | the header shows the other person's avatar, online status and @username; the sidebar lists them with avatars; an empty conversation shows a start-of-conversation note |
+| Reactions | pills; the ones you added use `border-primary bg-soft` |
+| Members | side panel (overlay on small screens) with presence dot, role and actions |
+| Type | Inter for text, JetBrains Mono (`font-mono`) for hashes, times and counters |
+| Shape | 8 px base radius, hairline borders, no shadows except overlays |
+
+New tokens next to the shadcn ones: `soft` (accent tint) and `success` (online dot). `Avatar` renders the initials (`lib/initials.ts`).
+
+### Theming
 
 Light and dark palettes are CSS variables in `app/globals.css`. An inline script in `<head>` sets the `dark` class before first paint, following the operating system unless the user chose (stored in `localStorage`). **Always use semantic Tailwind tokens** (`bg-background`, `text-muted-foreground`, `border-border`, `bg-primary`…), never hard-coded colours.
 

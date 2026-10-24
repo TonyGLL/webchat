@@ -55,30 +55,26 @@ export default function DashboardPage() {
       <div className="flex h-dvh bg-background">
         <aside
           className={cn(
-            'w-full flex-col border-r md:flex md:w-80 md:shrink-0',
+            'w-full flex-col border-r bg-card md:flex md:w-[272px] md:shrink-0',
             selectedRoom ? 'hidden' : 'flex'
           )}
         >
           <UserProfile />
-          <div className="relative flex items-center justify-between px-4 pb-2 pt-4">
-            <h2 className="text-sm font-medium text-muted-foreground">{t('dashboard.chats')}</h2>
-            <CreateRoomForm createRoom={createRoom} />
-          </div>
-          <div className="relative px-3 pb-2">
-            <Search className="pointer-events-none absolute left-6 top-2.5 h-4 w-4 text-muted-foreground" />
+          <div className="relative px-3 pb-1 pt-3">
+            <Search className="pointer-events-none absolute left-6 top-[1.35rem] h-4 w-4 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('dashboard.searchPlaceholder')}
               aria-label={t('dashboard.searchPlaceholder')}
-              className="h-9 pl-8 pr-8"
+              className="h-9 bg-background pl-8 pr-8"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
                 aria-label={t('dashboard.clearSearch')}
-                className="absolute right-5 top-2.5 text-muted-foreground hover:text-foreground"
+                className="absolute right-5 top-[1.35rem] text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -98,7 +94,12 @@ export default function DashboardPage() {
                 <Spinner />
               </div>
             ) : (
-              <RoomList rooms={rooms} onSelectRoom={setSelectedRoom} selectedRoom={selectedRoom} />
+              <RoomList
+                rooms={rooms}
+                onSelectRoom={setSelectedRoom}
+                selectedRoom={selectedRoom}
+                action={<CreateRoomForm createRoom={createRoom} />}
+              />
             )}
           </div>
         </aside>

@@ -3,60 +3,66 @@
 @tailwind utilities;
 
 /*
- * Design tokens (HSL channels). Minimal neutral palette with a single ink-colored
- * primary. Light is the active theme; the dark palette below is ready and applies
- * as soon as the `dark` class is set on <html> (tailwind `darkMode: "class"`).
- * Always use the semantic classes (bg-background, text-muted-foreground,
- * border-border...) instead of hard-coded colors so both themes keep working.
+ * Design tokens (HSL channels): the "Foco" direction. A cool neutral surface scale with a
+ * single indigo accent. `--primary` is the accent (actions, selection, unread badges) and
+ * `--soft` its tint (selected rows, pinned bar, my own reactions). Light is the default;
+ * the `dark` class on <html> swaps the palette (tailwind `darkMode: "class"`).
+ * Always use the semantic classes (bg-background, bg-card, text-muted-foreground,
+ * border-border, bg-primary, bg-soft...) instead of hard-coded colors so both themes
+ * keep working.
  */
 @layer base {
   :root {
     color-scheme: light;
 
-    --background: 0 0% 100%;
-    --foreground: 240 10% 10%;
+    --background: 220 20% 97%;
+    --foreground: 222 22% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
+    --card-foreground: 222 22% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 10%;
-    --primary: 240 10% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 10% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 94%;
-    --accent-foreground: 240 10% 10%;
-    --destructive: 0 72% 51%;
+    --popover-foreground: 222 22% 10%;
+    --primary: 243 75% 59%;
+    --primary-foreground: 0 0% 100%;
+    --soft: 244 100% 96%;
+    --secondary: 216 17% 94%;
+    --secondary-foreground: 222 22% 10%;
+    --muted: 216 17% 94%;
+    --muted-foreground: 216 11% 40%;
+    --accent: 216 17% 94%;
+    --accent-foreground: 222 22% 10%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 6% 90%;
-    --input: 240 6% 88%;
-    --ring: 240 5% 55%;
-    --radius: 0.75rem;
+    --success: 142 76% 36%;
+    --border: 220 13% 91%;
+    --input: 220 13% 86%;
+    --ring: 243 75% 59%;
+    --radius: 0.5rem;
   }
 
   .dark {
     color-scheme: dark;
 
-    --background: 240 10% 6%;
-    --foreground: 0 0% 96%;
-    --card: 240 10% 8%;
-    --card-foreground: 0 0% 96%;
-    --popover: 240 10% 8%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 0 0% 96%;
-    --primary-foreground: 240 10% 8%;
-    --secondary: 240 6% 14%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 240 6% 14%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 240 6% 18%;
-    --accent-foreground: 0 0% 96%;
-    --destructive: 0 63% 55%;
+    --background: 220 23% 8%;
+    --foreground: 217 24% 94%;
+    --card: 220 21% 11%;
+    --card-foreground: 217 24% 94%;
+    --popover: 220 21% 11%;
+    --popover-foreground: 217 24% 94%;
+    --primary: 242 100% 77%;
+    --primary-foreground: 236 27% 8%;
+    --soft: 240 28% 19%;
+    --secondary: 220 21% 17%;
+    --secondary-foreground: 217 24% 94%;
+    --muted: 220 21% 17%;
+    --muted-foreground: 217 13% 64%;
+    --accent: 220 21% 17%;
+    --accent-foreground: 217 24% 94%;
+    --destructive: 0 63% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 6% 18%;
-    --input: 240 6% 22%;
-    --ring: 240 5% 55%;
+    --success: 142 69% 58%;
+    --border: 220 19% 18%;
+    --input: 220 19% 24%;
+    --ring: 242 100% 77%;
   }
 
   * {

@@ -55,7 +55,24 @@ flowchart LR
 
 `lib/permissions.ts` replica la matriz del servidor para que la interfaz muestre solo los controles que un usuario podría usar (botón de fijar, selector de rol, panel de moderación). Es una comodidad: el servidor aplica todas las reglas.
 
-## 5. Temas
+## 5. Diseño visual: "Foco"
+
+La interfaz sigue la dirección **Foco**, elegida entre tres propuestas (Foco, Calidez, Redacción): un aspecto denso, rápido y orientado a equipos, con una escala neutra fría y **un** único acento índigo.
+
+| Elemento | Regla |
+|---|---|
+| Salas | prefijo `#` en la fuente mono, candado para salas privadas, `@` para mensajes directos; la fila seleccionada usa el acento teñido (`bg-soft text-primary`) |
+| No leídos | nombre en negrita más una píldora `bg-primary` |
+| Mensajes | tarjetas con borde: avatar con iniciales, autor en negrita (púlsalo para abrir un mensaje directo), etiqueta de rol para propietario, admin y moderador, hora en mono; los tuyos van teñidos y alineados a la derecha; responder, fijar, denunciar y borrar aparecen al pasar el ratón (siempre visibles en pantallas táctiles) |
+| Mensajes directos | la cabecera muestra el avatar, el estado de conexión y el @usuario de la otra persona; la barra lateral los lista con avatares; una conversación vacía muestra una nota de inicio |
+| Reacciones | píldoras; las que añadiste usan `border-primary bg-soft` |
+| Miembros | panel lateral (superpuesto en pantallas pequeñas) con punto de presencia, rol y acciones |
+| Tipografía | Inter para el texto, JetBrains Mono (`font-mono`) para almohadillas, horas y contadores |
+| Forma | radio base de 8 px, bordes finos, sin sombras salvo en capas superpuestas |
+
+Tokens nuevos junto a los de shadcn: `soft` (tinte del acento) y `success` (punto de en línea). `Avatar` pinta las iniciales (`lib/initials.ts`).
+
+### Temas
 
 Las paletas clara y oscura son variables CSS en `app/globals.css`. Un script en línea en `<head>` fija la clase `dark` antes del primer pintado, siguiendo al sistema operativo salvo que la persona haya elegido (se guarda en `localStorage`). **Usa siempre tokens semánticos de Tailwind** (`bg-background`, `text-muted-foreground`, `border-border`, `bg-primary`…), nunca colores fijos.
 

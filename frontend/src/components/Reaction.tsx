@@ -55,8 +55,8 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
               mine ? onRemoveReaction(messageId, reaction.emoji) : onAddReaction(messageId, reaction.emoji)
             }
             className={cn(
-              'rounded-full border px-2 py-0.5 text-xs transition-colors hover:bg-accent',
-              mine && 'border-foreground/30 bg-accent'
+              'h-6 rounded-full border bg-card px-2 text-xs transition-colors hover:bg-accent',
+              mine && 'border-primary bg-soft font-medium text-primary hover:bg-soft'
             )}
           >
             {reaction.emoji}
