@@ -62,7 +62,7 @@ Dejar el repo en un estado donde se pueda cambiar con confianza.
 - Métricas (Prometheus), trazas (OpenTelemetry) y alertas.
 - Pruebas de carga (k6) con objetivo de conexiones concurrentes definido.
 - Caché de lectura en Redis para salas y perfiles; revisión de índices y planes de consulta.
-- Despliegue reproducible: imágenes versionadas y multiarquitectura publicadas desde el CI ✅ (H-084); entornos staging/prod y backups de Postgres pendientes (los hace el usuario por aparte).
+- Despliegue reproducible: imágenes construidas en el CI (sin publicar en ningún registro, a petición) ✅ (H-084); entornos staging/prod y backups de Postgres pendientes (los hace el usuario por aparte).
 - Imagen Docker con usuario no root y certificados CA ✅ (distroless `nonroot`).
 
 **Salida:** dos instancias del backend sirviendo la misma sala; dashboards y alertas activos.

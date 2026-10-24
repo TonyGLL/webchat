@@ -2,7 +2,7 @@
 
 # CI/CD and container images
 
-How a change becomes a verified, versioned artifact that can run anywhere (today a laptop or a VM, later AWS). Nothing here is tied to one cloud: the deliverable is a pair of container images.
+How a change is verified before it reaches `main`, and how the container images are built. Nothing here is tied to one cloud, and nothing is published: CI only proves the images build.
 
 ## 1. The pipeline
 
@@ -10,17 +10,15 @@ How a change becomes a verified, versioned artifact that can run anywhere (today
 flowchart LR
     PR[Pull request] --> B
     PR --> F
-    PUSH[Push to main<br/>or tag v*] --> B
+    PUSH[Push to main] --> B
     PUSH --> F
+    PR --> I
+    PUSH --> I
     subgraph CI["ci.yml"]
       B[Backend<br/>gofmt · vet · build · test -race<br/>Postgres + Redis services]
       F[Frontend<br/>tsc · lint · test · build]
-      B --> I
-      F --> I
-      I[Images<br/>build api + web]
+      I[Images<br/>build api + web, no push]
     end
-    I -->|pull request| NOPUSH[Build only]
-    I -->|main or tag| GHCR[(ghcr.io<br/>webchat-api · webchat-web)]
     CRON[Weekly + dependency changes] --> SEC
     subgraph SECW["security.yml"]
       SEC[govulncheck<br/>pnpm audit]
@@ -32,7 +30,7 @@ flowchart LR
 |---|---|---|
 | `ci.yml` · backend | every push and pull request | formatting, `go vet`, compilation, all tests with the race detector, and that **every migration applies to an empty PostgreSQL** (the test is skipped locally unless `TEST_DATABASE_URL` points at an empty database) |
 | `ci.yml` · frontend | same | type check, lint, tests, production build |
-| `ci.yml` · images | after both jobs pass | both Dockerfiles build; on `main` and `v*` tags the images are also published |
+| `ci.yml` · images | every push and pull request | both Dockerfiles build (nothing is published) |
 | `security.yml` | weekly, and when dependency files change | no reachable Go vulnerability (`govulncheck`) and no high-severity JavaScript advisory (`pnpm audit`) |
 | Dependabot | weekly | pull requests for Go, JavaScript, Docker base images and the workflow actions themselves |
 
@@ -40,10 +38,8 @@ flowchart LR
 
 | Image | Base | Size | Notes |
 |---|---|---|---|
-| `ghcr.io/<owner>/webchat-api` | `distroless/static`, non-root | ≈ 40 MB | static Go binary; no shell, no package manager |
-| `ghcr.io/<owner>/webchat-web` | `node:22-alpine`, non-root | ≈ 315 MB | Next.js `standalone` output; listens on 3100 |
-
-Tags: `sha-<commit>` for every build of `main`, `main` and `latest` for the branch head, and `1.2.3` for a `v1.2.3` tag. Published images are **multi-architecture** (`amd64` and `arm64`), so they run on ordinary x86 hosts and on ARM ones such as AWS Graviton.
+| `webchat-api` | `distroless/static`, non-root | ≈ 40 MB | static Go binary; no shell, no package manager |
+| `webchat-web` | `node:22-alpine`, non-root | ≈ 315 MB | Next.js `standalone` output; listens on 3100 |
 
 The frontend lockfile (`frontend/pnpm-lock.yaml`) is committed: CI and the image install exactly the versions you tested (`--frozen-lockfile`).
 
@@ -58,8 +54,8 @@ docker build -t webchat-web --build-arg NEXT_PUBLIC_API_URL=https://api.example.
 
 See **D19** in [Design decisions](decisions.md). In short:
 
-- **Images are the deliverable.** Any platform (ECS, EKS, a VM with Docker, Kubernetes) can run an image; scripts tied to one provider cannot move.
-- **GHCR first.** It needs no extra credentials (the workflow's own token is enough), so the pipeline works from day one. Switching to Amazon ECR later changes only the login and tag steps.
+- **Images are the runnable unit.** Any platform (ECS, EKS, a VM with Docker, Kubernetes) can run an image; scripts tied to one provider cannot move.
+- **CI builds, it does not publish.** Building on every run catches a broken Dockerfile before merge; where and how images are stored and deployed is left to whoever deploys.
 - **One web image per environment.** Next.js inlines `NEXT_PUBLIC_*` values into the browser bundle at build time, so the API URL is a build argument (set the repository variable `NEXT_PUBLIC_API_URL`). The alternative, reading the URL at runtime, would need a config endpoint or a startup script; it is simple to add if more environments appear.
 - **Security checks are separate and non-blocking for unrelated PRs.** A new advisory in a dependency appears without anyone touching the code; it should raise a visible alarm, not stop an unrelated fix.
 
@@ -77,13 +73,13 @@ This section records what the application already provides and what is still a d
 | WebSocket events relayed through Redis | any instance can serve any room, so no sticky sessions are needed |
 | Heartbeat every ~54 s | stays under the 60 s default idle timeout of an AWS load balancer, so connections are not cut |
 | Migrations run at startup under a database lock | several instances can start together without corrupting the schema |
-| Non-root, minimal images, multi-architecture | smaller attack surface; cheaper ARM instances are an option |
+| Non-root, minimal images | smaller attack surface |
 
 **Decisions for later**
 
 | Topic | Notes |
 |---|---|
-| Registry | Amazon ECR instead of GHCR: authenticate the workflow with an **OIDC role** (`aws-actions/configure-aws-credentials`) rather than stored access keys |
+| Registry and publishing | not set up; if added later, authenticate the workflow with an **OIDC role** (`aws-actions/configure-aws-credentials`) rather than stored access keys |
 | Where it runs | ECS on Fargate, EKS or EC2: all consume the same images |
 | Database and Redis | RDS for PostgreSQL and ElastiCache. Refresh tokens live in Redis, so enable persistence or accept that a Redis loss signs everyone out |
 | Secrets | `JWT_SECRET`, database and SMTP credentials belong in a secret manager, not in images or compose files (finding H-051) |
@@ -95,10 +91,8 @@ This section records what the application already provides and what is still a d
 
 These cannot live in code, so they are easy to forget:
 
-1. **Settings → Actions → General → Workflow permissions:** allow read access; the image job requests `packages: write` itself.
-2. **Settings → Secrets and variables → Actions → Variables:** add `NEXT_PUBLIC_API_URL` (without it the web image points at `http://localhost:8081/api/v1`).
-3. **Settings → Branches:** require the `Backend (Go)`, `Frontend (Next.js)` and image checks before merging into `main`.
-4. After the first publish, set each package's visibility under **Packages**.
+1. **Settings → Secrets and variables → Actions → Variables:** add `NEXT_PUBLIC_API_URL` (without it the web image is built pointing at `http://localhost:8081/api/v1`).
+2. **Settings → Branches:** require the `Backend (Go)`, `Frontend (Next.js)` and image checks before merging into `main`.
 
 ## 6. Run the same checks locally
 

@@ -24,7 +24,7 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D16 | Optimistic sending with explicit states | Accepted |
 | D17 | Visual direction "Foco" | Accepted |
 | D18 | People directory, discoverable rooms and personal invitations | Accepted |
-| D19 | Container images as the deliverable; cloud-neutral CI/CD | Accepted |
+| D19 | Container images built in CI, not published; cloud-neutral CI/CD | Accepted |
 | D20 | Persistent sessions with a sliding 7-day window | Accepted |
 | D21 | Password reset by emailed single-use link | Accepted |
 | D22 | pnpm as the frontend package manager | Accepted |
@@ -174,12 +174,12 @@ sequenceDiagram
 - **Alternatives:** hiding private rooms entirely (nothing to ask an invitation for), or invite codes only (clumsy and unaddressed).
 - **Consequences:** the directory exposes names and usernames to every signed-in user, which suits a team server; for a public deployment it would need a visibility setting. Invitations are polled every 15 s rather than pushed.
 
-## D19. Container images as the deliverable; cloud-neutral CI/CD
+## D19. Container images built in CI, not published; cloud-neutral CI/CD
 
 - **Context:** CI only checked the code. Nothing produced a runnable, versioned artifact, the frontend had no Dockerfile, the migrations had never been proven on an empty database, and dependencies were never scanned.
-- **Decision:** CI also builds both images on every run and publishes them (multi-architecture) from `main` and version tags to GHCR; a separate weekly workflow scans dependencies; Dependabot keeps everything current. Deployment itself is deliberately not in the pipeline.
+- **Decision:** CI also builds both images on every run to prove the Dockerfiles work, but does not publish them anywhere (an earlier version pushed multi-architecture images to GHCR from `main` and tags; removed on request); a separate weekly workflow scans dependencies; Dependabot keeps everything current. Deployment itself is deliberately not in the pipeline.
 - **Why:** an image runs on any platform, so choosing AWS later (or something else) does not invalidate the work. Building images on pull requests catches a broken Dockerfile before merge. The first scan found real problems (critical Next.js advisories, an end-of-life Go line with 29 reachable vulnerabilities, an unused database driver with an unfixable one), which is the argument for running it continuously.
-- **Alternatives:** deploy scripts for one provider (not portable), or publishing only on release tags (slower feedback on whether the image still builds).
+- **Alternatives:** deploy scripts for one provider (not portable), or publishing to a registry (dropped: not wanted for now; it can return later with an OIDC-authenticated login).
 - **Consequences:** the web image is per environment because Next.js inlines `NEXT_PUBLIC_*` at build time. The Go toolchain moved from 1.24 (no longer patched) to 1.26, and the unused `pgx` driver was removed; the real driver is `lib/pq`. See [CI/CD](ci-cd.md).
 
 ## D20. Persistent sessions with a sliding 7-day window

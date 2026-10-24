@@ -24,7 +24,7 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D16 | Envío optimista con estados explícitos | Aceptada |
 | D17 | Dirección visual "Foco" | Aceptada |
 | D18 | Directorio de personas, salas descubribles e invitaciones personales | Aceptada |
-| D19 | Imágenes de contenedor como entregable; CI/CD neutral a la nube | Aceptada |
+| D19 | Imágenes de contenedor construidas en el CI, sin publicar; CI/CD neutral a la nube | Aceptada |
 | D20 | Sesiones persistentes con ventana deslizante de 7 días | Aceptada |
 | D21 | Restablecer contraseña con enlace de un solo uso por correo | Aceptada |
 | D22 | pnpm como gestor de paquetes del frontend | Aceptada |
@@ -174,12 +174,12 @@ sequenceDiagram
 - **Alternativas:** ocultar del todo las salas privadas (no habría nada a lo que pedir invitación), o solo códigos de invitación (incómodo y sin destinatario).
 - **Consecuencias:** el directorio expone nombres y usuarios a cualquier persona con sesión, algo adecuado para un servidor de equipo; en un despliegue público haría falta un ajuste de visibilidad. Las invitaciones se consultan cada 15 s en lugar de enviarse en vivo.
 
-## D19. Imágenes de contenedor como entregable; CI/CD neutral a la nube
+## D19. Imágenes de contenedor construidas en el CI, sin publicar; CI/CD neutral a la nube
 
 - **Contexto:** el CI solo comprobaba el código. Nada producía un artefacto ejecutable y versionado, el frontend no tenía Dockerfile, las migraciones nunca se habían probado sobre una base vacía y las dependencias nunca se escaneaban.
-- **Decisión:** el CI además construye ambas imágenes en cada ejecución y las publica (multiarquitectura) desde `main` y los tags de versión en GHCR; un workflow semanal aparte escanea las dependencias; Dependabot lo mantiene al día. El despliegue en sí queda deliberadamente fuera del pipeline.
+- **Decisión:** el CI además construye ambas imágenes en cada ejecución para probar que los Dockerfile funcionan, pero no las publica en ningún sitio (una versión anterior subía imágenes multiarquitectura a GHCR desde `main` y los tags; se quitó a petición); un workflow semanal aparte escanea las dependencias; Dependabot lo mantiene al día. El despliegue en sí queda deliberadamente fuera del pipeline.
 - **Por qué:** una imagen corre en cualquier plataforma, así que elegir AWS más adelante (u otra cosa) no invalida el trabajo. Construir imágenes en los pull requests detecta un Dockerfile roto antes de fusionar. El primer escaneo encontró problemas reales (avisos críticos de Next.js, una línea de Go sin mantenimiento con 29 vulnerabilidades alcanzables, un driver de base de datos sin uso con una vulnerabilidad sin arreglo), que es el argumento para ejecutarlo de forma continua.
-- **Alternativas:** scripts de despliegue para un proveedor (no portables), o publicar solo en tags de versión (feedback más lento sobre si la imagen aún construye).
+- **Alternativas:** scripts de despliegue para un proveedor (no portables), o publicar en un registro (descartado: no se quiere por ahora; puede volver más adelante con un login autenticado por OIDC).
 - **Consecuencias:** la imagen web es por entorno porque Next.js incrusta `NEXT_PUBLIC_*` al construir. El toolchain de Go pasó de 1.24 (ya sin parches) a 1.26, y se eliminó el driver `pgx`, que no se usaba; el real es `lib/pq`. Ver [CI/CD](ci-cd.md).
 
 ## D20. Sesiones persistentes con ventana deslizante de 7 días

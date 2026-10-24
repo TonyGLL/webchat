@@ -3,11 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
 
-# A newer push to the same pull request replaces the running check; pushes to main and tags
-# always run to completion so every published image comes from a finished pipeline.
+# A newer push to the same pull request replaces the running check; pushes to main always
+# run to completion.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -87,16 +86,11 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8081/api/v1
 
-  # Builds both container images on every run, so a broken Dockerfile fails the pull request.
-  # Only pushes to main and version tags publish them (to GitHub's registry, GHCR).
+  # Builds both container images (no publishing), so a broken Dockerfile fails the check.
   images:
     name: Image (${{ matrix.image }})
-    needs: [backend, frontend]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: write
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -105,49 +99,12 @@ jobs:
             context: backend
           - image: web
             context: frontend
-    env:
-      PUBLISH: ${{ github.event_name == 'push' }}
     steps:
       - uses: actions/checkout@v7
-
-      - name: Image name (registry paths must be lowercase)
-        id: name
-        run: echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/webchat-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
-
-      - uses: docker/setup-qemu-action@v4
-      - uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GHCR
-        if: env.PUBLISH == 'true'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tags and labels
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ steps.name.outputs.image }}
-          tags: |
-            type=sha
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build${{ github.event_name == 'push' && ' and push' || '' }}
-        uses: docker/build-push-action@v7
-        with:
-          context: ${{ matrix.context }}
-          push: ${{ env.PUBLISH == 'true' }}
-          # arm64 covers Graviton instances on AWS; pull requests build amd64 only, for speed.
-          platforms: ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # NEXT_PUBLIC_* is inlined into the browser bundle at build time (one web image per
-          # environment); the backend image ignores this argument.
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1' }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Build
+        # NEXT_PUBLIC_* is inlined into the browser bundle at build time; the backend image
+        # ignores this argument.
+        run: >
+          docker build
+          --build-arg NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api/v1' }}
+          ${{ matrix.context }}
