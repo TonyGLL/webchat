@@ -76,7 +76,7 @@ Inside Docker, hosts and ports are the internal ones (`DB_HOST=db`, `DB_PORT=543
 
 1. Open `http://localhost:3100/register` and create a user.
 2. Sign in, create a room and send a message.
-3. In a private window, create a second user and join the room with an invitation.
+3. In a private window, create a second user. Both appear in each other's **People** panel; from the first user open the room, press the invite button in its header and invite the second, who accepts from the **Invitations** block at the top of the sidebar.
 4. Messages should arrive in both windows **without reloading**: that proves the WebSocket works.
 5. Edit a message, react to it, pin it.
 

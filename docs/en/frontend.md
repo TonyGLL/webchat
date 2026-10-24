@@ -44,11 +44,14 @@ flowchart LR
     SC --> UA[useRoomActivity<br/>members · typing · presence]
     UM --> MV[MessageView]
     UA --> MV
+    SC --> UD[useDirectory<br/>people · presence]
+    UD --> PP[PeoplePanel]
 ```
 
 - `SocketContext` opens one connection per session and exposes it to the hooks.
 - `useMessages` applies `new_message`, `update_message`, `delete_message`, `pin_message` and reaction events, and keeps **pending** messages (sending, not sent) so sends feel instant and failures are retryable.
-- After a reconnect both hooks reload, because events sent during an outage are lost.
+- `useDirectory` lists everyone with online status for the always-visible `PeoplePanel`: it applies `presence` events, reloads on reconnect and every 60 s (people who share no room with you do not get live events, so their dot can lag up to a minute). `useInvitations` polls pending invitations every 15 s and on window focus; `useDiscoverRooms` lists rooms you have not joined.
+- After a reconnect the hooks reload, because events sent during an outage are lost.
 - `MessageView` is mounted with `key={roomId}`, so each room starts with fresh state.
 
 ## 4. Permissions in the UI
@@ -65,8 +68,12 @@ The interface follows the **Foco** direction, chosen from three proposals (Foco,
 | Unread | bold name plus a `bg-primary` pill |
 | Messages | bordered cards: avatar with initials, bold author (click it to open a direct message), role label for owner, admin and moderator, mono timestamp; yours are tinted and aligned right; reply, pin, report and delete appear on hover (always visible on touch screens) |
 | Direct messages | the header shows the other person's avatar, online status and @username; the sidebar lists them with avatars; an empty conversation shows a start-of-conversation note |
-| Reactions | pills; the ones you added use `border-primary bg-soft` |
-| Members | side panel (overlay on small screens) with presence dot, role and actions |
+| Reactions | pills; the ones you added use `border-primary bg-soft`. The add button exists on every message (on hover when it has none): a quick row of six emojis plus the full picker (`EmojiPicker`, a floating layer so it is never clipped). On your own messages the quick row opens towards the left |
+| Composer | emoji button that inserts into the draft |
+| People | `PeoplePanel`: a right column, always visible on wide screens (at the end of the sidebar on small ones), with search, online first and presence dots; click a person to write to them |
+| Explore | `DiscoverRooms` in the sidebar: public rooms have a Join button; private ones show a lock and "invitation only" |
+| Invitations | received ones appear on top of the sidebar with Accept and Decline; owners and admins get an invite button in the room header (`InviteUsers`) |
+| Room members | side panel (overlay on small screens) kept for roles, removing and banning |
 | Type | Inter for text, JetBrains Mono (`font-mono`) for hashes, times and counters |
 | Shape | 8 px base radius, hairline borders, no shadows except overlays |
 

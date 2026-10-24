@@ -22,7 +22,7 @@ flowchart LR
 - **Hub:** un único bucle de eventos que sabe qué clientes pertenecen a cada sala.
 - **Cliente:** uno por conexión, con una goroutine de lectura y otra de escritura.
 - **Bus:** publica cada evento en Redis para que todas las instancias lo entreguen a *sus* clientes.
-- **Presencia:** un sorted set de Redis con `userID:clientID` puntuado por el último latido. Un usuario está en línea si al menos una conexión latió en los últimos 2 minutos.
+- **Presencia:** un sorted set de Redis con `userID:clientID` puntuado por el último latido. Un usuario está en línea si al menos una conexión latió en los últimos 2 minutos. Los eventos `presence` van a las salas del usuario; el directorio de personas además pregunta al servidor por el estado de todos al cargar, al reconectar y cada 60 s.
 
 ## 2. Conexión
 

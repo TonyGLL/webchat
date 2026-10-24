@@ -22,7 +22,7 @@ flowchart LR
 - **Hub:** a single event loop that tracks which clients belong to which room.
 - **Client:** one per connection, with a read pump and a write pump (goroutines).
 - **Bus:** publishes every event to Redis so all instances deliver it to *their* clients.
-- **Presence:** a Redis sorted set of `userID:clientID` scored by last heartbeat. A user is online if at least one connection beat within the last 2 minutes.
+- **Presence:** a Redis sorted set of `userID:clientID` scored by last heartbeat. A user is online if at least one connection beat within the last 2 minutes. `presence` events go to the rooms the user is in; the people directory also asks the server for everyone's status on load, on reconnect and every 60 s.
 
 ## 2. Connecting
 

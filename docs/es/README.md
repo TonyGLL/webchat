@@ -2,7 +2,7 @@
 
 # Documentación de WebChat
 
-WebChat es una plataforma de chat en tiempo real: salas, mensajes directos, reacciones, mensajes fijados, búsqueda y herramientas de moderación. Esta documentación explica **cómo funciona** y, sobre todo, **por qué se construyó así**.
+WebChat es una plataforma de chat en tiempo real: salas, un directorio de personas con presencia, mensajes directos, invitaciones personales, reacciones con emojis, mensajes fijados, búsqueda y herramientas de moderación. Esta documentación explica **cómo funciona** y, sobre todo, **por qué se construyó así**.
 
 ## Guía de lectura
 

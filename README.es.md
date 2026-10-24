@@ -7,6 +7,7 @@ Plataforma de chat en tiempo real: salas públicas y privadas, mensajes directos
 ## Lo esencial
 
 - **Mensajería en vivo** por WebSockets con autenticación mediante ticket de un solo uso, validación del origen, presencia e indicador de "escribiendo".
+- **Encontrar y llegar a la gente:** un panel de personas siempre visible con su estado de conexión, mensajes directos a cualquiera, salas descubribles (las privadas se listan pero requieren invitación) e invitaciones personales que se aceptan o rechazan.
 - **Sesiones seguras:** access JWT de 1 hora guardado solo en memoria, más un refresh token rotativo de un solo uso en cookie httpOnly.
 - **Roles y moderación:** una única matriz de permisos por rangos, denuncias, vetos temporales o permanentes y registro de auditoría.
 - **Pensado para escalar:** varias instancias del backend pueden atender la misma sala mediante Redis pub/sub.

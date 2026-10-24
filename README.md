@@ -7,6 +7,7 @@ Real-time chat platform: public and private rooms, direct messages, replies, rea
 ## Highlights
 
 - **Live messaging** over WebSockets with single-use ticket authentication, origin checks, presence and typing indicators.
+- **Find and reach people:** an always-visible people panel with live online status, direct messages to anyone, discoverable rooms (private ones are listed but need an invitation) and personal invitations you accept or decline.
 - **Secure sessions:** 1-hour access JWT held only in memory, plus a single-use rotating refresh token in an httpOnly cookie.
 - **Roles and moderation:** one rank-based permission matrix, reports, temporary or permanent bans and an audit log.
 - **Built to scale out:** several backend instances can serve the same room through Redis pub/sub.

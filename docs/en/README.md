@@ -2,7 +2,7 @@
 
 # WebChat documentation
 
-WebChat is a real-time chat platform: rooms, direct messages, reactions, pinned messages, search and a moderation toolkit. This documentation explains **how it works** and, above all, **why it was built this way**.
+WebChat is a real-time chat platform: rooms, a people directory with presence, direct messages, personal invitations, emoji reactions, pinned messages, search and a moderation toolkit. This documentation explains **how it works** and, above all, **why it was built this way**.
 
 ## Reading guide
 

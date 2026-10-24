@@ -44,6 +44,7 @@ Dejar el repo en un estado donde se pueda cambiar con confianza.
 - Adjuntos e imágenes (almacenamiento S3-compatible, URLs firmadas; ya existe la tabla `attachments`).
 - Indicador de "escribiendo" y presencia en línea.
 - Mensajes directos 1 a 1 y gestión de miembros/roles de sala.
+- Directorio de personas con presencia, mensajes directos a cualquiera, salas descubribles e invitaciones personales (H-081).
 - Búsqueda de mensajes (Postgres full-text).
 - Responder a un mensaje, borrar, fijar.
 - Notificaciones (Web Push) y preferencias de silencio por sala.
@@ -67,7 +68,7 @@ Dejar el repo en un estado donde se pueda cambiar con confianza.
 **Salida:** dos instancias del backend sirviendo la misma sala; dashboards y alertas activos.
 
 ## Fase 6: Pulido (continuo)
-- Temas claro/oscuro, i18n (es/en), onboarding.
+- Temas claro/oscuro ✅, i18n (es/en) ✅, rediseño "Foco" ✅ (H-080), onboarding.
 - Tests end-to-end (Playwright) de los flujos críticos.
 - Documentación de API publicada y guía de contribución. ✅ Hecho en `docs/en/` y `docs/es/` (arquitectura, decisiones, seguridad, tiempo real, modelo de datos, API, frontend, primeros pasos, contribuir). Contrato OpenAPI 3.1 publicado con Scalar en `/docs` (H-079).
 

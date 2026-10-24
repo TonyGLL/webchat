@@ -44,11 +44,14 @@ flowchart LR
     SC --> UA[useRoomActivity<br/>miembros · escribiendo · presencia]
     UM --> MV[MessageView]
     UA --> MV
+    SC --> UD[useDirectory<br/>personas · presencia]
+    UD --> PP[PeoplePanel]
 ```
 
 - `SocketContext` abre una conexión por sesión y la expone a los hooks.
 - `useMessages` aplica `new_message`, `update_message`, `delete_message`, `pin_message` y los eventos de reacciones, y conserva los mensajes **pendientes** (enviando, no enviado) para que el envío se sienta instantáneo y los fallos se puedan reintentar.
-- Tras una reconexión ambos hooks recargan, porque los eventos enviados durante una caída se pierden.
+- `useDirectory` lista a todos con su estado de conexión para el `PeoplePanel`, siempre visible: aplica los eventos `presence`, recarga al reconectar y cada 60 s (quien no comparte sala contigo no recibe eventos en vivo, así que su punto puede tardar hasta un minuto). `useInvitations` consulta las invitaciones pendientes cada 15 s y al enfocar la ventana; `useDiscoverRooms` lista las salas a las que aún no te has unido.
+- Tras una reconexión los hooks recargan, porque los eventos enviados durante una caída se pierden.
 - `MessageView` se monta con `key={roomId}`, así cada sala empieza con estado limpio.
 
 ## 4. Permisos en la interfaz
@@ -65,8 +68,12 @@ La interfaz sigue la dirección **Foco**, elegida entre tres propuestas (Foco, C
 | No leídos | nombre en negrita más una píldora `bg-primary` |
 | Mensajes | tarjetas con borde: avatar con iniciales, autor en negrita (púlsalo para abrir un mensaje directo), etiqueta de rol para propietario, admin y moderador, hora en mono; los tuyos van teñidos y alineados a la derecha; responder, fijar, denunciar y borrar aparecen al pasar el ratón (siempre visibles en pantallas táctiles) |
 | Mensajes directos | la cabecera muestra el avatar, el estado de conexión y el @usuario de la otra persona; la barra lateral los lista con avatares; una conversación vacía muestra una nota de inicio |
-| Reacciones | píldoras; las que añadiste usan `border-primary bg-soft` |
-| Miembros | panel lateral (superpuesto en pantallas pequeñas) con punto de presencia, rol y acciones |
+| Reacciones | píldoras; las que añadiste usan `border-primary bg-soft`. El botón de añadir existe en todos los mensajes (al pasar el ratón cuando no tiene ninguna): una fila rápida de seis emojis más el selector completo (`EmojiPicker`, una capa flotante que nunca se recorta). En tus propios mensajes la fila rápida se abre hacia la izquierda |
+| Compositor | botón de emoji que inserta en el borrador |
+| Personas | `PeoplePanel`: una columna a la derecha, siempre visible en pantallas anchas (al final de la barra lateral en las pequeñas), con buscador, conectados primero y puntos de presencia; pulsa una persona para escribirle |
+| Explorar | `DiscoverRooms` en la barra lateral: las salas públicas tienen botón Unirme; las privadas muestran un candado y "solo con invitación" |
+| Invitaciones | las recibidas aparecen arriba de la barra lateral con Aceptar y Rechazar; propietarios y admins tienen un botón de invitar en la cabecera de la sala (`InviteUsers`) |
+| Miembros de la sala | panel lateral (superpuesto en pantallas pequeñas) que se mantiene para roles, expulsar y vetar |
 | Tipografía | Inter para el texto, JetBrains Mono (`font-mono`) para almohadillas, horas y contadores |
 | Forma | radio base de 8 px, bordes finos, sin sombras salvo en capas superpuestas |
 

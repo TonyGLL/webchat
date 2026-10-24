@@ -52,7 +52,7 @@ A global **moderator** acts as a moderator in every room; a global **admin** out
 | Read a room, send messages | 1 · member |
 | Delete other people's messages, resolve reports | 2 · moderator |
 | Kick or ban a user | 2 · moderator **and strictly above the target** |
-| Pin messages, create invitations | 3 · admin |
+| Pin messages, create invitations (codes or personal) | 3 · admin |
 | Change roles | 3 · admin, only for members below them: admins can make moderators, only owners (or global admins) can make admins; the owner role is never assigned |
 | Read the audit log | 3 · admin |
 
@@ -83,10 +83,13 @@ When exceeded the API answers `429` with a `Retry-After` header. If Redis is una
 
 ## 6. Privacy
 
+- **Directory and discovery:** any signed-in user can list other active users (name, username, online status) and every room's name, topic and member count. Reading or writing in a room still needs membership, so a private room is visible but closed. Personal invitations can only be answered by the invited user (anyone else gets "not found"), and accepting re-checks bans.
 - `GET /users/export` downloads a JSON file with the user's profile, rooms, messages and reactions.
 - `DELETE /users/me` (confirmed with the password) deletes the account: see D13 in [Design decisions](decisions.md).
 
 ## 7. Known limits
+
+The directory exposes names and usernames to every signed-in user: fine for a team server, but a public deployment would need a visibility setting (see D18 in [Design decisions](decisions.md)).
 
 Email verification is implemented but **paused**, and `POST /auth/send-verify-email/:user_id` is still public (tracked as H-008 in the findings tracker). Docker Compose still carries database passwords in the file (H-051).
 

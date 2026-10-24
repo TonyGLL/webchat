@@ -201,13 +201,13 @@ Abre `http://localhost:3100` e inicia sesión. Después:
 
 1. Crear una sala.
 2. Enviar un mensaje.
-3. En una ventana de incógnito, crear un segundo usuario (pasos 5.1 y 5.2) y unirlo a la sala con una invitación.
+3. En una ventana de incógnito, crear un segundo usuario (pasos 5.1 y 5.2) y, desde el primero, invitarlo a la sala con el botón de invitar de la cabecera; el segundo acepta desde el bloque «Invitaciones» de la barra lateral. También se pueden escribir directamente desde el panel «Personas».
 4. Comprobar que los mensajes llegan a ambas ventanas **sin recargar** (esto prueba el WebSocket).
 5. Editar un mensaje y poner una reacción.
 
 ## Roles y administración
 
-Dentro de cada sala los roles son dueño > admin > moderador > miembro (se cambian desde la lista de miembros). Los roles **globales** (moderador/admin de toda la aplicación) solo se otorgan desde el servidor:
+Dentro de cada sala los roles son dueño > admin > moderador > miembro (se cambian desde la lista de miembros de la sala). Los roles **globales** (moderador/admin de toda la aplicación) solo se otorgan desde el servidor:
 
 ```bash
 cd backend

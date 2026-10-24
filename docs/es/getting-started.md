@@ -76,7 +76,7 @@ Dentro de Docker, los hosts y puertos son los internos (`DB_HOST=db`, `DB_PORT=5
 
 1. Abre `http://localhost:3100/register` y crea un usuario.
 2. Inicia sesión, crea una sala y envía un mensaje.
-3. En una ventana privada, crea un segundo usuario y únelo a la sala con una invitación.
+3. En una ventana privada, crea un segundo usuario. Ambos aparecen en el panel **Personas** del otro; con el primero abre la sala, pulsa el botón de invitar de la cabecera e invita al segundo, que acepta desde el bloque **Invitaciones** al principio de la barra lateral.
 4. Los mensajes deben llegar a ambas ventanas **sin recargar**: eso prueba que el WebSocket funciona.
 5. Edita un mensaje, reacciona y fíjalo.
 

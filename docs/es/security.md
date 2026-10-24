@@ -52,7 +52,7 @@ Un **moderador** global actúa como moderador en todas las salas; un **admin** g
 | Leer una sala, enviar mensajes | 1 · miembro |
 | Borrar mensajes ajenos, resolver denuncias | 2 · moderador |
 | Expulsar o vetar a un usuario | 2 · moderador **y estrictamente por encima del objetivo** |
-| Fijar mensajes, crear invitaciones | 3 · admin |
+| Fijar mensajes, crear invitaciones (códigos o personales) | 3 · admin |
 | Cambiar roles | 3 · admin, solo sobre miembros por debajo: un admin puede crear moderadores, solo los propietarios (o admins globales) pueden crear admins; el rol de propietario nunca se asigna |
 | Leer el registro de auditoría | 3 · admin |
 
@@ -83,10 +83,13 @@ Al superarlos la API responde `429` con la cabecera `Retry-After`. Si Redis no e
 
 ## 6. Privacidad
 
+- **Directorio y descubrimiento:** cualquier usuario con sesión puede listar a otros usuarios activos (nombre, usuario, estado de conexión) y el nombre, tema y número de miembros de cada sala. Leer o escribir en una sala sigue exigiendo ser miembro, así que una sala privada es visible pero está cerrada. Las invitaciones personales solo las puede responder el usuario invitado (cualquier otro recibe "no encontrada") y al aceptar se vuelven a comprobar los vetos.
 - `GET /users/export` descarga un JSON con el perfil, las salas, los mensajes y las reacciones del usuario.
 - `DELETE /users/me` (confirmado con la contraseña) borra la cuenta: ver D13 en [Decisiones de diseño](decisions.md).
 
 ## 7. Límites conocidos
+
+El directorio expone nombres y usuarios a cualquier persona con sesión: adecuado para un servidor de equipo, pero un despliegue público necesitaría un ajuste de visibilidad (ver D18 en [Decisiones de diseño](decisions.md)).
 
 La verificación de email está implementada pero **pausada**, y `POST /auth/send-verify-email/:user_id` sigue siendo público (registrado como H-008 en el registro de hallazgos). Docker Compose todavía lleva contraseñas de base de datos en el archivo (H-051).
 
