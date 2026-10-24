@@ -93,11 +93,11 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
-| H-010 | Imagen Docker: ahora distroless con certificados CA, usuario no root, binario compilado sin CGO (42 MB) | 2026-10-23 | _(este commit)_ |
-| H-021 | CI en GitHub Actions: formato, vet, build y tests (backend); tipos, lint y build (frontend) | 2026-10-23 | _(este commit)_ |
-| H-040 | README raíz y de backend reescritos con puertos, rutas y comandos reales | 2026-10-23 | _(este commit)_ |
-| H-042 | `GET /health` y `GET /ready` (comprueba PostgreSQL y Redis) | 2026-10-23 | _(este commit)_ |
-| H-043 | Logs estructurados con `slog` (JSON en producción) y un `X-Request-ID` por petición | 2026-10-23 | _(este commit)_ |
+| H-010 | Imagen Docker: ahora distroless con certificados CA, usuario no root, binario compilado sin CGO (42 MB) | 2026-10-23 | 13b60f9 |
+| H-021 | CI en GitHub Actions: formato, vet, build y tests (backend); tipos, lint y build (frontend) | 2026-10-23 | 13b60f9 |
+| H-040 | README raíz y de backend reescritos con puertos, rutas y comandos reales | 2026-10-23 | 13b60f9 |
+| H-042 | `GET /health` y `GET /ready` (comprueba PostgreSQL y Redis) | 2026-10-23 | 13b60f9 |
+| H-043 | Logs estructurados con `slog` (JSON en producción) y un `X-Request-ID` por petición | 2026-10-23 | 13b60f9 |
 | H-061 | Login devolvía un "access token" de 7 días (en realidad un refresh token) y un refresh token que era solo un UUID: la renovación nunca funcionó. Ahora access 1 h + refresh JWT de un solo uso, guardado en Redis; los refresh tokens ya no sirven como access tokens | 2026-10-23 | 4a81494 |
 | H-023 | Estado de auth duplicado por hook: ahora un único `AuthContext` (un solo pedido de perfil para toda la app) | 2026-10-23 | 4a81494 |
 | H-024 | Renovación automática del token: cliente axios único con interceptor que renueva una vez y reintenta | 2026-10-23 | 4a81494 |
