@@ -58,7 +58,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
-| H-004 | Tokens fuera de `localStorage`: el refresh token va en cookie `httpOnly` + `SameSite=Strict` (solo se envía a `/api/v1/auth`), el access token vive solo en memoria y la sesión se restaura al recargar con la cookie; nuevo `POST /auth/logout` que revoca el token | 2026-10-23 | _(este commit)_ |
+| H-004 | Tokens fuera de `localStorage`: el refresh token va en cookie `httpOnly` + `SameSite=Strict` (solo se envía a `/api/v1/auth`), el access token vive solo en memoria y la sesión se restaura al recargar con la cookie; nuevo `POST /auth/logout` que revoca el token | 2026-10-23 | 17a6b6c |
 | H-020 | Pruebas automáticas: backend (config, política de contraseñas, autorización de mensajes/salas/invitaciones, rate limit, health, origen y tickets de WebSocket, hub con `-race`, bus entre instancias) y frontend con Vitest (almacenamiento de tokens y renovación del token); ambas corren en CI | 2026-10-23 | 838956c |
 | H-032 | Hub de WebSocket multi-instancia: los eventos y las suscripciones viajan por Redis pub/sub, así que varias instancias del backend pueden servir las mismas salas (probado con un bus en memoria entre dos hubs y en vivo con Redis) | 2026-10-23 | b4604f6 |
 | H-031 | Historial por cursor (`before` = id del mensaje más antiguo) en vez de página/offset, que duplicaba mensajes con tráfico en vivo; oculta mensajes borrados; botón "Load older messages" que conserva el scroll | 2026-10-23 | 555e434 |
