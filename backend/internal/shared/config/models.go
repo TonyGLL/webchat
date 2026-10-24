@@ -1,6 +1,9 @@
 package config
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
 // Config holds all configuration for the application.
 // Values are read from environment variables.
@@ -15,6 +18,12 @@ type Config struct {
 	SMTPPassword       string
 	SMTPHost           string
 	SMTPPort           string
+
+	// Database pool tuning (DB_MAX_OPEN_CONNS, DB_MAX_IDLE_CONNS, DB_CONN_MAX_LIFETIME, DB_CONN_MAX_IDLE_TIME).
+	DBMaxOpenConns    int
+	DBMaxIdleConns    int
+	DBConnMaxLifetime time.Duration
+	DBConnMaxIdleTime time.Duration
 }
 
 // IsProduction returns true if the app environment is set to "prod" or "production".
