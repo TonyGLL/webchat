@@ -28,6 +28,10 @@ func (uc *CreateMessageUseCase) Execute(ctx context.Context, input CreateMessage
 	if err != nil {
 		return nil, shared_domain.ErrInvalidInput
 	}
+	if err := requireRoomMember(ctx, uc.messageRepo, roomID, authorID); err != nil {
+		return nil, err
+	}
+
 	message := &domain.Message{Content: input.Content, AuthorID: authorID, RoomID: roomID}
 	createdMessage, err := uc.messageRepo.Create(ctx, message)
 	if err != nil {

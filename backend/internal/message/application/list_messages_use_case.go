@@ -1,4 +1,3 @@
-
 package application
 
 import (
@@ -22,10 +21,14 @@ func NewListMessagesUseCase(messageRepo domain.MessageRepository) *ListMessagesU
 	return &ListMessagesUseCase{messageRepo: messageRepo}
 }
 
-func (uc *ListMessagesUseCase) Execute(ctx context.Context, roomIDStr string, page, pageSize int) ([]*domain.Message, error) {
+func (uc *ListMessagesUseCase) Execute(ctx context.Context, roomIDStr string, userID int, page, pageSize int) ([]*domain.Message, error) {
 	roomID, err := uuid.Parse(roomIDStr)
 	if err != nil {
 		return nil, shared_domain.ErrInvalidInput
+	}
+
+	if err := requireRoomMember(ctx, uc.messageRepo, roomID, userID); err != nil {
+		return nil, err
 	}
 
 	if pageSize <= 0 {

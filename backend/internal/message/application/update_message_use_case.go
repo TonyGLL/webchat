@@ -2,6 +2,7 @@ package application
 
 import (
 	"backend/internal/message/domain"
+	shared_domain "backend/internal/shared/domain"
 	"context"
 
 	"github.com/google/uuid"
@@ -23,7 +24,15 @@ func NewUpdateMessageUseCase(messageRepo domain.MessageRepository, wsBroadcaster
 	}
 }
 
-func (uc *UpdateMessageUseCase) Execute(ctx context.Context, messageID uuid.UUID, dto UpdateMessageDTO) error {
+func (uc *UpdateMessageUseCase) Execute(ctx context.Context, messageID uuid.UUID, userID int, dto UpdateMessageDTO) error {
+	msg, err := uc.messageRepo.FindByID(ctx, messageID)
+	if err != nil {
+		return err
+	}
+	if msg.AuthorID != userID {
+		return shared_domain.ErrForbidden
+	}
+
 	roomID, err := uc.messageRepo.Update(ctx, dto.Content, messageID)
 	if err != nil {
 		return err

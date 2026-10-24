@@ -13,6 +13,7 @@ var (
 	ErrInternal           = errors.New("internal server error")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrInvalidToken       = errors.New("invalid or expired token")
+	ErrForbidden          = errors.New("forbidden")
 )
 
 func ErrorResponse(err error) gin.H {

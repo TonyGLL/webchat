@@ -34,12 +34,6 @@ Plantilla para añadir uno nuevo:
 - **Descripción:** login, registro, reenvío de verificación y envío de mensajes no tienen límite.
 - **Propuesta:** middleware con Redis (token bucket) por IP y por usuario.
 
-### H-006 Autorización por membresía de sala
-- **Severidad:** 🟠 · **Fase:** 1 · **Área:** backend · **Verificación:** Por confirmar
-- **Descripción:** comprobar que enviar, listar, editar mensajes y reaccionar exigen ser miembro de la sala, y que editar exige ser el autor.
-- **Ubicación:** `backend/internal/message/application/*`
-- **Propuesta:** revisar cada use case y cubrirlo con tests.
-
 ### H-007 Unirse a cualquier sala por id
 - **Severidad:** 🟡 · **Fase:** 1 · **Área:** backend · **Verificación:** Por confirmar
 - **Descripción:** `POST /rooms/join/:room_id` podría permitir entrar a salas privadas sin invitación.
@@ -166,6 +160,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-006 | Autorización por sala: enviar, leer, editar y reaccionar exigen ser miembro; editar exige ser el autor (403 si no). Verificado en vivo y con tests | 2026-10-23 | _(este commit)_ |
 | H-003 | Token JWT en la URL del WebSocket; ahora se canjea por un ticket de un solo uso (30 s) vía `POST /ws-ticket` | 2026-10-23 | b1ca39e |
 | H-002 | WebSocket aceptaba cualquier origen; ahora solo los de `CORS_ALLOWED_ORIGINS` (y respuesta 401 clara sin token) | 2026-10-23 | b2791fd |
 | H-055 | Registro dejaba usuarios huérfanos sin contraseña (el escaneo de `last_access` NULL fallaba y la "transacción" no usaba la conexión transaccional) | 2026-10-23 | 8e79c4c |

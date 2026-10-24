@@ -4,7 +4,9 @@ import (
 	"backend/internal/message/domain"
 	"backend/internal/shared/infra/db"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"github.com/google/uuid"
 )
@@ -41,9 +43,18 @@ func (r *PgMessageRepository) FindByID(ctx context.Context, id uuid.UUID) (*doma
 	var msg domain.Message
 	err := r.db.QueryRowContext(ctx, query, id).Scan(&msg.ID, &msg.Content, &msg.AuthorID, &msg.RoomID, &msg.CreatedAt, &msg.EditedAt, &msg.DeletedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrMessageNotFound
+		}
 		return nil, err
 	}
 	return &msg, nil
+}
+
+func (r *PgMessageRepository) IsRoomMember(ctx context.Context, roomID uuid.UUID, userID int) (bool, error) {
+	var isMember bool
+	err := r.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2);`, roomID, userID).Scan(&isMember)
+	return isMember, err
 }
 
 func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID, limit, offset int) ([]*domain.Message, error) {

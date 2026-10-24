@@ -22,16 +22,17 @@ func NewAddReactionUseCase(reactionRepo domain.ReactionRepository, messageRepo d
 }
 
 func (uc *AddReactionUseCase) Execute(ctx context.Context, messageID uuid.UUID, userID int, dto AddReactionDTO) error {
-	reaction := &domain.Reaction{MessageID: messageID, UserID: userID, Emoji: dto.Emoji}
-	if err := uc.reactionRepo.Add(ctx, reaction); err != nil {
-		return err
-	}
 	msg, err := uc.messageRepo.FindByID(ctx, messageID)
 	if err != nil {
 		return err
 	}
-	if msg == nil {
-		return domain.ErrMessageNotFound
+	if err := requireRoomMember(ctx, uc.messageRepo, msg.RoomID, userID); err != nil {
+		return err
+	}
+
+	reaction := &domain.Reaction{MessageID: messageID, UserID: userID, Emoji: dto.Emoji}
+	if err := uc.reactionRepo.Add(ctx, reaction); err != nil {
+		return err
 	}
 	if uc.wsBroadcaster != nil {
 		uc.wsBroadcaster.Broadcast("reaction_added", reaction, msg.RoomID.String())

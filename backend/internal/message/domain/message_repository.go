@@ -10,6 +10,7 @@ type MessageRepository interface {
 	Create(ctx context.Context, message *Message) (*Message, error)
 	Update(ctx context.Context, content string, id uuid.UUID) (string, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*Message, error)
+	IsRoomMember(ctx context.Context, roomID uuid.UUID, userID int) (bool, error)
 	FindByRoomID(ctx context.Context, roomID uuid.UUID, limit, offset int) ([]*Message, error)
 }
 

@@ -22,15 +22,16 @@ func NewRemoveReactionUseCase(reactionRepo domain.ReactionRepository, messageRep
 }
 
 func (uc *RemoveReactionUseCase) Execute(ctx context.Context, messageID uuid.UUID, userID int, dto RemoveReactionDTO) error {
-	if err := uc.reactionRepo.Remove(ctx, messageID, userID, dto.Emoji); err != nil {
-		return err
-	}
 	msg, err := uc.messageRepo.FindByID(ctx, messageID)
 	if err != nil {
 		return err
 	}
-	if msg == nil {
-		return domain.ErrMessageNotFound
+	if err := requireRoomMember(ctx, uc.messageRepo, msg.RoomID, userID); err != nil {
+		return err
+	}
+
+	if err := uc.reactionRepo.Remove(ctx, messageID, userID, dto.Emoji); err != nil {
+		return err
 	}
 	if uc.wsBroadcaster != nil {
 		payload := map[string]interface{}{"message_id": messageID, "user_id": userID, "emoji": dto.Emoji}
