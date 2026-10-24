@@ -44,6 +44,11 @@ Prefijo `/api/v1`, excepto `/health` y `/ready`. Salvo registro, login, refresh 
 | `POST /rooms/direct/:user_id` | Abrir (o crear) la conversación 1 a 1 con otro usuario; la misma para ambos |
 | `PATCH /moderation/rooms/:room_id/members/:user_id/role` | Cambiar el rol de un miembro (`member`, `moderator`, `admin`); ver matriz de permisos |
 | `DELETE /moderation/rooms/:room_id/members/:user_id` | Expulsar a un miembro (debes tener más rango que él) |
+| `POST /moderation/messages/:message_id/report` | Reportar un mensaje (`reason`); miembros de la sala, una vez por mensaje, no el propio |
+| `GET /moderation/rooms/:room_id/reports?status=` | Reportes de la sala (`pending` por defecto); moderadores y superiores |
+| `POST /moderation/reports/:report_id/resolve` | `{"action":"resolve"\|"ignore","delete_message":bool}`; moderadores y superiores |
+| `POST /moderation/rooms/:room_id/bans/:user_id` | Banear (`reason`, `duration` como `24h`; vacío = permanente) y expulsar; hay que superar su rango |
+| `DELETE /moderation/rooms/:room_id/bans/:user_id` · `GET .../bans` | Quitar un ban · listar bans activos |
 | `GET /moderation/rooms/:room_id/audit` | Registro de auditoría de la sala (admins y superiores) |
 | `GET /rooms/members/:room_id` | Miembros de la sala con estado en línea (solo miembros) |
 | `POST /rooms/leave/:room_id` | Salir de una sala (el dueño no puede; 409) |

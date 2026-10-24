@@ -13,10 +13,11 @@ type AcceptInviteUseCase struct {
 	inviteRepo     domain.InviteRepository
 	roomMemberRepo domain.RoomMemberRepository
 	subscriber     domain.RealtimeSubscriber
+	bans           domain.BanChecker
 }
 
-func NewAcceptInviteUseCase(inviteRepo domain.InviteRepository, roomMemberRepo domain.RoomMemberRepository, subscriber domain.RealtimeSubscriber) *AcceptInviteUseCase {
-	return &AcceptInviteUseCase{inviteRepo: inviteRepo, roomMemberRepo: roomMemberRepo, subscriber: subscriber}
+func NewAcceptInviteUseCase(inviteRepo domain.InviteRepository, roomMemberRepo domain.RoomMemberRepository, subscriber domain.RealtimeSubscriber, bans domain.BanChecker) *AcceptInviteUseCase {
+	return &AcceptInviteUseCase{inviteRepo: inviteRepo, roomMemberRepo: roomMemberRepo, subscriber: subscriber, bans: bans}
 }
 
 func (uc *AcceptInviteUseCase) Execute(ctx context.Context, dto AcceptInviteDTO, userID int) (*domain.Invite, error) {
@@ -24,6 +25,16 @@ func (uc *AcceptInviteUseCase) Execute(ctx context.Context, dto AcceptInviteDTO,
 	invite, err := uc.inviteRepo.GetByCode(ctx, dto.Code)
 	if err != nil {
 		return nil, err
+	}
+
+	if uc.bans != nil {
+		banned, err := uc.bans.IsBanned(ctx, invite.RoomID, userID)
+		if err != nil {
+			return nil, err
+		}
+		if banned {
+			return nil, ErrBannedFromRoom
+		}
 	}
 
 	member, err := uc.roomMemberRepo.FindMember(ctx, invite.RoomID, userID)

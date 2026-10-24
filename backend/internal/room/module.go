@@ -20,12 +20,13 @@ func RegisterModule(
 	listUserRoomsUseCase *application.ListUserRoomsUseCase, // Pass the use case in
 	subscriber domain.RealtimeSubscriber,
 	presence domain.PresenceChecker,
+	bans domain.BanChecker,
 ) {
 	// Initialize other use cases
 	createRoomUseCase := application.NewCreateRoomUseCase(roomRepo, memberRepo, subscriber)
-	joinRoomUseCase := application.NewJoinRoomUseCase(roomRepo, memberRepo, subscriber)
+	joinRoomUseCase := application.NewJoinRoomUseCase(roomRepo, memberRepo, subscriber, bans)
 	createInviteUseCase := application.NewCreateInviteUseCase(inviteRepo, roomRepo, memberRepo)
-	acceptInviteUseCase := application.NewAcceptInviteUseCase(inviteRepo, memberRepo, subscriber)
+	acceptInviteUseCase := application.NewAcceptInviteUseCase(inviteRepo, memberRepo, subscriber, bans)
 
 	markRoomReadUseCase := application.NewMarkRoomReadUseCase(memberRepo)
 	leaveRoomUseCase := application.NewLeaveRoomUseCase(memberRepo, subscriber)

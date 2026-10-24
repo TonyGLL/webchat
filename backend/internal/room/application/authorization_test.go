@@ -61,7 +61,7 @@ func TestJoinRoom(t *testing.T) {
 		prv: {ID: prv, IsPrivate: true},
 	}}
 	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{}}
-	uc := NewJoinRoomUseCase(rooms, members, nil)
+	uc := NewJoinRoomUseCase(rooms, members, nil, nil)
 	ctx := context.Background()
 
 	if err := uc.Execute(ctx, pub, 1); err != nil {
@@ -85,7 +85,7 @@ func TestInviteFlow(t *testing.T) {
 	}}
 	invites := &fakeInvites{invites: map[string]*domain.Invite{}}
 	create := NewCreateInviteUseCase(invites, &fakeRooms{}, members)
-	accept := NewAcceptInviteUseCase(invites, members, nil)
+	accept := NewAcceptInviteUseCase(invites, members, nil, nil)
 	ctx := context.Background()
 	dto := CreateInviteDTO{RoomID: room.String(), ExpiresIn: "24h"}
 
@@ -228,5 +228,28 @@ func TestOpenDirect(t *testing.T) {
 	}
 	if len(spy.subscribed) != 2 {
 		t.Fatalf("both users must be subscribed to live events, got %v", spy.subscribed)
+	}
+}
+
+type fakeBans struct{ banned map[int]bool }
+
+func (b fakeBans) IsBanned(_ context.Context, _ uuid.UUID, user int) (bool, error) {
+	return b.banned[user], nil
+}
+
+func TestBannedUsersCannotJoin(t *testing.T) {
+	pub := uuid.New()
+	rooms := &fakeRooms{rooms: map[uuid.UUID]*domain.Room{pub: {ID: pub}}}
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{}}
+	uc := NewJoinRoomUseCase(rooms, members, nil, fakeBans{banned: map[int]bool{9: true}})
+
+	if err := uc.Execute(context.Background(), pub, 9); !errors.Is(err, ErrBannedFromRoom) {
+		t.Fatalf("banned user: err = %v, want ErrBannedFromRoom", err)
+	}
+	if _, joined := members.members[pub][9]; joined {
+		t.Fatal("a banned user must not become a member")
+	}
+	if err := uc.Execute(context.Background(), pub, 1); err != nil {
+		t.Fatalf("normal user: %v", err)
 	}
 }

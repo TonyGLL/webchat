@@ -135,8 +135,8 @@ func main() {
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL, cfg.IsProduction())
 	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
-	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub, presence)
 	moderationRepository := moderation_persistence.NewPgRepository(database)
+	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub, presence, moderationRepository)
 	moderation.RegisterModule(moderationRepository, wsHub, apiV1, http.JWTMiddleware(jwtService))
 	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, http.JWTMiddleware(jwtService), moderationRepository)
 

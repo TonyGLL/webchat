@@ -250,7 +250,7 @@ func (c *RoomController) JoinRoom(ctx *gin.Context) {
 	err = c.joinRoomUseCase.Execute(ctx, roomID, userID)
 	if err != nil {
 		switch {
-		case errors.Is(err, application.ErrRoomIsPrivate):
+		case errors.Is(err, application.ErrRoomIsPrivate), errors.Is(err, application.ErrBannedFromRoom):
 			response.Error(ctx, http.StatusForbidden, err.Error())
 		case errors.Is(err, application.ErrAlreadyMember):
 			response.Error(ctx, http.StatusConflict, err.Error())
@@ -282,6 +282,8 @@ func (c *RoomController) AcceptInvite(ctx *gin.Context) {
 	invite, err := c.acceptInviteUseCase.Execute(ctx, dto, userID)
 	if err != nil {
 		switch {
+		case errors.Is(err, application.ErrBannedFromRoom):
+			response.Error(ctx, http.StatusForbidden, err.Error())
 		case errors.Is(err, application.ErrAlreadyMember):
 			response.Error(ctx, http.StatusConflict, err.Error())
 		case errors.Is(err, domain.ErrInviteNotFound):
