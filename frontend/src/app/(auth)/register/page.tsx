@@ -2,20 +2,22 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
+import { RegisterSchema, RegisterData } from '@/services/authService';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
+import axios from 'axios';
 import Spinner from '@/components/Spinner';
 
-const RegisterSchema = z.object({
-  username: z.string().min(3, { message: 'Username must be at least 3 characters' }),
-  email: z.string().email({ message: 'Invalid email address' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
-});
-
-type RegisterData = z.infer<typeof RegisterSchema>;
+const FIELDS: { name: keyof RegisterData; label: string; type: string }[] = [
+  { name: 'name', label: 'Name', type: 'text' },
+  { name: 'last_name', label: 'Last name', type: 'text' },
+  { name: 'username', label: 'Username', type: 'text' },
+  { name: 'email', label: 'Email', type: 'email' },
+  { name: 'phone', label: 'Phone', type: 'tel' },
+  { name: 'password', label: 'Password', type: 'password' },
+];
 
 export default function RegisterPage() {
   const { register: registerUser } = useAuth();
@@ -37,7 +39,11 @@ export default function RegisterPage() {
       await registerUser(data);
       router.push(`/verify-email?email=${data.email}`);
     } catch (err) {
-      setError('Failed to register. Please try again.');
+      setError(
+        axios.isAxiosError(err) && err.response?.status === 409
+          ? 'A user with this email or username already exists.'
+          : 'Failed to register. Please try again.'
+      );
       console.error(err);
     } finally {
       setLoading(false);
@@ -50,61 +56,25 @@ export default function RegisterPage() {
         <h1 className="text-2xl font-bold text-center text-gray-800">Create an Account</h1>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-          <div>
-            <label
-              htmlFor="username"
-              className="block text-sm font-medium text-gray-600"
-            >
-              Username
-            </label>
-            <input
-              id="username"
-              type="text"
-              {...register('username')}
-              className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-            {errors.username && (
-              <p className="mt-1 text-sm text-red-500">
-                {errors.username.message}
-              </p>
-            )}
-          </div>
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-600"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              {...register('email')}
-              className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
-            )}
-          </div>
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-600"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              {...register('password')}
-              className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-500">
-                {errors.password.message}
-              </p>
-            )}
-          </div>
+          {FIELDS.map(({ name, label, type }) => (
+            <div key={name}>
+              <label
+                htmlFor={name}
+                className="block text-sm font-medium text-gray-600"
+              >
+                {label}
+              </label>
+              <input
+                id={name}
+                type={type}
+                {...register(name)}
+                className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+              {errors[name] && (
+                <p className="mt-1 text-sm text-red-500">{errors[name]?.message}</p>
+              )}
+            </div>
+          ))}
           <button
             type="submit"
             disabled={loading}

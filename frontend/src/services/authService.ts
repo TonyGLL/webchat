@@ -21,10 +21,16 @@ export interface User {
   updatedAt: Date;
 }
 
-const RegisterSchema = z.object({
-  username: z.string().min(3),
-  email: z.string().email(),
-  password: z.string().min(6),
+export const RegisterSchema = z.object({
+  name: z.string().min(1, { message: 'Name is required' }),
+  last_name: z.string().min(1, { message: 'Last name is required' }),
+  username: z
+    .string()
+    .min(3, { message: 'Username must be at least 3 characters' })
+    .max(30, { message: 'Username must be at most 30 characters' }),
+  email: z.string().email({ message: 'Invalid email address' }),
+  phone: z.string().min(1, { message: 'Phone is required' }),
+  password: z.string().min(8, { message: 'Password must be at least 8 characters' }),
 });
 
 const LoginSchema = z.object({
@@ -36,7 +42,7 @@ export type RegisterData = z.infer<typeof RegisterSchema>;
 export type LoginData = z.infer<typeof LoginSchema>;
 
 export const authService = {
-  register: async (data: RegisterData) => {
+  register: async (data: RegisterData): Promise<{ id: number; email: string }> => {
     const response = await axios.post(`${API_URL}/auth/register`, data);
     return response.data;
   },
@@ -51,8 +57,13 @@ export const authService = {
     return response.data;
   },
 
+  sendVerifyEmail: async (userId: number, email: string) => {
+    const response = await axios.post(`${API_URL}/auth/send-verify-email/${userId}`, { email });
+    return response.data;
+  },
+
   verifyEmail: async (token: string) => {
-    const response = await axios.get(`${API_URL}/auth/verify/${token}`);
+    const response = await axios.post(`${API_URL}/auth/verify-email/${encodeURIComponent(token)}`);
     return response.data;
   },
 };

@@ -20,6 +20,7 @@ type SendVerifyEmailUseCase struct {
 	jwtService    shared_app.JwtService
 	mailerService shared_app.MailerService
 	store         shared_app.Store
+	frontendURL   string
 }
 
 func NewSendVerifyEmailUseCase(
@@ -27,13 +28,15 @@ func NewSendVerifyEmailUseCase(
 	tokenRepo domain.TokenRepository,
 	jwtS shared_app.JwtService,
 	mailerService shared_app.MailerService,
-	store shared_app.Store) *SendVerifyEmailUseCase {
+	store shared_app.Store,
+	frontendURL string) *SendVerifyEmailUseCase {
 	return &SendVerifyEmailUseCase{
 		authRepo:      authRepo,
 		tokenRepo:     tokenRepo,
 		jwtService:    jwtS,
 		mailerService: mailerService,
 		store:         store,
+		frontendURL:   frontendURL,
 	}
 }
 
@@ -62,7 +65,7 @@ func (uc *SendVerifyEmailUseCase) Execute(ctx context.Context, input dtos.SendVe
 		return err
 	}
 
-	verifyURL := fmt.Sprintf("%s?token=%s", strings.TrimRight("", "/"), url.QueryEscape(token))
+	verifyURL := buildVerifyURL(uc.frontendURL, token)
 	message := shared_app.Message{
 		To:      []string{user.Email},
 		Subject: "Verify your email",
@@ -74,4 +77,9 @@ func (uc *SendVerifyEmailUseCase) Execute(ctx context.Context, input dtos.SendVe
 	}
 
 	return nil
+}
+
+// buildVerifyURL returns the frontend page that confirms the email for the given token.
+func buildVerifyURL(frontendURL, token string) string {
+	return fmt.Sprintf("%s/verify/%s", strings.TrimRight(frontendURL, "/"), url.PathEscape(token))
 }

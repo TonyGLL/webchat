@@ -10,6 +10,7 @@ type Config struct {
 	RedisURL           string
 	JWTSecret          string
 	CORSAllowedOrigins []string
+	FrontendURL        string
 	SMTPFrom           string
 	SMTPPassword       string
 	SMTPHost           string

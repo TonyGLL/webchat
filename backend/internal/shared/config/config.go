@@ -26,6 +26,7 @@ func NewConfig(envFile string) (*Config, error) {
 		RedisURL:           Getenv("REDIS_URL", ""),
 		JWTSecret:          Getenv("JWT_SECRET", ""),
 		CORSAllowedOrigins: parseCorsOrigins(Getenv("CORS_ALLOWED_ORIGINS", "")),
+		FrontendURL:        Getenv("FRONTEND_URL", "http://localhost:3100"),
 		SMTPFrom:           Getenv("SMTP_FROM", ""),
 		SMTPPassword:       Getenv("SMTP_PASSWORD", ""),
 		SMTPHost:           Getenv("SMTP_HOST", ""),

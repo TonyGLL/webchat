@@ -35,7 +35,13 @@ export const useAuth = () => {
   };
 
   const register = async (data: RegisterData) => {
-    await authService.register(data);
+    const created = await authService.register(data);
+    try {
+      await authService.sendVerifyEmail(created.id, created.email);
+    } catch (err) {
+      // The account exists; the user can still request the email again later.
+      console.error('Failed to send verification email', err);
+    }
   };
 
   const logout = () => {

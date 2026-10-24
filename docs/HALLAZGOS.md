@@ -145,21 +145,15 @@ Plantilla para añadir uno nuevo:
 - **Ubicación:** `backend/docker-compose.yml`
 - **Propuesta:** leerlas de variables de entorno (`${POSTGRES_PASSWORD}`) definidas en un archivo ignorado por git, y rotar las actuales porque ya están en el historial.
 
-### H-052 El registro del frontend no envía los campos que exige el backend
-- **Severidad:** 🔴 · **Fase:** 0 · **Área:** front + back · **Verificación:** Confirmado en el código
-- **Descripción:** el formulario envía `username`, `email`, `password` (mín. 6); el backend exige además `name`, `last_name`, `phone` y contraseña de mín. 8. Registrarse desde la interfaz devuelve 400.
-- **Ubicación:** `frontend/src/app/(auth)/register/page.tsx`, `frontend/src/services/authService.ts`, `backend/internal/auth/application/dtos/auth_dto.go`
-- **Propuesta:** añadir los campos al formulario y alinear las reglas de validación.
-
-### H-053 Enlace de verificación de email sin dominio
-- **Severidad:** 🟠 · **Fase:** 0 · **Área:** backend · **Verificación:** Confirmado en el código
-- **Descripción:** `strings.TrimRight("", "/")` usa una cadena vacía como base, así que el enlace queda `?token=...`.
-- **Ubicación:** `backend/internal/auth/application/usecases/send_verify_email_use_case.go`
-- **Propuesta:** variable `FRONTEND_URL` en la configuración y construir `FRONTEND_URL/verify/<token>`.
+### H-054 El script `lint` del frontend no funciona
+- **Severidad:** 🟡 · **Fase:** 0 · **Área:** frontend · **Verificación:** Confirmado (`bun run lint` falla)
+- **Descripción:** `next lint` ya no existe en Next 16; el script intenta tratar `lint` como un directorio.
+- **Ubicación:** `frontend/package.json`
+- **Propuesta:** cambiar a `eslint .` (ya hay `eslint.config.mjs`) y añadirlo al CI.
 
 ### H-050 Rutas del frontend que no coinciden con el backend
 - **Severidad:** 🟠 · **Fase:** 0 · **Área:** front + back · **Verificación:** Confirmado en el código (falta probarlo en ejecución)
-- **Descripción:** el frontend llama `POST /auth/refresh` y `GET /auth/verify/:token`, pero el backend expone `POST /auth/refresh-token` y `POST /auth/verify-email/:token`.
+- **Descripción:** el frontend llama `POST /auth/refresh`, pero el backend expone `POST /auth/refresh-token` (y espera `refreshToken` en el cuerpo). La ruta de verificación de email ya se corrigió en H-053.
 - **Ubicación:** `frontend/src/services/authService.ts`, `backend/internal/auth/module.go`
 - **Propuesta:** alinear las rutas y generar el cliente desde OpenAPI para que no se desincronicen.
 
@@ -192,6 +186,8 @@ _(nada por ahora)_
 
 | ID | Título | Fecha | Commit / PR |
 |----|--------|-------|-------------|
+| H-052 | El registro del frontend no enviaba los campos que exige el backend (name, last_name, phone, contraseña de 8+); además nunca se pedía el envío del correo de verificación | 2026-10-23 | _(este commit)_ |
+| H-053 | Enlace de verificación de email sin dominio; ahora usa `FRONTEND_URL/verify/<token>` y la página llama a la ruta correcta del backend | 2026-10-23 | _(este commit)_ |
 | H-041 | Puertos inconsistentes (ahora: front 3100, back 8081, db 5433, redis 6380) | 2026-10-23 | a1411ec |
 | H-001 | Secreto JWT con valor por defecto | 2026-10-23 | 8e8d3ce |
 | H-000 | Falta `CLAUDE.md` con guía del repositorio | 2026-10-23 | 8b94309 |

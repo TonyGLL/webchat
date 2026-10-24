@@ -106,6 +106,7 @@ Notas sobre cada variable:
 | `REDIS_HOST`, `REDIS_PORT` | Sí (si no hay `REDIS_URL`) | `REDIS_USER`, `REDIS_PASS`, `REDIS_DB` opcionales. |
 | `CORS_ALLOWED_ORIGINS` | Sí en la práctica | Lista separada por comas. Debe incluir el origen del frontend. |
 | `PORT` | No | Por defecto `8081`. |
+| `FRONTEND_URL` | No | URL pública del frontend para los enlaces de los correos. Por defecto `http://localhost:3100`. |
 | `SMTP_*` | Solo para verificar emails | Con Gmail necesitas una "contraseña de aplicación". |
 | `APP_ENV` | No | `prod` o `production` activa el modo producción. |
 
@@ -170,28 +171,24 @@ Otros comandos: `bun run build` (compilar), `bun run lint`.
 
 ## Paso 5: Comprobar que todo funciona
 
-### 5.1 Crear un usuario por la API
+### 5.1 Crear un usuario
 
-> Hoy el formulario de registro del frontend **no envía todos los campos** que exige el backend (ver [Limitaciones](#limitaciones-conocidas-hoy)), así que crea el usuario con `curl`:
+Desde el navegador: `http://localhost:3100/register`. El formulario pide nombre, apellido, usuario (3-30 caracteres), email, teléfono y contraseña (mínimo 8). Al registrarte, el backend te envía un correo con el enlace de verificación (`FRONTEND_URL/verify/<token>`, válido 10 minutos).
+
+Por la API (alternativa):
 
 ```bash
 curl -s -X POST http://localhost:8081/api/v1/auth/register \
   -H 'Content-Type: application/json' \
-  -d '{
-    "name": "Tony",
-    "last_name": "Gomez",
-    "username": "tony",
-    "email": "tu@correo.com",
-    "phone": "5551234567",
-    "password": "clave12345"
-  }'
+  -d '{"name":"Tony","last_name":"Gomez","username":"tony","email":"tu@correo.com","phone":"5551234567","password":"clave12345"}'
+# devuelve {"id": <n>, "email": "..."}; luego pide el correo de verificación:
+curl -s -X POST http://localhost:8081/api/v1/auth/send-verify-email/<id> \
+  -H 'Content-Type: application/json' -d '{"email":"tu@correo.com"}'
 ```
 
-La contraseña debe tener al menos 8 caracteres; `username` entre 3 y 30.
+### 5.2 Verificar el email
 
-### 5.2 Marcar el email como verificado
-
-El enlace del correo de verificación está roto (ver Limitaciones), así que mientras tanto verifica a mano:
+Abre el enlace del correo. Si **no tienes SMTP configurado** (o no llegó), verifica a mano:
 
 ```bash
 docker exec -it webchat-db psql -U root -d webchat \
@@ -240,15 +237,14 @@ Para el backend y el frontend locales: `Ctrl+C` en cada terminal.
 | El frontend carga pero no hay datos o error CORS | `CORS_ALLOWED_ORIGINS` no incluye `http://localhost:3100` | Corrígelo en `.env.local` y reinicia el backend. |
 | Las peticiones del frontend van a `undefined/...` | Falta `frontend/.env.local` | Créalo y reinicia `bun dev`. |
 | `air: command not found` | `~/go/bin` no está en el `PATH` | `export PATH=$PATH:$(go env GOPATH)/bin` |
-| No llega el correo de verificación | SMTP sin configurar | Usa el atajo SQL del paso 5.2. |
+| No llega el correo de verificación | SMTP sin configurar o `FRONTEND_URL` incorrecta | Revisa las `SMTP_*`; usa el atajo SQL del paso 5.2. |
 
 ## Limitaciones conocidas hoy
 
 Registradas en [HALLAZGOS.md](HALLAZGOS.md); cuando se resuelvan, actualiza esta guía.
 
-- **H-052:** el formulario de registro del frontend solo envía `username`, `email` y `password`, pero el backend exige además `name`, `last_name` y `phone`, y contraseña de 8+ caracteres. Desde la interfaz el registro fallará con error 400. Usa `curl` (paso 5.1).
-- **H-053:** el enlace del correo de verificación se construye sin dominio (queda como `?token=...`), por lo que no funciona. Usa el atajo SQL (paso 5.2).
-- **H-050:** el frontend llama a rutas de auth que no coinciden con las del backend (`/auth/refresh`, `/auth/verify/:token`).
+- **H-050:** el frontend llama a `/auth/refresh`, pero el backend expone `/auth/refresh-token`.
+- **H-054:** `bun run lint` no funciona en el frontend (usa `next lint`, que ya no existe en Next 16).
 - **H-030:** el esquema de la base de datos se aplica a mano.
 
 ## Dónde está cada cosa
