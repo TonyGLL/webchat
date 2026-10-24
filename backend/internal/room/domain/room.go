@@ -9,9 +9,11 @@ import (
 type RoomRole string
 
 const (
-	RoleOwner  RoomRole = "owner"
-	RoleAdmin  RoomRole = "admin"
-	RoleMember RoomRole = "member"
+	RoleOwner RoomRole = "owner"
+	RoleAdmin RoomRole = "admin"
+	// RoleModerator can delete messages, resolve reports and remove members below them.
+	RoleModerator RoomRole = "moderator"
+	RoleMember    RoomRole = "member"
 )
 
 type Room struct {

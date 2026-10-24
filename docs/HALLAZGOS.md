@@ -54,6 +54,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-071 | (Roadmap Fase 4, parte 1) Sistema de roles: matriz única de permisos por rango (dueño > admin > moderador > miembro) más roles globales (moderador/admin) que solo se dan desde el servidor (`make admin-grant`); cambiar roles, expulsar, borrado por moderadores y fijar usan la misma matriz; registro de auditoría. Probado en vivo con 5 usuarios | 2026-10-23 | _(este commit)_ |
 | H-070 | (Roadmap Fase 3) Búsqueda de mensajes: texto completo de PostgreSQL con índice GIN, sin acentos ni mayúsculas, solo en salas donde eres miembro (403 si pides otra), límite 60/min; caja de búsqueda en la barra lateral | 2026-10-23 | 0d5939e |
 | H-069 | (Roadmap Fase 3) Mensajes directos 1 a 1: una sola conversación por pareja (la crea una sola consulta atómica), el nombre es el de la otra persona, nadie más puede unirse ni ser invitado; botón "Message" en la lista de miembros. Además, helpers para reconocer errores de PostgreSQL (único/clave foránea) | 2026-10-23 | 79aa89f |
 | H-068 | (Roadmap Fase 3) Presencia en línea (conexiones en Redis con latido y expiración, válido con varias instancias; eventos `presence` en vivo), lista de miembros con punto verde y aviso "escribiendo…" (evento `typing` del cliente, solo si estás en la sala y máx. 1 cada 2 s) | 2026-10-23 | 5d2f45b |

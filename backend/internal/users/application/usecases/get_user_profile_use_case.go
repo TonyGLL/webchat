@@ -34,6 +34,7 @@ func (uc *GetUserProfileUseCase) Execute(ctx context.Context, userID int) (*dtos
 		Username:  user.Username,
 		Email:     user.Email,
 		AvatarUrl: user.AvatarUrl,
+		Role:      user.Role,
 		CreatedAt: user.CreatedAt,
 	}, nil
 }

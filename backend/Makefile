@@ -1,4 +1,4 @@
-.PHONY: build run test watch up-dev up-prod down
+.PHONY: build run test watch up-dev up-prod down admin-list admin-grant admin-revoke
 
 # Build the Go application
 build:
@@ -49,3 +49,15 @@ up-prod:
 down:
 	@echo "Stopping docker compose environment..."
 	@docker compose down
+# Global roles (never granted through the API). Examples:
+#   make admin-list
+#   make admin-grant EMAIL=someone@example.com ROLE=admin     (admin | moderator)
+#   make admin-revoke EMAIL=someone@example.com
+admin-list:
+	@CONFIG_FILE=.env.local go run ./cmd/admin list
+
+admin-grant:
+	@CONFIG_FILE=.env.local go run ./cmd/admin grant --email "$(EMAIL)" --role "$(ROLE)"
+
+admin-revoke:
+	@CONFIG_FILE=.env.local go run ./cmd/admin revoke --email "$(EMAIL)"

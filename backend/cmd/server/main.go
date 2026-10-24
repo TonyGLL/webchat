@@ -11,6 +11,8 @@ import (
 	auth_persistence "backend/internal/auth/persistence"
 	"backend/internal/message"
 	message_persistence "backend/internal/message/persistence"
+	"backend/internal/moderation"
+	moderation_persistence "backend/internal/moderation/persistence"
 	"backend/internal/room"
 	"backend/internal/shared/application"
 	"backend/internal/shared/config"
@@ -134,7 +136,9 @@ func main() {
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL, cfg.IsProduction())
 	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
 	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub, presence)
-	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, http.JWTMiddleware(jwtService))
+	moderationRepository := moderation_persistence.NewPgRepository(database)
+	moderation.RegisterModule(moderationRepository, wsHub, apiV1, http.JWTMiddleware(jwtService))
+	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, http.JWTMiddleware(jwtService), moderationRepository)
 
 	// --- Start Server ---
 	server.Run()

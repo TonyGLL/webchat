@@ -8,6 +8,7 @@ import (
 
 	"backend/internal/message/domain"
 	shared_domain "backend/internal/shared/domain"
+	"backend/internal/shared/permissions"
 
 	"github.com/google/uuid"
 )
@@ -20,6 +21,7 @@ type fakeRepo struct {
 	searched     string
 	searchedRoom *uuid.UUID
 	roles        map[int]string // overrides the default "member" role
+	global       map[int]permissions.GlobalRole
 }
 
 func newFakeRepo() *fakeRepo {
@@ -53,14 +55,18 @@ func (f *fakeRepo) SoftDelete(_ context.Context, id uuid.UUID) (string, error) {
 	f.messages[id].DeletedAt = &now
 	return f.messages[id].RoomID.String(), nil
 }
-func (f *fakeRepo) MemberRole(_ context.Context, room uuid.UUID, user int) (string, bool, error) {
-	if !f.members[room][user] {
-		return "", false, nil
+func (f *fakeRepo) ActorIn(_ context.Context, room uuid.UUID, user int) (permissions.Actor, error) {
+	a := permissions.Actor{Global: permissions.GlobalUser}
+	if g, ok := f.global[user]; ok {
+		a.Global = g
 	}
-	if role, ok := f.roles[user]; ok {
-		return role, true, nil
+	if f.members[room][user] {
+		a.IsMember, a.Room = true, permissions.RoomMember
+		if role, ok := f.roles[user]; ok {
+			a.Room = permissions.RoomRole(role)
+		}
 	}
-	return "member", true, nil
+	return a, nil
 }
 func (f *fakeRepo) SetPinned(_ context.Context, id uuid.UUID, pinned bool) error {
 	if pinned {
@@ -178,7 +184,7 @@ func TestReactionsRequireMembership(t *testing.T) {
 func TestDeleteMessageOnlyByAuthor(t *testing.T) {
 	repo, room, msg := setup()
 	repo.addMember(room, outsiderID)
-	uc := NewDeleteMessageUseCase(repo, nil)
+	uc := NewDeleteMessageUseCase(repo, nil, nil)
 
 	if err := uc.Execute(context.Background(), msg.ID, outsiderID); !errors.Is(err, shared_domain.ErrForbidden) {
 		t.Fatalf("non-author: err = %v, want ErrForbidden", err)
@@ -271,5 +277,49 @@ func TestSearchValidatesInputAndScopesToMembership(t *testing.T) {
 	}
 	if _, err := uc.Execute(ctx, memberID, "  hello  ", room.String(), 0); err != nil || repo.searched != "hello" || repo.searchedRoom == nil {
 		t.Fatalf("member search: err=%v searched=%q room=%v", err, repo.searched, repo.searchedRoom)
+	}
+}
+
+type spyAuditor struct{ deleted []uuid.UUID }
+
+func (s *spyAuditor) RecordMessageDeletedByModerator(_ context.Context, _ int, _, message uuid.UUID, _ int) error {
+	s.deleted = append(s.deleted, message)
+	return nil
+}
+
+func TestModeratorsCanDeleteOthersMessagesAndItIsAudited(t *testing.T) {
+	repo, room, msg := setup()
+	repo.addMember(room, adminID)
+	repo.roles = map[int]string{adminID: "moderator"}
+	auditor := &spyAuditor{}
+	uc := NewDeleteMessageUseCase(repo, nil, auditor)
+
+	if err := uc.Execute(context.Background(), msg.ID, outsiderID); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Fatalf("outsider: err = %v, want ErrForbidden", err)
+	}
+	if err := uc.Execute(context.Background(), msg.ID, adminID); err != nil {
+		t.Fatalf("moderator: unexpected err %v", err)
+	}
+	if msg.DeletedAt == nil || len(auditor.deleted) != 1 {
+		t.Fatalf("message should be deleted and audited: %v / %v", msg.DeletedAt, auditor.deleted)
+	}
+}
+
+func TestAuthorDeletingOwnMessageIsNotAudited(t *testing.T) {
+	repo, _, msg := setup()
+	auditor := &spyAuditor{}
+	if err := NewDeleteMessageUseCase(repo, nil, auditor).Execute(context.Background(), msg.ID, memberID); err != nil {
+		t.Fatal(err)
+	}
+	if len(auditor.deleted) != 0 {
+		t.Fatal("own deletions are not moderation actions")
+	}
+}
+
+func TestGlobalAdminCanPinAnywhere(t *testing.T) {
+	repo, _, msg := setup()
+	repo.global = map[int]permissions.GlobalRole{outsiderID: permissions.GlobalAdmin}
+	if err := NewPinMessageUseCase(repo, nil).Execute(context.Background(), msg.ID, outsiderID, true); err != nil || msg.PinnedAt == nil {
+		t.Fatalf("global admin should pin: err=%v", err)
 	}
 }

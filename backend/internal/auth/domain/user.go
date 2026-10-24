@@ -10,9 +10,11 @@ type Password struct {
 }
 
 type User struct {
-	ID              int
-	Name            string
-	LastName        string
+	ID       int
+	Name     string
+	LastName string
+	// Role is the application-wide role (user, moderator, admin); only filled by the profile query.
+	Role            string
 	Username        string
 	Email           string
 	Phone           string

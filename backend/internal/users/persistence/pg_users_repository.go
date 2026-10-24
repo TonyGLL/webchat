@@ -21,7 +21,7 @@ func NewPgUsersRepository(dbtx db.DBTX) *PgUsersRepository {
 	return &PgUsersRepository{db: dbtx}
 }
 
-const getUserByIDQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, google_sub, email_verified_at, created_at, updated_at FROM users WHERE id = $1 AND deleted = FALSE;`
+const getUserByIDQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, google_sub, email_verified_at, created_at, updated_at, role FROM users WHERE id = $1 AND deleted = FALSE;`
 
 func (r *PgUsersRepository) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx, getUserByIDQuery, id)
@@ -39,6 +39,7 @@ func (r *PgUsersRepository) GetUserByID(ctx context.Context, id int) (*domain.Us
 		&user.EmailVerifiedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
+		&user.Role,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

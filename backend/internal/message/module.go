@@ -16,13 +16,14 @@ func RegisterModule(
 	router *gin.RouterGroup,
 	validate *validator.Validate,
 	authMiddleware gin.HandlerFunc,
+	auditor domain.Auditor,
 ) {
 	createMessageUseCase := application.NewCreateMessageUseCase(messageRepository, wsBroadcaster)
 	updateMessageUseCase := application.NewUpdateMessageUseCase(messageRepository, wsBroadcaster)
 	addReactionUseCase := application.NewAddReactionUseCase(reactionRepository, messageRepository, wsBroadcaster)
 	removeReactionUseCase := application.NewRemoveReactionUseCase(reactionRepository, messageRepository, wsBroadcaster)
 	listMessagesUseCase := application.NewListMessagesUseCase(messageRepository)
-	deleteMessageUseCase := application.NewDeleteMessageUseCase(messageRepository, wsBroadcaster)
+	deleteMessageUseCase := application.NewDeleteMessageUseCase(messageRepository, wsBroadcaster, auditor)
 	pinMessageUseCase := application.NewPinMessageUseCase(messageRepository, wsBroadcaster)
 	listPinnedUseCase := application.NewListPinnedUseCase(messageRepository)
 	searchMessagesUseCase := application.NewSearchMessagesUseCase(messageRepository)

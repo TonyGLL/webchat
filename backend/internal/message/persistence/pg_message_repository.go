@@ -3,6 +3,7 @@ package persistence
 import (
 	"backend/internal/message/domain"
 	"backend/internal/shared/infra/db"
+	"backend/internal/shared/permissions"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -126,13 +127,26 @@ func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID
 	return messages, nil
 }
 
-func (r *PgMessageRepository) MemberRole(ctx context.Context, roomID uuid.UUID, userID int) (string, bool, error) {
-	var role string
-	err := r.db.QueryRowContext(ctx, `SELECT role::text FROM room_members WHERE room_id = $1 AND user_id = $2`, roomID, userID).Scan(&role)
+func (r *PgMessageRepository) ActorIn(ctx context.Context, roomID uuid.UUID, userID int) (permissions.Actor, error) {
+	var global string
+	err := r.db.QueryRowContext(ctx, `SELECT role FROM users WHERE id = $1 AND deleted = FALSE`, userID).Scan(&global)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", false, nil
+		return permissions.Actor{}, nil
 	}
-	return role, err == nil, err
+	if err != nil {
+		return permissions.Actor{}, err
+	}
+	actor := permissions.Actor{Global: permissions.GlobalRole(global)}
+
+	var room string
+	err = r.db.QueryRowContext(ctx, `SELECT role::text FROM room_members WHERE room_id = $1 AND user_id = $2`, roomID, userID).Scan(&room)
+	switch {
+	case err == nil:
+		actor.Room, actor.IsMember = permissions.RoomRole(room), true
+	case !errors.Is(err, sql.ErrNoRows):
+		return permissions.Actor{}, err
+	}
+	return actor, nil
 }
 
 func (r *PgMessageRepository) SetPinned(ctx context.Context, id uuid.UUID, pinned bool) error {

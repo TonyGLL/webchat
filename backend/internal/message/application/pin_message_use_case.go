@@ -31,11 +31,11 @@ func (uc *PinMessageUseCase) Execute(ctx context.Context, messageID uuid.UUID, u
 		return domain.ErrMessageNotFound
 	}
 
-	role, isMember, err := uc.messageRepo.MemberRole(ctx, msg.RoomID, userID)
+	actor, err := uc.messageRepo.ActorIn(ctx, msg.RoomID, userID)
 	if err != nil {
 		return err
 	}
-	if !isMember || (role != "owner" && role != "admin") {
+	if !actor.CanPin() {
 		return shared_domain.ErrForbidden
 	}
 

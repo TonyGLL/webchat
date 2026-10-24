@@ -1,0 +1,121 @@
+package presentation
+
+import (
+	"errors"
+	"log"
+	"net/http"
+	"strconv"
+
+	"backend/internal/moderation/application"
+	"backend/internal/moderation/domain"
+	shared_domain "backend/internal/shared/domain"
+	"backend/internal/shared/http/request"
+	"backend/internal/shared/http/response"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+)
+
+type Controller struct {
+	members *application.ManageMembersUseCase
+	audit   *application.ListAuditUseCase
+}
+
+func NewController(members *application.ManageMembersUseCase, audit *application.ListAuditUseCase) *Controller {
+	return &Controller{members: members, audit: audit}
+}
+
+// ids reads the authenticated user and the :room_id / :user_id path parameters.
+func ids(c *gin.Context) (actorID int, roomID uuid.UUID, targetID int, ok bool) {
+	actorID, err := request.GetUserID(c)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, err.Error())
+		return
+	}
+	roomID, err = uuid.Parse(c.Param("room_id"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid room ID format")
+		return
+	}
+	if raw := c.Param("user_id"); raw != "" {
+		targetID, err = strconv.Atoi(raw)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Invalid user ID")
+			return
+		}
+	}
+	return actorID, roomID, targetID, true
+}
+
+// respondError maps domain errors to HTTP statuses without leaking internals.
+func respondError(c *gin.Context, err error, fallback string) {
+	switch {
+	case errors.Is(err, shared_domain.ErrForbidden), errors.Is(err, domain.ErrCannotTargetOwner):
+		response.Error(c, http.StatusForbidden, "You are not allowed to do this")
+	case errors.Is(err, domain.ErrNotMember), errors.Is(err, shared_domain.ErrNotFound):
+		response.Error(c, http.StatusNotFound, "Not found")
+	case errors.Is(err, shared_domain.ErrInvalidInput):
+		response.Error(c, http.StatusBadRequest, "Invalid input")
+	case errors.Is(err, shared_domain.ErrConflict):
+		response.Error(c, http.StatusConflict, "Already done")
+	default:
+		log.Printf("%s: %v", fallback, err)
+		response.Error(c, http.StatusInternalServerError, fallback)
+	}
+}
+
+type roleBody struct {
+	Role string `json:"role" binding:"required"`
+}
+
+// ChangeRole handles PATCH /moderation/rooms/:room_id/members/:user_id/role
+func (ctrl *Controller) ChangeRole(c *gin.Context) {
+	actorID, roomID, targetID, ok := ids(c)
+	if !ok {
+		return
+	}
+	var body roleBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Error(c, http.StatusBadRequest, "role is required")
+		return
+	}
+	if err := ctrl.members.ChangeRole(c.Request.Context(), roomID, actorID, targetID, body.Role); err != nil {
+		respondError(c, err, "Failed to change role")
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+type reasonBody struct {
+	Reason string `json:"reason" binding:"max=500"`
+}
+
+// Kick handles DELETE /moderation/rooms/:room_id/members/:user_id
+func (ctrl *Controller) Kick(c *gin.Context) {
+	actorID, roomID, targetID, ok := ids(c)
+	if !ok {
+		return
+	}
+	var body reasonBody
+	_ = c.ShouldBindJSON(&body) // the reason is optional
+	if err := ctrl.members.Kick(c.Request.Context(), roomID, actorID, targetID, body.Reason); err != nil {
+		respondError(c, err, "Failed to remove member")
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// ListAudit handles GET /moderation/rooms/:room_id/audit
+func (ctrl *Controller) ListAudit(c *gin.Context) {
+	actorID, roomID, _, ok := ids(c)
+	if !ok {
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	entries, err := ctrl.audit.Execute(c.Request.Context(), roomID, actorID, limit)
+	if err != nil {
+		respondError(c, err, "Failed to load audit log")
+		return
+	}
+	response.JSON(c, http.StatusOK, entries)
+}
