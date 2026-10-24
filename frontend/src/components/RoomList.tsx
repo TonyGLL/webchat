@@ -6,7 +6,7 @@ export default function RoomList({
   onSelectRoom,
   selectedRoom,
 }: {
-  rooms: { id: string; name: string }[];
+  rooms: { id: string; name: string; unread_count?: number }[];
   onSelectRoom: (id: string) => void;
   selectedRoom: string | null;
 }) {
@@ -35,7 +35,15 @@ export default function RoomList({
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
               {room.name.charAt(0).toUpperCase()}
             </span>
-            <span className="truncate text-sm font-medium">{room.name}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">{room.name}</span>
+            {!!room.unread_count && selectedRoom !== room.id && (
+              <span
+                className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-medium text-primary-foreground"
+                aria-label={`${room.unread_count} unread messages`}
+              >
+                {room.unread_count > 99 ? '99+' : room.unread_count}
+              </span>
+            )}
           </button>
         </li>
       ))}

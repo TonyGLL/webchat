@@ -37,3 +37,12 @@ func (r *PgRoomMemberRepository) FindMember(ctx context.Context, roomID uuid.UUI
 	}
 	return member, nil
 }
+
+func (r *PgRoomMemberRepository) MarkRead(ctx context.Context, roomID uuid.UUID, userID int) (bool, error) {
+	res, err := r.db.ExecContext(ctx, `UPDATE room_members SET last_read_at = NOW() WHERE room_id = $1 AND user_id = $2`, roomID, userID)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}

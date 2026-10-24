@@ -22,6 +22,8 @@ type Room struct {
 	IsPrivate bool      `json:"is_private"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	// UnreadCount is only filled when listing a user's rooms.
+	UnreadCount int `json:"unread_count"`
 }
 
 type RoomMember struct {

@@ -26,10 +26,13 @@ func RegisterModule(
 	createInviteUseCase := application.NewCreateInviteUseCase(inviteRepo, roomRepo, memberRepo)
 	acceptInviteUseCase := application.NewAcceptInviteUseCase(inviteRepo, memberRepo, subscriber)
 
+	markRoomReadUseCase := application.NewMarkRoomReadUseCase(memberRepo)
+
 	// Initialize the controller, reusing the provided use case
 	roomController := presentation.NewRoomController(
 		createRoomUseCase,
 		listUserRoomsUseCase,
+		markRoomReadUseCase,
 		joinRoomUseCase,
 		createInviteUseCase,
 		acceptInviteUseCase,
@@ -42,6 +45,7 @@ func RegisterModule(
 	{
 		roomsRoutes.POST("", roomController.CreateRoom)
 		roomsRoutes.GET("", roomController.GetUserRooms)
+		roomsRoutes.POST("/read/:room_id", roomController.MarkRead)
 		roomsRoutes.POST("/join/:room_id", roomController.JoinRoom)
 		roomsRoutes.POST("/invite/:room_id", roomController.CreateInvite)
 		roomsRoutes.POST("/accept-invite/:code", roomController.AcceptInvite)

@@ -40,6 +40,7 @@ Prefijo `/api/v1`, excepto `/health` y `/ready`. Salvo registro, login, refresh 
 | `GET /users/profile` · `DELETE /users/deactivate` | Perfil propio · desactivar cuenta |
 | `POST /rooms` · `GET /rooms` | Crear sala (`is_private`) · salas del usuario |
 | `POST /rooms/join/:room_id` | Unirse a una sala pública |
+| `POST /rooms/read/:room_id` | Marcar la sala como leída (el contador `unread_count` viene en `GET /rooms`) |
 | `POST /rooms/invite/:room_id` | Crear invitación (solo dueño o admin) |
 | `POST /rooms/accept-invite/:code` | Aceptar una invitación |
 | `GET /messages/:roomId/messages` | Historial paginado por cursor (`limit`, `before`=id del mensaje más antiguo cargado); solo miembros |

@@ -20,6 +20,7 @@ import (
 type RoomController struct {
 	createRoomUseCase    *application.CreateRoomUseCase
 	listUserRoomsUseCase *application.ListUserRoomsUseCase
+	markRoomReadUseCase  *application.MarkRoomReadUseCase
 	joinRoomUseCase      *application.JoinRoomUseCase
 	createInviteUseCase  *application.CreateInviteUseCase
 	acceptInviteUseCase  *application.AcceptInviteUseCase
@@ -30,6 +31,7 @@ type RoomController struct {
 func NewRoomController(
 	createRoomUseCase *application.CreateRoomUseCase,
 	listUserRoomsUseCase *application.ListUserRoomsUseCase,
+	markRoomReadUseCase *application.MarkRoomReadUseCase,
 	joinRoomUseCase *application.JoinRoomUseCase,
 	createInviteUseCase *application.CreateInviteUseCase,
 	acceptInviteUseCase *application.AcceptInviteUseCase,
@@ -38,6 +40,7 @@ func NewRoomController(
 	return &RoomController{
 		createRoomUseCase:    createRoomUseCase,
 		listUserRoomsUseCase: listUserRoomsUseCase,
+		markRoomReadUseCase:  markRoomReadUseCase,
 		joinRoomUseCase:      joinRoomUseCase,
 		createInviteUseCase:  createInviteUseCase,
 		acceptInviteUseCase:  acceptInviteUseCase,
@@ -115,6 +118,30 @@ func (c *RoomController) GetUserRooms(ctx *gin.Context) {
 	}
 
 	response.JSON(ctx, http.StatusOK, rooms)
+}
+
+// MarkRead handles the endpoint for POST /api/v1/rooms/read/:room_id
+func (c *RoomController) MarkRead(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		return
+	}
+	roomID, err := uuid.Parse(ctx.Param("room_id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
+		return
+	}
+	if err := c.markRoomReadUseCase.Execute(ctx, roomID, userID); err != nil {
+		if errors.Is(err, shared_domain.ErrForbidden) {
+			response.Error(ctx, http.StatusForbidden, "You are not a member of this room")
+			return
+		}
+		log.Printf("failed to mark room as read: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to mark room as read")
+		return
+	}
+	ctx.Status(http.StatusNoContent)
 }
 
 // JoinRoom handles the endpoint for POST /api/v1/rooms/:id/join

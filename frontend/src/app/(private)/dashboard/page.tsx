@@ -11,8 +11,8 @@ import UserProfile from '@/components/UserProfile';
 import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
-  const { rooms, loading, createRoom } = useRoom();
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const { rooms, loading, createRoom } = useRoom(selectedRoom);
   const room = rooms.find((r) => r.id === selectedRoom);
 
   // On small screens only one pane is visible: the room list, or the open chat.

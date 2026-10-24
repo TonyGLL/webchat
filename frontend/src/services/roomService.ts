@@ -7,6 +7,8 @@ export interface Room {
   is_private: boolean;
   owner_id: number;
   created_at: string;
+  /** Messages from other people since the user last opened the room. */
+  unread_count: number;
 }
 
 export interface CreateRoomData {
@@ -31,6 +33,10 @@ export const roomService = {
   getUserRooms: async (): Promise<Room[] | null> => {
     const response = await api.get('/rooms');
     return response.data;
+  },
+
+  markRead: async (roomId: string): Promise<void> => {
+    await api.post(`/rooms/read/${roomId}`);
   },
 
   joinRoom: async (roomId: string) => {

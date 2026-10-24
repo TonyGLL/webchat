@@ -54,6 +54,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-065 | (Roadmap Fase 2) Contador de no leídos por sala: migración `last_read_at`, `unread_count` en `GET /rooms`, `POST /rooms/read/:id`; en la lista de salas hay una insignia que sube en vivo y se borra al abrir la sala | 2026-10-23 | _(este commit)_ |
 | H-064 | (Roadmap Fase 2) Mensajes optimistas: al enviar aparece al instante ("Sending…"); si falla se marca "Not sent" con Retry/Discard; si el WebSocket ya lo entregó no se duplica | 2026-10-23 | 6718df8 |
 | H-063 | (Roadmap Fase 2) Reconexión automática del WebSocket con espera exponencial y jitter (1 s → 30 s) y recarga de mensajes tras reconectar para recuperar los que se perdieron | 2026-10-23 | 231c885 |
 | H-044 | Tablas `attachments`, `bans` y `reports`: confirmado que ningún módulo las usa; se conservan a propósito porque las fases 3 y 4 del ROADMAP (adjuntos, moderación) las necesitan | 2026-10-23 | 6071ea6 |

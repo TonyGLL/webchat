@@ -112,3 +112,21 @@ func TestInviteFlow(t *testing.T) {
 		t.Fatalf("bad code: err = %v, want ErrInviteNotFound", err)
 	}
 }
+
+func (f *fakeMembers) MarkRead(_ context.Context, room uuid.UUID, user int) (bool, error) {
+	_, ok := f.members[room][user]
+	return ok, nil
+}
+
+func TestMarkReadRequiresMembership(t *testing.T) {
+	room := uuid.New()
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{room: {1: domain.RoleMember}}}
+	uc := NewMarkRoomReadUseCase(members)
+
+	if err := uc.Execute(context.Background(), room, 1); err != nil {
+		t.Fatalf("member should be able to mark read: %v", err)
+	}
+	if err := uc.Execute(context.Background(), room, 2); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Fatalf("outsider should be forbidden, got %v", err)
+	}
+}
