@@ -3,16 +3,11 @@ import { roomService, RoomMember } from '@/services/roomService';
 import { moderationService } from '@/services/moderationService';
 import { RoomRole } from '@/lib/permissions';
 import { useSocket } from './useSocket';
+import { useSocketEvent } from './useSocketEvents';
 import { useUser } from './useUser';
 
 const TYPING_VISIBLE_MS = 4000;
 const TYPING_SEND_INTERVAL_MS = 2000;
-
-type ActivityEvent =
-  | { type: 'presence'; payload: { user_id: number; online: boolean } }
-  | { type: 'role_changed'; payload: { room_id: string; user_id: number; role: RoomRole } }
-  | { type: 'member_removed'; payload: { room_id: string; user_id: number } }
-  | { type: 'typing'; payload: { room_id: string; user_id: number } };
 
 /** Members of a room with live online status, and who is typing right now. */
 export const useRoomActivity = (roomId: string | null) => {
@@ -50,43 +45,34 @@ export const useRoomActivity = (roomId: string | null) => {
     };
   }, [roomId]);
 
-  useEffect(() => {
-    if (!socket) return;
+  useSocketEvent('presence', ({ user_id, online }) => {
+    setMembers((prev) => prev.map((m) => (m.user_id === user_id ? { ...m, online } : m)));
+  });
+
+  useSocketEvent('role_changed', (payload) => {
+    if (payload.room_id !== roomId) return;
+    setMembers((prev) => prev.map((m) => (m.user_id === payload.user_id ? { ...m, role: payload.role } : m)));
+  });
+
+  useSocketEvent('member_removed', (payload) => {
+    if (payload.room_id !== roomId) return;
+    setMembers((prev) => prev.filter((m) => m.user_id !== payload.user_id));
+  });
+
+  useSocketEvent('typing', (payload) => {
+    if (payload.room_id !== roomId || payload.user_id === profile?.id) return;
     const pending = timers.current;
-
-    const onMessage = (event: MessageEvent) => {
-      let data: ActivityEvent;
-      try {
-        data = JSON.parse(event.data);
-      } catch {
-        return;
-      }
-
-      if (data.type === 'presence') {
-        const { user_id, online } = data.payload;
-        setMembers((prev) => prev.map((m) => (m.user_id === user_id ? { ...m, online } : m)));
-      } else if (data.type === 'role_changed' && data.payload.room_id === roomId) {
-        const { user_id, role } = data.payload;
-        setMembers((prev) => prev.map((m) => (m.user_id === user_id ? { ...m, role } : m)));
-      } else if (data.type === 'member_removed' && data.payload.room_id === roomId) {
-        setMembers((prev) => prev.filter((m) => m.user_id !== data.payload.user_id));
-      } else if (data.type === 'typing' && data.payload.room_id === roomId && data.payload.user_id !== profile?.id) {
-        const userId = data.payload.user_id;
-        clearTimeout(pending.get(userId));
-        setTypingIds((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
-        pending.set(
-          userId,
-          setTimeout(() => {
-            pending.delete(userId);
-            setTypingIds((prev) => prev.filter((id) => id !== userId));
-          }, TYPING_VISIBLE_MS)
-        );
-      }
-    };
-
-    socket.addEventListener('message', onMessage);
-    return () => socket.removeEventListener('message', onMessage);
-  }, [socket, roomId, profile?.id]);
+    const userId = payload.user_id;
+    clearTimeout(pending.get(userId));
+    setTypingIds((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
+    pending.set(
+      userId,
+      setTimeout(() => {
+        pending.delete(userId);
+        setTypingIds((prev) => prev.filter((id) => id !== userId));
+      }, TYPING_VISIBLE_MS)
+    );
+  });
 
   /** Tell the room we are typing (at most once every couple of seconds). */
   const notifyTyping = useCallback(() => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { DirectoryUser, userService } from '@/services/userService';
 import { useDebounce } from '@/lib/useDebounce';
 import { useSocket } from './useSocket';
+import { useSocketEvent } from './useSocketEvents';
 
 const REFRESH_MS = 60_000;
 
@@ -30,21 +31,9 @@ export const useDirectory = (query = '') => {
     };
   }, [q, socket]);
 
-  useEffect(() => {
-    if (!socket) return;
-    const onMessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type !== 'presence') return;
-        const { user_id, online } = data.payload as { user_id: number; online: boolean };
-        setPeople((prev) => prev.map((p) => (p.id === user_id ? { ...p, online } : p)));
-      } catch {
-        // not a presence event
-      }
-    };
-    socket.addEventListener('message', onMessage);
-    return () => socket.removeEventListener('message', onMessage);
-  }, [socket]);
+  useSocketEvent('presence', ({ user_id, online }) => {
+    setPeople((prev) => prev.map((p) => (p.id === user_id ? { ...p, online } : p)));
+  });
 
   return { people, loading };
 };
