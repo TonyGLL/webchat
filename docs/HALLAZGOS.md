@@ -54,6 +54,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-076 | (Roadmap Fase 6) Tema claro/oscuro: sigue al sistema, botón en el panel de usuario, se recuerda la elección y no hay parpadeo al cargar | 2026-10-23 | _(este commit)_ |
 | H-075 | (Roadmap Fase 4, parte 5) Exportar mis datos y borrar mi cuenta (CU-33): descarga JSON, borrado con contraseña, herencia de salas, mensajes anónimos, desconexión de sockets, migración 000010. Probado en vivo | 2026-10-23 | 3828ea9 |
 | H-074 | (Roadmap Fase 4, parte 4) Interfaz de moderación: botón Report en mensajes ajenos, panel con pestañas Reports / Bans / Audit (la auditoría solo para admins), botón Ban con motivo y duración en la lista de miembros | 2026-10-23 | a3dfc3a |
 | H-073 | (Roadmap Fase 4, parte 3) Reportes y bans: reportar mensajes (uno por persona, no el propio), cola para moderadores con resolver/ignorar y borrar el mensaje, bans temporales o permanentes que impiden volver a entrar por unión o invitación, todo auditado. Probado en vivo | 2026-10-23 | 6e5b1be |
