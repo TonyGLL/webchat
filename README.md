@@ -53,7 +53,7 @@ cd backend && docker compose up -d db redis
 cp .env.example .env.local        # fill in the values, then:
 make watch                        # http://localhost:8081
 cd ../frontend && cp .env.example .env.local
-bun install && bun dev            # http://localhost:3100
+pnpm install && pnpm dev            # http://localhost:3100
 ```
 
 | Service | Port (localhost) |

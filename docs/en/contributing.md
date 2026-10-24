@@ -30,10 +30,10 @@ go build ./...
 go test -race ./...
 
 # frontend/
-bunx tsc --noEmit
-bun run lint
-bun run test
-bun run build
+pnpm exec tsc --noEmit
+pnpm run lint
+pnpm run test
+pnpm run build
 ```
 
 CI additionally runs the migration test against a real PostgreSQL, builds both Docker images and (weekly) scans dependencies; see [CI/CD](ci-cd.md).

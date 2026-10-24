@@ -23,7 +23,7 @@ flowchart LR
     I -->|main o tag| GHCR[(ghcr.io<br/>webchat-api · webchat-web)]
     CRON[Semanal + cambios de dependencias] --> SEC
     subgraph SECW["security.yml"]
-      SEC[govulncheck<br/>bun audit]
+      SEC[govulncheck<br/>pnpm audit]
     end
     DEP[Dependabot<br/>PRs semanales] -.-> PR
 ```
@@ -33,7 +33,7 @@ flowchart LR
 | `ci.yml` · backend | cada push y pull request | formato, `go vet`, compilación, todos los tests con detector de carreras, y que **todas las migraciones se aplican sobre un PostgreSQL vacío** (en local el test se omite salvo que `TEST_DATABASE_URL` apunte a una base vacía) |
 | `ci.yml` · frontend | igual | tipos, lint, tests, build de producción |
 | `ci.yml` · imágenes | cuando pasan los dos anteriores | ambos Dockerfile construyen; en `main` y en tags `v*` además se publican las imágenes |
-| `security.yml` | semanal, y cuando cambian los archivos de dependencias | ninguna vulnerabilidad de Go alcanzable (`govulncheck`) y ningún aviso grave de JavaScript (`bun audit`) |
+| `security.yml` | semanal, y cuando cambian los archivos de dependencias | ninguna vulnerabilidad de Go alcanzable (`govulncheck`) y ningún aviso grave de JavaScript (`pnpm audit`) |
 | Dependabot | semanal | pull requests para Go, JavaScript, imágenes base de Docker y las propias acciones de los workflows |
 
 ## 2. Las imágenes
@@ -45,7 +45,7 @@ flowchart LR
 
 Etiquetas: `sha-<commit>` en cada build de `main`, `main` y `latest` para la punta de la rama, y `1.2.3` para un tag `v1.2.3`. Las imágenes publicadas son **multiarquitectura** (`amd64` y `arm64`), así que corren en hosts x86 normales y en ARM como AWS Graviton.
 
-El lockfile del frontend (`frontend/bun.lock`) está versionado: el CI y la imagen instalan exactamente las versiones que probaste (`--frozen-lockfile`).
+El lockfile del frontend (`frontend/pnpm-lock.yaml`) está versionado: el CI y la imagen instalan exactamente las versiones que probaste (`--frozen-lockfile`).
 
 Constrúyelas tú mismo:
 
@@ -109,5 +109,5 @@ TEST_DATABASE_URL='postgres://postgres:ci@127.0.0.1:55432/ci?sslmode=disable' go
 go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
 # frontend/
-bun run lint && bun run test && bun audit --audit-level=high
+pnpm run lint && pnpm run test && pnpm audit --audit-level=high
 ```

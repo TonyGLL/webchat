@@ -1,0 +1,3 @@
+# unrs-resolver (used by eslint) ships prebuilt binaries; its install script is only a fallback.
+allowBuilds:
+  unrs-resolver: false

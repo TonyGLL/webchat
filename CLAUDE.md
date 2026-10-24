@@ -10,7 +10,7 @@ Full step-by-step setup (env vars, DB schema, ports, troubleshooting) is in `doc
 
 ## Overview
 
-Monorepo with two independent apps: `backend/` (Go + Gin, PostgreSQL, Redis, Gorilla WebSocket) and `frontend/` (Next.js 16 App Router, React 19, TypeScript, Tailwind 3). There is no root-level build; run commands from each subdirectory. Tests: backend `go test -race ./...`, frontend Vitest (`bun run test`); both run in CI.
+Monorepo with two independent apps: `backend/` (Go + Gin, PostgreSQL, Redis, Gorilla WebSocket) and `frontend/` (Next.js 16 App Router, React 19, TypeScript, Tailwind 3). There is no root-level build; run commands from each subdirectory. Tests: backend `go test -race ./...`, frontend Vitest (`pnpm run test`); both run in CI.
 
 ## Commands
 
@@ -22,10 +22,10 @@ Backend (run from `backend/`):
 - Env files: committed templates are `backend/.env.example` and `frontend/.env.example`; real files are `.env.local` (run on host), `.env.dev` (Docker dev), `.env.prod`, all git-ignored and never to be read (see hard rule). Keep `backend/.env.example` in sync when adding config variables.
 - Docker naming standard: `<project>-<service>` in kebab-case (e.g. `webchat-api`, `webchat-db`, `webchat-redis`); volumes `webchat-<service>-data`; compose project `name: webchat`. Compose service keys stay short (`app`, `db`, `redis`).
 - Ports (chosen to avoid clashing with other local projects): frontend 3100, backend 8081, Postgres 5433, Redis 6380 (host side; all published on 127.0.0.1). Keep `PORT`, `CORS_ALLOWED_ORIGINS` and `NEXT_PUBLIC_API_URL` in the env files consistent with these.
-- CI (`.github/workflows/ci.yml`) also runs the migration test against a real Postgres (`TEST_DATABASE_URL`, empty DB only), builds both Docker images and publishes them from `main`/tags to GHCR; `security.yml` runs `govulncheck` and `bun audit` weekly; Dependabot is on. Deployment is not part of the pipeline (see `docs/*/ci-cd.md`, D19). Go is 1.26 (`go.mod`); the real SQL driver is `lib/pq` (`sql.Open("postgres")`).
+- CI (`.github/workflows/ci.yml`) also runs the migration test against a real Postgres (`TEST_DATABASE_URL`, empty DB only), builds both Docker images and publishes them from `main`/tags to GHCR; `security.yml` runs `govulncheck` and `pnpm audit` weekly; Dependabot is on. Deployment is not part of the pipeline (see `docs/*/ci-cd.md`, D19). Go is 1.26 (`go.mod`); the real SQL driver is `lib/pq` (`sql.Open("postgres")`).
 - The compose file is `backend/docker-compose.yml` (the root README mentions a root-level one, which does not exist).
 
-Frontend (run from `frontend/`, uses Bun): `bun install`, `bun dev`, `bun run build`, `bun run lint`, `bun run test`.
+Frontend (run from `frontend/`, uses pnpm, version pinned in `package.json`, lockfile `pnpm-lock.yaml`): `pnpm install`, `pnpm dev`, `pnpm run build`, `pnpm run lint`, `pnpm run test`.
 
 Config: `config.NewConfig` reads env vars, optionally pre-loading the file named by `CONFIG_FILE` via godotenv. `DATABASE_URL` (or `DB_USER/DB_HOST/DB_PORT/DB_NAME`) is required; `REDIS_URL` can likewise be built from `REDIS_*` parts. Schema lives in `backend/migrations/` as golang-migrate files (`NNNNNN_name.up.sql`/`.down.sql`, embedded and applied on startup by `migrations.Up`; legacy hand-built databases are adopted at version 1). Permissions: every authorization rule lives in `internal/shared/permissions` (rank-based matrix; room roles member<moderator<admin<owner + global roles in `users.role`, granted only via `cmd/admin`/`make admin-grant`). New permission checks must go through it, not ad-hoc role string comparisons. Moderation actions are audited in `audit_log`. People directory (`GET /users/directory`), room discovery (`GET /rooms/discover`) and personal invitations (`room_invitations`, accept/decline) are D18; the people panel is always visible. Direct messages are private rooms with `is_direct`, one per user pair (`direct_rooms`); error classification helpers for the `lib/pq` driver live in `shared/infra/db/errors.go`. Never edit an applied migration — add a new numbered pair. Frontend uses `NEXT_PUBLIC_API_URL` (default `http://localhost:8081/api/v1`).
 

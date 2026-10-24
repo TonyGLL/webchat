@@ -5,7 +5,7 @@ name: Security
 # does not block unrelated pull requests.
 on:
   pull_request:
-    paths: ["backend/go.mod", "backend/go.sum", "frontend/bun.lock", "frontend/package.json", ".github/workflows/security.yml"]
+    paths: ["backend/go.mod", "backend/go.sum", "frontend/pnpm-lock.yaml", "frontend/package.json", ".github/workflows/security.yml"]
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
   js-vulnerabilities:
-    name: JavaScript dependencies (bun audit)
+    name: JavaScript dependencies (pnpm audit)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -39,6 +39,13 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bun audit --audit-level=high
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high

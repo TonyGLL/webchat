@@ -23,7 +23,7 @@ flowchart LR
     I -->|main or tag| GHCR[(ghcr.io<br/>webchat-api · webchat-web)]
     CRON[Weekly + dependency changes] --> SEC
     subgraph SECW["security.yml"]
-      SEC[govulncheck<br/>bun audit]
+      SEC[govulncheck<br/>pnpm audit]
     end
     DEP[Dependabot<br/>weekly PRs] -.-> PR
 ```
@@ -33,7 +33,7 @@ flowchart LR
 | `ci.yml` · backend | every push and pull request | formatting, `go vet`, compilation, all tests with the race detector, and that **every migration applies to an empty PostgreSQL** (the test is skipped locally unless `TEST_DATABASE_URL` points at an empty database) |
 | `ci.yml` · frontend | same | type check, lint, tests, production build |
 | `ci.yml` · images | after both jobs pass | both Dockerfiles build; on `main` and `v*` tags the images are also published |
-| `security.yml` | weekly, and when dependency files change | no reachable Go vulnerability (`govulncheck`) and no high-severity JavaScript advisory (`bun audit`) |
+| `security.yml` | weekly, and when dependency files change | no reachable Go vulnerability (`govulncheck`) and no high-severity JavaScript advisory (`pnpm audit`) |
 | Dependabot | weekly | pull requests for Go, JavaScript, Docker base images and the workflow actions themselves |
 
 ## 2. The images
@@ -45,7 +45,7 @@ flowchart LR
 
 Tags: `sha-<commit>` for every build of `main`, `main` and `latest` for the branch head, and `1.2.3` for a `v1.2.3` tag. Published images are **multi-architecture** (`amd64` and `arm64`), so they run on ordinary x86 hosts and on ARM ones such as AWS Graviton.
 
-The frontend lockfile (`frontend/bun.lock`) is committed: CI and the image install exactly the versions you tested (`--frozen-lockfile`).
+The frontend lockfile (`frontend/pnpm-lock.yaml`) is committed: CI and the image install exactly the versions you tested (`--frozen-lockfile`).
 
 Build them yourself:
 
@@ -109,5 +109,5 @@ TEST_DATABASE_URL='postgres://postgres:ci@127.0.0.1:55432/ci?sslmode=disable' go
 go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
 # frontend/
-bun run lint && bun run test && bun audit --audit-level=high
+pnpm run lint && pnpm run test && pnpm audit --audit-level=high
 ```

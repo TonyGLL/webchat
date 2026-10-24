@@ -27,6 +27,7 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D19 | Imágenes de contenedor como entregable; CI/CD neutral a la nube | Aceptada |
 | D20 | Sesiones persistentes con ventana deslizante de 7 días | Aceptada |
 | D21 | Restablecer contraseña con enlace de un solo uso por correo | Aceptada |
+| D22 | pnpm como gestor de paquetes del frontend | Aceptada |
 
 ---
 
@@ -191,3 +192,10 @@ sequenceDiagram
 - **Por qué:** el endpoint responde igual exista o no la dirección, si no se convertiría en una forma de listar quién tiene cuenta. Guardar un hash hace que una filtración de Redis no dé enlaces utilizables. Cerrar todas las sesiones importa porque el motivo habitual para cambiar la contraseña es sospechar que otra persona la tiene. Un enfriamiento de un minuto por dirección y un límite por cliente impiden usar el formulario para inundar el correo de alguien.
 - **Alternativas:** un enlace con JWT firmado (no se puede revocar ni quemar sin guardar algo igualmente), o preguntas de seguridad (débiles y adivinables).
 - **Consecuencias:** necesita ajustes SMTP que funcionen; si el envío falla la persona sigue viendo la confirmación neutra (el error solo se registra). Los access tokens ya emitidos siguen valiendo hasta que caducan, una hora como máximo. Los escáneres de enlaces que precargan URLs son inofensivos porque abrir la página no canjea el token; solo lo hace enviar el formulario.
+
+## D22. pnpm como gestor de paquetes del frontend
+
+- **Contexto:** el gestor de paquetes del frontend era un runtime aparte usado solo para instalar y ejecutar scripts, mientras que la aplicación corre sobre Node (Next.js, el contenedor, Vitest): una cosa más que instalar en local, en el CI y en la imagen.
+- **Decisión:** pnpm, fijado con `packageManager` en `package.json` (así Corepack, `pnpm/action-setup` y el Dockerfile usan la misma versión). Lockfile `pnpm-lock.yaml`; el script de instalación de `unrs-resolver` se rechaza de forma explícita (`pnpm-workspace.yaml`), porque trae binarios precompilados. El CI, el escaneo de seguridad y la construcción de la imagen instalan con `--frozen-lockfile` sobre Node 22; Dependabot usa el ecosistema `npm`, que lee los lockfiles de pnpm.
+- **Por qué:** un solo runtime (Node) en todas partes, un `node_modules` estricto que revela dependencias no declaradas, un almacén por contenido y `pnpm audit` para el escaneo de seguridad.
+- **Consecuencias:** la imagen solo necesita Node. Todos necesitan pnpm en local (`corepack enable` en Node anterior a 25, si no `npm i -g pnpm`).

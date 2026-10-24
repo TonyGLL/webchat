@@ -27,6 +27,7 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D19 | Container images as the deliverable; cloud-neutral CI/CD | Accepted |
 | D20 | Persistent sessions with a sliding 7-day window | Accepted |
 | D21 | Password reset by emailed single-use link | Accepted |
+| D22 | pnpm as the frontend package manager | Accepted |
 
 ---
 
@@ -191,3 +192,10 @@ sequenceDiagram
 - **Why:** the endpoint answers identically whether or not the address exists, otherwise it becomes a way to list who has an account. Storing a hash means a Redis leak yields no usable links. Ending all sessions matters because the usual reason to reset a password is a suspicion that someone else has it. A one-minute cooldown per address and a rate limit per client stop the form being used to flood someone's inbox.
 - **Alternatives:** a signed JWT link (cannot be revoked or burned without storing something anyway), or security questions (weak and guessable).
 - **Consequences:** it needs working SMTP settings; if sending fails the person still sees the neutral confirmation (the error is only logged). Already-issued access tokens stay valid until they expire, at most an hour. Link scanners that prefetch URLs are harmless because opening the page does not redeem the token; only submitting the form does.
+
+## D22. pnpm as the frontend package manager
+
+- **Context:** the frontend's package manager was a separate runtime used only to install and run scripts, while the app itself runs on Node (Next.js, the container, Vitest): one more thing to install locally, in CI and in the image.
+- **Decision:** pnpm, pinned through `packageManager` in `package.json` (so Corepack, `pnpm/action-setup` and the Dockerfile all use the same version). Lockfile `pnpm-lock.yaml`; the install script of `unrs-resolver` is explicitly not allowed (`pnpm-workspace.yaml`), since it ships prebuilt binaries. CI, the security scan and the image build all install with `--frozen-lockfile` on Node 22; Dependabot uses the `npm` ecosystem, which reads pnpm lockfiles.
+- **Why:** one runtime (Node) everywhere, strict `node_modules` that surfaces undeclared dependencies, a content-addressed store, and `pnpm audit` for the security scan.
+- **Consequences:** the image needs only Node. Everyone needs pnpm locally (`corepack enable` on Node below 25, otherwise `npm i -g pnpm`).

@@ -8,7 +8,7 @@ Guía completa para correr el proyecto en tu máquina sin ayuda externa. Si algo
 1. Docker:      cd backend && docker compose up -d db redis
 2. Tablas:      (automático al arrancar el backend)
 3. Backend:     crear backend/.env.local  →  make watch      (http://localhost:8081)
-4. Frontend:    crear frontend/.env.local →  bun dev        (http://localhost:3100)
+4. Frontend:    crear frontend/.env.local →  pnpm dev        (http://localhost:3100)
 ```
 
 ## Puertos (en tu máquina)
@@ -27,7 +27,7 @@ Convención de nombres: `<proyecto>-<servicio>` en minúsculas con guiones; vol�
 ## Requisitos
 
 - Go 1.26.10 o superior
-- Bun (para el frontend) y Node 20+
+- Node 22+ y pnpm (la versión está fijada en `package.json`; `corepack enable` o `npm i -g pnpm`) para el frontend
 - Docker y Docker Compose
 - Make
 - `air` (recarga automática del backend). `make watch` ofrece instalarlo; también: `go install github.com/air-verse/air@latest` (asegúrate de tener `~/go/bin` en el `PATH`).
@@ -82,7 +82,7 @@ Convención de archivos de entorno (todos, salvo `.env.example`, están en `.git
 | `backend/.env.dev` | Backend dentro de Docker | `make up-dev`, `make database-up` |
 | `backend/.env.prod` | Producción | `make up-prod` |
 | `frontend/.env.example` | Plantilla del frontend. **Se versiona.** | Nadie (solo se copia) |
-| `frontend/.env.local` | Frontend en desarrollo | `bun dev` (Next.js lo carga solo) |
+| `frontend/.env.local` | Frontend en desarrollo | `pnpm dev` (Next.js lo carga solo) |
 
 Crea el tuyo copiando la plantilla y reemplazando todo lo que diga `<...>`:
 
@@ -161,11 +161,11 @@ Contiene una sola variable: `NEXT_PUBLIC_API_URL=http://localhost:8081/api/v1`.
 
 ```bash
 cd frontend
-bun install
-bun dev         # http://localhost:3100
+pnpm install
+pnpm dev         # http://localhost:3100
 ```
 
-Otros comandos: `bun run build` (compilar), `bun run lint`.
+Otros comandos: `pnpm run build` (compilar), `pnpm run lint`.
 
 ## Paso 5: Comprobar que todo funciona
 
@@ -238,7 +238,7 @@ Para el backend y el frontend locales: `Ctrl+C` en cada terminal.
 | Error de Redis al arrancar | Puerto o contraseña erróneos | Usa el puerto **6380** en local y `REDIS_PASS` igual al del compose. |
 | `bind: address already in use` | Otro proyecto usa el puerto | `ss -ltnp | grep <puerto>`; cambia el puerto del servicio (y actualiza esta guía). |
 | El frontend carga pero no hay datos o error CORS | `CORS_ALLOWED_ORIGINS` no incluye `http://localhost:3100` | Corrígelo en `.env.local` y reinicia el backend. |
-| Las peticiones del frontend van a `undefined/...` | Falta `frontend/.env.local` | Créalo y reinicia `bun dev`. |
+| Las peticiones del frontend van a `undefined/...` | Falta `frontend/.env.local` | Créalo y reinicia `pnpm dev`. |
 | `air: command not found` | Versiones anteriores del Makefile; ahora `make watch` busca `air` en la carpeta de binarios de Go | Actualiza el repo; si aun así falla: `go install github.com/air-verse/air@latest` |
 
 ## Limitaciones conocidas hoy

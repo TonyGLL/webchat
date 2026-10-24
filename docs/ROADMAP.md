@@ -10,7 +10,7 @@ Cada fase tiene un criterio de salida. No se pasa a la siguiente sin cumplirlo (
 
 ## Fase 0: Línea base (1 semana)
 Dejar el repo en un estado donde se pueda cambiar con confianza.
-- CI en GitHub Actions: `go vet`, `go test`, `bun run lint`, `bun run build`.
+- CI en GitHub Actions: `go vet`, `go test`, `pnpm run lint`, `pnpm run build`.
 - Esqueleto de tests en backend (use cases con repos mockeados) y frontend (Vitest + Testing Library).
 - README raíz y de backend actualizados (puertos, docker-compose, endpoints reales).
 - `docker-compose.yml` unificado en la raíz (front, back, db, redis).

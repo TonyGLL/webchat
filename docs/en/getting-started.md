@@ -4,7 +4,7 @@
 
 ## 1. Requirements
 
-Go 1.26.10+, Bun (and Node 20+), Docker with Compose, Make, `air` (live reload; `make watch` offers to install it) and `openssl`.
+Go 1.26.10+, Node 22+ and pnpm (the version is pinned in `package.json`; `corepack enable` or `npm i -g pnpm`), Docker with Compose, Make, `air` (live reload; `make watch` offers to install it) and `openssl`.
 
 ## 2. Ports
 
@@ -24,7 +24,7 @@ flowchart LR
     A["1 · docker compose up -d db redis"] --> B["2 · backend/.env.local"]
     B --> C["3 · make watch<br/>(migrations run)"]
     C --> D["4 · frontend/.env.local"]
-    D --> E["5 · bun install && bun dev"]
+    D --> E["5 · pnpm install && pnpm dev"]
     E --> F(["http://localhost:3100"])
 ```
 
@@ -38,7 +38,7 @@ make watch                         # http://localhost:8081
 
 # 3. Frontend
 cd ../frontend && cp .env.example .env.local
-bun install && bun dev             # http://localhost:3100
+pnpm install && pnpm dev             # http://localhost:3100
 ```
 
 The database passwords are defined in `backend/docker-compose.yml`; copy them into `.env.local`. **Never commit real env files**: only the `.env.example` templates are versioned.
@@ -69,7 +69,7 @@ Which file is loaded by what:
 | `backend/.env.local` | `make run`, `make watch` (backend on your machine) |
 | `backend/.env.dev` | `make up-dev` (backend in Docker) |
 | `backend/.env.prod` | `make up-prod` |
-| `frontend/.env.local` | `bun dev` |
+| `frontend/.env.local` | `pnpm dev` |
 
 Inside Docker, hosts and ports are the internal ones (`DB_HOST=db`, `DB_PORT=5432`, `REDIS_HOST=redis`, `REDIS_PORT=6379`).
 
@@ -108,7 +108,7 @@ make admin-revoke EMAIL=you@example.com
 | `backend/` | `make test` | `go test -v ./...` |
 | `backend/` | `make up-dev` / `make down` | whole stack in Docker / stop it |
 | `backend/` | `docker compose down -v` | stop **and delete all data** |
-| `frontend/` | `bun dev` · `bun run build` · `bun run lint` · `bun run test` | frontend tasks |
+| `frontend/` | `pnpm dev` · `pnpm run build` · `pnpm run lint` · `pnpm run test` | frontend tasks |
 
 ## 8. Troubleshooting
 
@@ -120,7 +120,7 @@ make admin-revoke EMAIL=you@example.com
 | Redis error at startup | Wrong port or password | Use port **6380** locally |
 | `bind: address already in use` | Another project owns the port | `ss -ltnp \| grep <port>` |
 | Frontend loads but shows CORS errors | Origin missing from `CORS_ALLOWED_ORIGINS` | Add `http://localhost:3100` and restart |
-| Requests go to `undefined/...` | No `frontend/.env.local` | Create it and restart `bun dev` |
+| Requests go to `undefined/...` | No `frontend/.env.local` | Create it and restart `pnpm dev` |
 | `air: command not found` | `air` not installed | `go install github.com/air-verse/air@latest` |
 
 The original Spanish guide with extra detail is [LEVANTAR.md](../LEVANTAR.md).

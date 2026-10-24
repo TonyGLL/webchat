@@ -6,7 +6,7 @@ updates:
     groups:
       go-minor-and-patch:
         update-types: [minor, patch]
-  - package-ecosystem: bun
+  - package-ecosystem: npm
     directory: /frontend
     schedule: { interval: weekly }
     groups:

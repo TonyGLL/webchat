@@ -2,7 +2,7 @@
 
 # Frontend
 
-Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 3. Run everything from `frontend/` with Bun.
+Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 3. Run everything from `frontend/` with pnpm.
 
 ## 1. Structure
 
@@ -112,5 +112,5 @@ flowchart LR
 ## 7. Quality gates
 
 ```bash
-bunx tsc --noEmit && bun run lint && bun run test && bun run build
+pnpm exec tsc --noEmit && pnpm run lint && pnpm run test && pnpm run build
 ```
