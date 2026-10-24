@@ -56,6 +56,8 @@ flowchart LR
 - Tras una reconexión los hooks recargan, porque los eventos enviados durante una caída se pierden.
 - `MessageView` se monta con `key={roomId}`, así cada sala empieza con estado limpio.
 
+Los mensajes del socket se analizan una sola vez en `SocketContext` y se reparten por tipo con `lib/socketEvents.ts` (`useSocketEvent(type, handler)`); `useSocket()` sigue devolviendo el socket sin más. `usePolling` omite los ciclos con la pestaña oculta y vuelve a consultar al hacerse visible. El selector de emojis y sus datos se cargan bajo demanda, lo que quitó unos 510 KB de la primera carga del dashboard (de 1,28 MB a 0,77 MB sin comprimir). Las cabeceras de seguridad y la CSP están en `security-headers.mjs` (D25); los patrones de accesibilidad (anuncios en vivo, `ConfirmDialog`, `useFocusTrap`, títulos por ruta) están en D26. Los errores del cliente pasan por `lib/logError.ts`.
+
 ## 4. Permisos en la interfaz
 
 `lib/permissions.ts` replica la matriz del servidor para que la interfaz muestre solo los controles que un usuario podría usar (botón de fijar, selector de rol, panel de moderación). Es una comodidad: el servidor aplica todas las reglas.

@@ -124,3 +124,14 @@ curl -s -b jar.txt -X POST http://localhost:8081/api/v1/auth/refresh-token
 `backend/api/openapi.yaml` se escribe a mano y va embebido en el binario (`go:embed`), así que un servidor en marcha siempre se documenta a sí mismo. **Todo cambio en una ruta, un cuerpo de petición o una respuesta debe actualizar el YAML en el mismo commit.** `go test ./api/` comprueba que el documento sea YAML válido, que cada `$ref` se resuelva, que cada operación tenga un `operationId` único, un resumen, una etiqueta y respuestas, y que el conjunto de operaciones públicas (sin autenticación) solo cambie a propósito.
 
 La página carga Scalar desde una versión fijada en el CDN de jsDelivr, así que ver `/docs` requiere internet; `/openapi.yaml` funciona sin conexión y se puede importar en Postman, Insomnia o un generador de código.
+
+## Paginación y límites añadidos en la ronda de endurecimiento
+
+- `GET /rooms`: `unread_count` está limitado a 100 (100 significa 100 o más).
+- `GET /rooms/discover`: `limit` (30 por defecto, máximo 100) y `after` (uuid de la última sala recibida); la respuesta sigue siendo un array y una página completa indica que puede haber más.
+- `GET /rooms/members/{room_id}`: `limit` (100 por defecto, máximo 200) y `offset`.
+- `POST /rooms/invite/{room_id}`: `expires_in` debe estar entre 1 minuto y 720 horas; una invitación ligada a un email solo funciona para esa dirección (404 si no) y deja de funcionar cuando quien la creó ya no puede invitar.
+- `POST /rooms/direct/{user_id}`: 404 para usuarios desactivados.
+- `DELETE /users/deactivate`: cuerpo `{ password }`; 403 si es incorrecta, con límite de tasa. `POST /auth/send-verify-email/{user_id}` exige sesión y solo funciona con tu propio id.
+- Edición de mensajes: contenido de 1 a 4000 caracteres, 404 si el mensaje está borrado, 403 si saliste de la sala. Reacciones: emoji de como máximo 8 caracteres / 32 bytes; 400 al superar los topes.
+- Los cuerpos de más de 1 MiB responden 413 (longitud declarada) o 400 (fragmentado).

@@ -28,6 +28,11 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D20 | Persistent sessions with a sliding 7-day window | Accepted |
 | D21 | Password reset by emailed single-use link | Accepted |
 | D22 | pnpm as the frontend package manager | Accepted |
+| D23 | Typed tokens and per-request session validation | Accepted |
+| D24 | Per-user presence keys and a bounded hub | Accepted |
+| D25 | Security headers and CSP on the web app | Accepted |
+| D26 | Accessibility patterns: live announcements, in-app dialogs, focus handling | Accepted |
+| D27 | Server limits and ordered shutdown | Accepted |
 
 ---
 
@@ -199,3 +204,35 @@ sequenceDiagram
 - **Decision:** pnpm, pinned through `packageManager` in `package.json` (so Corepack, `pnpm/action-setup` and the Dockerfile all use the same version). Lockfile `pnpm-lock.yaml`; the install script of `unrs-resolver` is explicitly not allowed (`pnpm-workspace.yaml`), since it ships prebuilt binaries. CI, the security scan and the image build all install with `--frozen-lockfile` on Node 22; Dependabot uses the `npm` ecosystem, which reads pnpm lockfiles.
 - **Why:** one runtime (Node) everywhere, strict `node_modules` that surfaces undeclared dependencies, a content-addressed store, and `pnpm audit` for the security scan.
 - **Consequences:** the image needs only Node. Everyone needs pnpm locally (`corepack enable` on Node below 25, otherwise `npm i -g pnpm`).
+
+## D23. Typed tokens and per-request session validation
+
+- **Context:** the email-verification JWT shared the access-token secret and carried no marker, so the middleware accepted it as an access token; deactivated users and users whose sessions were revoked kept API access until their access token expired (up to an hour).
+- **Decision:** every JWT carries a `typ` claim (`access`, `refresh`, `verify`) and each consumer requires its own type; signing is pinned to HS256. `JWTMiddleware` takes a `SessionGuard` that rejects tokens issued before the user's `sessions_revoked_at` (Redis) and tokens of deactivated users (Postgres, cached 15 s); it fails open and logs when a dependency is down. Deactivation now needs the password, revokes sessions and disconnects live sockets; password reset also disconnects sockets, and the WebSocket ticket redemption consults the same guard.
+- **Why:** a token type must be checked by its consumer, not inferred from the absence of another claim. Stateless JWTs are fine until you need to cut access immediately, which a small per-request check buys at the price of one Redis read.
+- **Consequences:** sessions open at deploy time get one 401 and refresh once. Usernames are limited to `[A-Za-z0-9_.-]` and email and username are unique case-insensitively (migration 13 refuses to run if two accounts collide, listing them). Login does a dummy bcrypt compare for unknown users. A ticket does not carry its issue time, so a ticket issued before a reset can still connect within its 30 s life.
+
+## D24. Per-user presence keys and a bounded hub
+
+- **Context:** presence lived in one sorted set read in full on every connect, disconnect and listing (about 4 GB of Redis traffic in a 10k-user reconnect storm); the hub scanned every room on each disconnect and held a global lock while delivering.
+- **Decision:** one sorted set per user (`webchat:presence:u:<id>`, scored by expiry) updated by atomic Lua scripts, plus a secondary index `webchat:presence:online` (one member per online user, read with a LIMIT) for "who is online". The hub keeps per-client room sets and a user index, delivers from a snapshot outside the lock, marshals once, never blocks on a full broadcast channel (it drops and counts) and has `Shutdown` that closes sockets with code 1012.
+- **Why:** every decision now touches one user's key, so cost does not grow with the number of connected users, and a slow consumer or a Redis stall cannot freeze request handlers.
+- **Consequences:** a crashed instance's users stay online up to two minutes (TTL). `OnlineUsers` checks at most 1000 ids per call.
+
+## D25. Security headers and CSP on the web app
+
+- **Decision:** `next.config.mjs` sets `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer` (the reset token is in the URL), a restrictive `Permissions-Policy`, HSTS in production and a CSP whose `connect-src` is derived at build time from `NEXT_PUBLIC_API_URL` (HTTP and WebSocket origins).
+- **Why `unsafe-inline`:** the theme and language init script must run before first paint, and a nonce would force dynamic rendering of every page and needs a proxy. `unsafe-eval` is added only in development.
+- **Consequences:** the web image is built per environment (already true for the API URL); HSTS is honoured only over HTTPS; emoji-mart's styles are covered by `style-src 'unsafe-inline'`.
+
+## D26. Accessibility patterns
+
+- **Decision:** new messages from others are announced through one visually hidden `role="status"` element, coalesced per second, instead of `aria-live` on the whole list. Native `prompt`/`confirm` became an in-app `ConfirmDialog` (`alertdialog`, focus trap, Escape, restored focus). Dialogs use `useFocusTrap`; the emoji picker uses guard spans because it lives in a shadow root. The moderation panel is a complete ARIA tablist. The tab title is composed of a translated page title plus an unread prefix (`lib/documentTitle.ts`). Hover-only actions appear on devices without hover (`@media (hover:hover)`).
+- **Contrast:** input borders, `success` text, the off-state of switches and the offline presence dot were raised to WCAG thresholds (new `presence-offline` token); a global `prefers-reduced-motion` rule disables non-essential motion.
+- **Limit:** none of this has been verified with a screen reader or in several browsers yet.
+
+## D27. Server limits and ordered shutdown
+
+- **Decision:** the HTTP server has read-header, read, write and idle timeouts and a 64 KiB header cap; request bodies are limited to 1 MiB (413 when the declared length is over, 400 for a chunked body). Routes that mutate state have per-IP rate limits. `TRUSTED_PROXIES` (comma-separated IPs/CIDRs, empty by default) enables `X-Forwarded-For` behind a load balancer, otherwise all users share one bucket. Shutdown runs in order: signal, close sockets with 1012, drain HTTP, then close DB and Redis, with a 15 s cap and no `log.Fatal`. SMTP sends have dial and conversation deadlines.
+- **Why:** without timeouts a slow client holds a connection forever; without trusted proxies, rate limiting behind a load balancer is global.
+- **Consequences:** WebSocket connections are unaffected by the write timeout (the upgrade clears deadlines).

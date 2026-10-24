@@ -56,6 +56,8 @@ flowchart LR
 - After a reconnect the hooks reload, because events sent during an outage are lost.
 - `MessageView` is mounted with `key={roomId}`, so each room starts with fresh state.
 
+Frames are parsed once in `SocketContext` and fanned out by type through `lib/socketEvents.ts` (`useSocketEvent(type, handler)`); `useSocket()` still returns the raw socket. `usePolling` skips ticks while the tab is hidden and refetches when it becomes visible. The emoji picker and its data are loaded on demand, which removed about 510 KB from the dashboard's first load (1.28 MB to 0.77 MB uncompressed). Security headers and the CSP are in `security-headers.mjs` (D25); accessibility patterns (live announcements, `ConfirmDialog`, `useFocusTrap`, per-route titles) are described in D26. Client errors go through `lib/logError.ts`.
+
 ## 4. Permissions in the UI
 
 `lib/permissions.ts` mirrors the server matrix so the UI shows only the controls a user could use (pin button, role selector, moderation panel). It is a convenience: the server enforces every rule.

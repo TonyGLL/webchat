@@ -56,6 +56,8 @@ The template `backend/.env.example` is the source of truth. The important ones:
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASS` | If no `REDIS_URL` | Local Redis is on port 6380 |
 | `CORS_ALLOWED_ORIGINS` | In practice yes | Comma separated; must include the frontend origin. Also used for the WebSocket `Origin` check |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD` | Only for password reset | Without them "Forgot your password?" sends nothing (the error is only logged). A test SMTP server such as Mailpit works locally |
+| `DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME` | No | Postgres pool: defaults 25, 25, `30m`, `5m` (durations in Go format). Idle must not exceed open; a bad value stops startup |
+| `TRUSTED_PROXIES` | Behind a load balancer | Comma-separated IPs/CIDRs whose `X-Forwarded-For` is trusted; empty by default. Without it every user behind the proxy shares one rate-limit bucket |
 | `PORT` | No | Default 8081 |
 | `FRONTEND_URL` | No | Used in email links |
 | `APP_ENV` | No | `prod` / `production` enables production mode |

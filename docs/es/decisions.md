@@ -28,6 +28,11 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D20 | Sesiones persistentes con ventana deslizante de 7 días | Aceptada |
 | D21 | Restablecer contraseña con enlace de un solo uso por correo | Aceptada |
 | D22 | pnpm como gestor de paquetes del frontend | Aceptada |
+| D23 | Tokens con tipo y validación de sesión en cada petición | Aceptada |
+| D24 | Presencia por usuario y hub acotado | Aceptada |
+| D25 | Cabeceras de seguridad y CSP en la aplicación web | Aceptada |
+| D26 | Patrones de accesibilidad: anuncios en vivo, diálogos propios, manejo del foco | Aceptada |
+| D27 | Límites del servidor y apagado ordenado | Aceptada |
 
 ---
 
@@ -199,3 +204,35 @@ sequenceDiagram
 - **Decisión:** pnpm, fijado con `packageManager` en `package.json` (así Corepack, `pnpm/action-setup` y el Dockerfile usan la misma versión). Lockfile `pnpm-lock.yaml`; el script de instalación de `unrs-resolver` se rechaza de forma explícita (`pnpm-workspace.yaml`), porque trae binarios precompilados. El CI, el escaneo de seguridad y la construcción de la imagen instalan con `--frozen-lockfile` sobre Node 22; Dependabot usa el ecosistema `npm`, que lee los lockfiles de pnpm.
 - **Por qué:** un solo runtime (Node) en todas partes, un `node_modules` estricto que revela dependencias no declaradas, un almacén por contenido y `pnpm audit` para el escaneo de seguridad.
 - **Consecuencias:** la imagen solo necesita Node. Todos necesitan pnpm en local (`corepack enable` en Node anterior a 25, si no `npm i -g pnpm`).
+
+## D23. Tokens con tipo y validación de sesión en cada petición
+
+- **Contexto:** el JWT de verificación de email compartía secreto con el token de acceso y no llevaba ninguna marca, así que el middleware lo aceptaba como token de acceso; los usuarios desactivados o con sesiones revocadas conservaban acceso a la API hasta que caducaba su token (hasta una hora).
+- **Decisión:** cada JWT lleva una claim `typ` (`access`, `refresh`, `verify`) y cada consumidor exige la suya; la firma se fija a HS256. `JWTMiddleware` recibe un `SessionGuard` que rechaza los tokens emitidos antes de `sessions_revoked_at` del usuario (Redis) y los de usuarios desactivados (Postgres, con caché de 15 s); si una dependencia cae, deja pasar y lo registra. Desactivar ahora exige la contraseña, revoca sesiones y desconecta los sockets; restablecer contraseña también desconecta sockets, y el canje del ticket de WebSocket consulta el mismo guardián.
+- **Por qué:** el tipo de un token lo debe comprobar su consumidor, no deducirse de la ausencia de otra claim. Los JWT sin estado sirven hasta que hace falta cortar el acceso al instante, y eso lo da una pequeña comprobación por petición a cambio de una lectura de Redis.
+- **Consecuencias:** las sesiones abiertas al desplegar reciben un 401 y se refrescan una vez. Los nombres de usuario se limitan a `[A-Za-z0-9_.-]` y email y usuario son únicos sin distinguir mayúsculas (la migración 13 se niega a correr si dos cuentas colisionan, y las lista). El login hace una comparación bcrypt falsa con usuarios desconocidos. El ticket no lleva su hora de emisión, así que uno emitido antes de un restablecimiento aún puede conectar durante sus 30 s.
+
+## D24. Presencia por usuario y hub acotado
+
+- **Contexto:** la presencia vivía en un único conjunto ordenado que se leía entero en cada conexión, desconexión y listado (unos 4 GB de tráfico a Redis en una reconexión masiva de 10 mil usuarios); el hub recorría todas las salas en cada desconexión y mantenía un candado global durante el reparto.
+- **Decisión:** un conjunto ordenado por usuario (`webchat:presence:u:<id>`, con la caducidad como puntuación) actualizado con scripts Lua atómicos, más un índice secundario `webchat:presence:online` (un miembro por usuario en línea, leído con LIMIT) para saber quién está conectado. El hub guarda conjuntos de salas por cliente y un índice de usuarios, reparte desde una copia fuera del candado, serializa una sola vez, nunca se bloquea con un canal de difusión lleno (descarta y cuenta) y tiene `Shutdown`, que cierra los sockets con el código 1012.
+- **Por qué:** cada decisión toca la clave de un solo usuario, así que el coste no crece con los usuarios conectados, y un consumidor lento o un atasco de Redis no puede congelar los manejadores de peticiones.
+- **Consecuencias:** los usuarios de una instancia caída siguen en línea hasta dos minutos (TTL). `OnlineUsers` comprueba como máximo 1000 ids por llamada.
+
+## D25. Cabeceras de seguridad y CSP en la aplicación web
+
+- **Decisión:** `next.config.mjs` fija `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer` (el token de restablecimiento va en la URL), un `Permissions-Policy` restrictivo, HSTS en producción y una CSP cuyo `connect-src` se deriva en la compilación de `NEXT_PUBLIC_API_URL` (orígenes HTTP y WebSocket).
+- **Por qué `unsafe-inline`:** el script de inicio de tema e idioma debe ejecutarse antes del primer pintado, y un nonce obligaría a renderizar todas las páginas de forma dinámica y necesita un proxy. `unsafe-eval` solo se añade en desarrollo.
+- **Consecuencias:** la imagen web se construye por entorno (ya era así por la URL de la API); HSTS solo se respeta sobre HTTPS; los estilos de emoji-mart quedan cubiertos por `style-src 'unsafe-inline'`.
+
+## D26. Patrones de accesibilidad
+
+- **Decisión:** los mensajes nuevos de otras personas se anuncian con un único elemento `role="status"` oculto visualmente, agrupado por segundo, en lugar de `aria-live` en toda la lista. `prompt`/`confirm` nativos pasaron a un `ConfirmDialog` propio (`alertdialog`, foco atrapado, Escape, foco restaurado). Los diálogos usan `useFocusTrap`; el selector de emojis usa elementos guarda porque vive en un shadow root. El panel de moderación es una lista de pestañas ARIA completa. El título de la pestaña se compone de un título de página traducido más un prefijo de no leídos (`lib/documentTitle.ts`). Las acciones que solo aparecían al pasar el ratón se muestran en dispositivos sin hover (`@media (hover:hover)`).
+- **Contraste:** los bordes de campos, el texto `success`, el estado apagado de los interruptores y el punto de "desconectado" subieron a los umbrales WCAG (nuevo token `presence-offline`); una regla global `prefers-reduced-motion` desactiva el movimiento no esencial.
+- **Límite:** nada de esto se ha verificado todavía con un lector de pantalla ni en varios navegadores.
+
+## D27. Límites del servidor y apagado ordenado
+
+- **Decisión:** el servidor HTTP tiene timeouts de cabeceras, lectura, escritura e inactividad y un tope de 64 KiB en las cabeceras; los cuerpos se limitan a 1 MiB (413 si la longitud declarada lo supera, 400 con cuerpo fragmentado). Las rutas que modifican estado tienen límites de tasa por IP. `TRUSTED_PROXIES` (IPs/CIDRs separados por comas, vacío por defecto) activa `X-Forwarded-For` detrás de un balanceador; si no, todos los usuarios comparten un cupo. El apagado sigue un orden: señal, cierre de sockets con 1012, vaciado de HTTP y por último cierre de BD y Redis, con tope de 15 s y sin `log.Fatal`. El envío SMTP tiene plazos de conexión y de conversación.
+- **Por qué:** sin timeouts un cliente lento retiene una conexión para siempre; sin proxies de confianza, el límite de tasa tras un balanceador es global.
+- **Consecuencias:** las conexiones WebSocket no se ven afectadas por el timeout de escritura (la actualización del protocolo limpia los plazos).

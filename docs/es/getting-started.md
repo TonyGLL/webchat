@@ -56,6 +56,8 @@ La plantilla `backend/.env.example` es la fuente de verdad. Las importantes:
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASS` | Si no hay `REDIS_URL` | El Redis local está en el puerto 6380 |
 | `CORS_ALLOWED_ORIGINS` | En la práctica sí | Separada por comas; debe incluir el origen del frontend. También se usa para validar el `Origin` del WebSocket |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD` | Solo para restablecer contraseña | Sin ellas «¿Olvidaste tu contraseña?» no envía nada (el error solo queda en el log). En local sirve un servidor SMTP de pruebas como Mailpit |
+| `DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME` | No | Pool de Postgres: por defecto 25, 25, `30m`, `5m` (duraciones en formato Go). Las inactivas no pueden superar a las abiertas; un valor erróneo detiene el arranque |
+| `TRUSTED_PROXIES` | Tras un balanceador | IPs/CIDRs separados por comas cuyo `X-Forwarded-For` se acepta; vacío por defecto. Sin ella todos los usuarios tras el proxy comparten un cupo de límite de tasa |
 | `PORT` | No | Por defecto 8081 |
 | `FRONTEND_URL` | No | Se usa en los enlaces de los correos |
 | `APP_ENV` | No | `prod` / `production` activa el modo producción |

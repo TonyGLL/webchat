@@ -24,6 +24,10 @@ flowchart LR
 | Access token | JWT, 1 hour, sent as `Authorization: Bearer …` |
 | Refresh token | JWT, 7 days, **single use** (kept valid 30 s more so concurrent tabs do not collide); id stored in Redis; httpOnly, `SameSite=Strict` cookie scoped to `/api/v1/auth` |
 | Session persistence | every renewal issues a fresh 7 days, so the session ends after a week **without use**; the browser signs out only when the server rejects the token, never on a network error (D20) |
+| Token types and live sessions | every JWT carries `typ` (`access`/`refresh`/`verify`) and consumers require their own; HS256 only. A session guard rejects tokens issued before a revocation and tokens of deactivated users on every request (D23). Deactivating needs the password and ends sessions and sockets immediately |
+| Identity | usernames are `[A-Za-z0-9_.-]` (3–30); email and username are unique case-insensitively; login and reset take the same time for unknown accounts; bcrypt cost 12 |
+| Limits | request bodies ≤ 1 MiB, server timeouts, per-IP rate limits on every mutating route, `TRUSTED_PROXIES` behind a load balancer (D27). Message edits need membership and cap content at 4000 characters; reactions are capped (10 distinct per person, 30 per message) |
+| Browser | security headers and a CSP on the web app (D25); client errors are logged without request bodies or credentials |
 | Password reset | `POST /auth/forgot-password` always answers the same, so it never reveals who has an account. The emailed link carries a random 256-bit token valid 30 minutes and **single use**; only its SHA-256 hash is stored. At most one email per address per minute, plus a per-client rate limit. `POST /auth/reset-password` applies the registration password policy (a refused password leaves the link valid), then **ends every session**: refresh tokens issued before that moment are rejected (access tokens expire within the hour) (D21) |
 | Logout | `POST /auth/logout` revokes the refresh id and clears the cookie |
 | Secret | the server refuses to start without a `JWT_SECRET` of at least 32 characters |

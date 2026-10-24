@@ -103,6 +103,8 @@ Notas sobre cada variable:
 | `REDIS_URL` | Alternativa | Si la defines, se ignoran las `REDIS_*`. Formato: `redis://:clave@localhost:6380/0` |
 | `REDIS_HOST`, `REDIS_PORT` | Sí (si no hay `REDIS_URL`) | `REDIS_USER`, `REDIS_PASS`, `REDIS_DB` opcionales. |
 | `CORS_ALLOWED_ORIGINS` | Sí en la práctica | Lista separada por comas. Debe incluir el origen del frontend. |
+| `DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME` | No | Pool de Postgres: 25, 25, `30m`, `5m` por defecto. |
+| `TRUSTED_PROXIES` | Tras un balanceador | IPs/CIDRs cuyo `X-Forwarded-For` se acepta; vacío por defecto. |
 | `PORT` | No | Por defecto `8081`. |
 | `FRONTEND_URL` | No | URL pública del frontend para los enlaces de los correos. Por defecto `http://localhost:3100`. |
 | `SMTP_*` | Solo para restablecer contraseña | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD`. Sin ellos «¿Olvidaste tu contraseña?» no envía nada (el error solo queda en el log). Con Gmail necesitas una "contraseña de aplicación". Para probar en local sirve un servidor SMTP de pruebas como Mailpit. |
