@@ -24,6 +24,9 @@ func NewCreateMessageUseCase(messageRepo domain.MessageRepository, wsBroadcaster
 }
 
 func (uc *CreateMessageUseCase) Execute(ctx context.Context, input CreateMessageDTO, authorID int) (*domain.Message, error) {
+	if err := validateContent(input.Content); err != nil {
+		return nil, err
+	}
 	roomID, err := uuid.Parse(input.RoomID)
 	if err != nil {
 		return nil, shared_domain.ErrInvalidInput

@@ -3,6 +3,8 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ type fakeRepo struct {
 	members      map[uuid.UUID]map[int]bool
 	messages     map[uuid.UUID]*domain.Message
 	reactions    int
+	reacted      []domain.Reaction
 	searched     string
 	searchedRoom *uuid.UUID
 	roles        map[int]string // overrides the default "member" role
@@ -96,7 +99,32 @@ func (f *fakeRepo) FindByRoomID(context.Context, uuid.UUID, int, *uuid.UUID) ([]
 func (f *fakeRepo) IsRoomMember(_ context.Context, room uuid.UUID, user int) (bool, error) {
 	return f.members[room][user], nil
 }
-func (f *fakeRepo) Add(context.Context, *domain.Reaction) error { f.reactions++; return nil }
+func (f *fakeRepo) Add(_ context.Context, r *domain.Reaction) error {
+	f.reactions++
+	f.reacted = append(f.reacted, *r)
+	return nil
+}
+func (f *fakeRepo) CountsFor(_ context.Context, msg uuid.UUID, user int, emoji string) (domain.ReactionCounts, error) {
+	var c domain.ReactionCounts
+	kinds := map[string]bool{}
+	for _, r := range f.reacted {
+		if r.MessageID != msg {
+			continue
+		}
+		kinds[r.Emoji] = true
+		if r.UserID == user {
+			c.UserReactions++
+		}
+		if r.Emoji == emoji {
+			c.EmojiInUse = true
+			if r.UserID == user {
+				c.AlreadyReacted = true
+			}
+		}
+	}
+	c.Kinds = len(kinds)
+	return c, nil
+}
 func (f *fakeRepo) FindByMessageID(context.Context, uuid.UUID) ([]*domain.Reaction, error) {
 	return nil, nil
 }
@@ -321,5 +349,100 @@ func TestGlobalAdminCanPinAnywhere(t *testing.T) {
 	repo.global = map[int]permissions.GlobalRole{outsiderID: permissions.GlobalAdmin}
 	if err := NewPinMessageUseCase(repo, nil).Execute(context.Background(), msg.ID, outsiderID, true); err != nil || msg.PinnedAt == nil {
 		t.Fatalf("global admin should pin: err=%v", err)
+	}
+}
+
+func TestUpdateMessageValidatesContentMembershipAndDeleted(t *testing.T) {
+	ctx := context.Background()
+	repo, room, msg := setup()
+	uc := NewUpdateMessageUseCase(repo, nil)
+
+	for name, content := range map[string]string{"blank": "  \n ", "empty": "", "too long": strings.Repeat("a", 4001)} {
+		if err := uc.Execute(ctx, msg.ID, memberID, UpdateMessageDTO{Content: content}); !errors.Is(err, shared_domain.ErrInvalidInput) {
+			t.Fatalf("%s: err = %v, want ErrInvalidInput", name, err)
+		}
+	}
+	if err := uc.Execute(ctx, msg.ID, memberID, UpdateMessageDTO{Content: strings.Repeat("é", 4000)}); err != nil {
+		t.Fatalf("4000 chars must be accepted: %v", err)
+	}
+
+	delete(repo.members[room], memberID) // kicked or banned
+	if err := uc.Execute(ctx, msg.ID, memberID, UpdateMessageDTO{Content: "still here"}); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Fatalf("former member: err = %v, want ErrForbidden", err)
+	}
+
+	repo.addMember(room, memberID)
+	now := time.Now()
+	msg.DeletedAt = &now
+	if err := uc.Execute(ctx, msg.ID, memberID, UpdateMessageDTO{Content: "zombie"}); !errors.Is(err, domain.ErrMessageNotFound) {
+		t.Fatalf("deleted message: err = %v, want ErrMessageNotFound", err)
+	}
+}
+
+func TestCreateMessageRejectsBlankOrTooLongContent(t *testing.T) {
+	repo, room, _ := setup()
+	uc := NewCreateMessageUseCase(repo, nil)
+	for _, content := range []string{"   ", strings.Repeat("a", 4001)} {
+		if _, err := uc.Execute(context.Background(), CreateMessageDTO{Content: content, RoomID: room.String()}, memberID); !errors.Is(err, shared_domain.ErrInvalidInput) {
+			t.Fatalf("err = %v, want ErrInvalidInput", err)
+		}
+	}
+}
+
+func TestAddReactionValidatesEmojiAndDeletedMessage(t *testing.T) {
+	ctx := context.Background()
+	repo, _, msg := setup()
+	add := NewAddReactionUseCase(repo, repo, nil)
+
+	for name, emoji := range map[string]string{"blank": "  ", "too many runes": "abcdefghi", "too many bytes": strings.Repeat("👍", 9)} {
+		if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: emoji}); !errors.Is(err, shared_domain.ErrInvalidInput) {
+			t.Fatalf("%s: err = %v, want ErrInvalidInput", name, err)
+		}
+	}
+	if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: "👨‍👩‍👧‍👦"}); err != nil {
+		t.Fatalf("ZWJ family emoji must be accepted: %v", err)
+	}
+
+	now := time.Now()
+	msg.DeletedAt = &now
+	if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: "👍"}); !errors.Is(err, domain.ErrMessageNotFound) {
+		t.Fatalf("deleted message: err = %v, want ErrMessageNotFound", err)
+	}
+}
+
+func TestAddReactionCaps(t *testing.T) {
+	ctx := context.Background()
+	repo, room, msg := setup()
+	add := NewAddReactionUseCase(repo, repo, nil)
+
+	for i := 0; i < maxReactionsPerUser; i++ {
+		if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: fmt.Sprintf("e%d", i)}); err != nil {
+			t.Fatalf("reaction %d: %v", i, err)
+		}
+	}
+	if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: "extra"}); !errors.Is(err, shared_domain.ErrInvalidInput) {
+		t.Fatalf("per-user cap: err = %v, want ErrInvalidInput", err)
+	}
+	if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: "e0"}); err != nil {
+		t.Fatalf("re-adding an existing reaction must stay allowed: %v", err)
+	}
+
+	// other users fill the remaining distinct kinds, then a new kind is refused
+	for u := 10; u < 10+2; u++ {
+		repo.addMember(room, u)
+		for i := 0; i < maxReactionsPerUser; i++ {
+			emoji := fmt.Sprintf("u%d-%d", u, i)
+			if err := add.Execute(ctx, msg.ID, u, AddReactionDTO{Emoji: emoji}); err != nil {
+				t.Fatalf("user %d reaction %d: %v", u, i, err)
+			}
+		}
+	}
+	// 30 kinds now exist
+	repo.addMember(room, 99)
+	if err := add.Execute(ctx, msg.ID, 99, AddReactionDTO{Emoji: "new-kind"}); !errors.Is(err, shared_domain.ErrInvalidInput) {
+		t.Fatalf("kind cap: err = %v, want ErrInvalidInput", err)
+	}
+	if err := add.Execute(ctx, msg.ID, 99, AddReactionDTO{Emoji: "e0"}); err != nil {
+		t.Fatalf("joining an existing kind must stay allowed: %v", err)
 	}
 }

@@ -14,7 +14,7 @@ type UpdateMessageUseCase struct {
 }
 
 type UpdateMessageDTO struct {
-	Content string `json:"content" validate:"required"`
+	Content string `json:"content" validate:"required,min=1,max=4000"`
 }
 
 func NewUpdateMessageUseCase(messageRepo domain.MessageRepository, wsBroadcaster domain.WebsocketBroadcaster) *UpdateMessageUseCase {
@@ -29,8 +29,18 @@ func (uc *UpdateMessageUseCase) Execute(ctx context.Context, messageID uuid.UUID
 	if err != nil {
 		return err
 	}
+	if msg.DeletedAt != nil {
+		return domain.ErrMessageNotFound
+	}
 	if msg.AuthorID != userID {
 		return shared_domain.ErrForbidden
+	}
+	// the author must still belong to the room (kicked or banned users cannot keep editing)
+	if err := requireRoomMember(ctx, uc.messageRepo, msg.RoomID, userID); err != nil {
+		return err
+	}
+	if err := validateContent(dto.Content); err != nil {
+		return err
 	}
 
 	roomID, err := uc.messageRepo.Update(ctx, dto.Content, messageID)
