@@ -15,7 +15,7 @@ export default function PrivateRoute({
 
   useEffect(() => {
     if (!loading && !tokens) {
-      router.push('/login');
+      router.replace('/login');
     }
   }, [loading, tokens, router]);
 
