@@ -52,7 +52,7 @@ func (r *PgAuthRepository) GetUserByID(ctx context.Context, id int) (*domain.Use
 	return user, nil
 }
 
-const getUserByEmailOrUsernameQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at FROM users u WHERE (u.email = $1 OR u.username = $1) AND u.deleted = FALSE AND u.email_verified_at IS NOT NULL;`
+const getUserByEmailOrUsernameQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at FROM users u WHERE (u.email = $1 OR u.username = $1) AND u.deleted = FALSE;`
 
 func (r *PgAuthRepository) GetUserByEmailOrUsername(ctx context.Context, emailOrUsername string) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx, getUserByEmailOrUsernameQuery, emailOrUsername)

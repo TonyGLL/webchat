@@ -23,12 +23,6 @@ Plantilla para añadir uno nuevo:
 
 ### Seguridad
 
-### H-003 Token JWT en la URL del WebSocket
-- **Severidad:** 🟠 · **Fase:** 1 · **Área:** front + back · **Verificación:** Confirmado
-- **Descripción:** el token se envía como `?token=...`, queda en logs de proxies y en el historial.
-- **Ubicación:** `frontend/src/contexts/SocketContext.tsx`, `backend/internal/websocket`
-- **Propuesta:** ticket de un solo uso y vida corta pedido por REST, o cookie httpOnly.
-
 ### H-004 Tokens guardados en `localStorage`
 - **Severidad:** 🟠 · **Fase:** 1 · **Área:** frontend · **Verificación:** Confirmado
 - **Descripción:** cualquier XSS puede robar access y refresh token.
@@ -172,6 +166,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-003 | Token JWT en la URL del WebSocket; ahora se canjea por un ticket de un solo uso (30 s) vía `POST /ws-ticket` | 2026-10-23 | _(este commit)_ |
 | H-002 | WebSocket aceptaba cualquier origen; ahora solo los de `CORS_ALLOWED_ORIGINS` (y respuesta 401 clara sin token) | 2026-10-23 | b2791fd |
 | H-055 | Registro dejaba usuarios huérfanos sin contraseña (el escaneo de `last_access` NULL fallaba y la "transacción" no usaba la conexión transaccional) | 2026-10-23 | 8e79c4c |
 | H-052 | El registro del frontend no enviaba los campos que exige el backend (name, last_name, phone, contraseña de 8+); además nunca se pedía el envío del correo de verificación | 2026-10-23 | 71d50fb |

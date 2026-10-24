@@ -1,14 +1,12 @@
 package websocket
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-
-	"backend/internal/shared/application"
-	shared_http "backend/internal/shared/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -133,19 +131,21 @@ func (c *Client) writePump() {
 	}
 }
 
-// ServeWs handles websocket requests from the peer.
-func ServeWs(hub *Hub, upgrader *websocket.Upgrader, roomLister RoomLister, jwtService application.JwtService, ctx *gin.Context) {
-	// Authenticate the user from the token in the query parameter.
-	tokenStr := ctx.Query("token")
-	if tokenStr == "" {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token is required"})
+// ServeWs handles websocket requests from the peer. The user authenticates with a
+// single-use ticket (see IssueTicket) so the JWT never travels in the URL.
+func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLister RoomLister, ctx *gin.Context) {
+	ticket := ctx.Query("ticket")
+	if ticket == "" {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "ticket is required"})
 		return
 	}
 
-	claims, err := jwtService.ParseToken(tokenStr)
+	id, err := tickets.Redeem(ctx.Request.Context(), ticket)
 	if err != nil {
-		log.Printf("JWT parsing error for websocket: %v", err)
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+		if !errors.Is(err, ErrInvalidTicket) {
+			log.Printf("websocket ticket error: %v", err)
+		}
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired ticket"})
 		return
 	}
 
@@ -154,10 +154,6 @@ func ServeWs(hub *Hub, upgrader *websocket.Upgrader, roomLister RoomLister, jwtS
 		log.Println(err)
 		return
 	}
-
-	// The user ID must be available in the context, set by the auth middleware.
-	ctx.Set(shared_http.CtxUserIDKey, claims.UserID)
-	id := claims.UserID
 
 	client := &Client{
 		hub:    hub,

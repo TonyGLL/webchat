@@ -92,10 +92,12 @@ func main() {
 	server := http.NewServer(cfg)
 	apiV1 := server.Router.Group("/api/v1")
 
-	// Websocket endpoint
-	// This endpoint must be authenticated to identify the user.
+	// Websocket endpoints: an authenticated call to /ws-ticket returns a short-lived,
+	// single-use ticket that /ws redeems, so the JWT never appears in the URL.
+	wsTickets := websocket.NewRedisTicketStore(redisClient)
+	apiV1.POST("/ws-ticket", http.JWTMiddleware(jwtService), websocket.IssueTicket(wsTickets))
 	apiV1.GET("/ws", func(c *gin.Context) {
-		websocket.ServeWs(wsHub, wsUpgrader, roomListerAdapter, jwtService, c)
+		websocket.ServeWs(wsHub, wsUpgrader, wsTickets, roomListerAdapter, c)
 	})
 
 	// --- Module Registration ---
