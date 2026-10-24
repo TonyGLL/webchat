@@ -100,17 +100,6 @@ Plantilla para añadir uno nuevo:
 - **Descripción:** el backend ofrece refresh pero el frontend lo ignora; al expirar el access token se cierra la sesión.
 - **Propuesta:** interceptor con cola de peticiones durante la renovación.
 
-### H-025 Estilo global inyectado desde el dashboard
-- **Severidad:** 🟢 · **Fase:** 2 · **Área:** frontend · **Verificación:** Confirmado
-- **Descripción:** `<style jsx global>` aplica fondo a todos los `main`.
-- **Ubicación:** `frontend/src/app/(private)/dashboard/page.tsx`
-- **Propuesta:** mover a una clase de Tailwind o CSS del componente.
-
-### H-026 Navegación móvil incompleta
-- **Severidad:** 🟡 · **Fase:** 2 · **Área:** frontend · **Verificación:** Por confirmar
-- **Descripción:** el layout usa `md:grid-cols-[350px_1fr]`; en pantallas pequeñas no se ve cómo se alterna entre lista y chat.
-- **Ubicación:** `frontend/src/app/(private)/dashboard/page.tsx`
-
 ### Datos y rendimiento
 
 ### H-030 Migraciones manuales
@@ -186,6 +175,8 @@ _(nada por ahora)_
 
 | ID | Título | Fecha | Commit / PR |
 |----|--------|-------|-------------|
+| H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | _(este commit)_ |
+| H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | _(este commit)_ |
 | H-052 | El registro del frontend no enviaba los campos que exige el backend (name, last_name, phone, contraseña de 8+); además nunca se pedía el envío del correo de verificación | 2026-10-23 | 71d50fb |
 | H-053 | Enlace de verificación de email sin dominio; ahora usa `FRONTEND_URL/verify/<token>` y la página llama a la ruta correcta del backend | 2026-10-23 | 71d50fb |
 | H-041 | Puertos inconsistentes (ahora: front 3100, back 8081, db 5433, redis 6380) | 2026-10-23 | a1411ec |

@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { authService } from '@/services/authService';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { CheckCircle2, XCircle } from 'lucide-react';
+import Spinner from '@/components/Spinner';
+import { Button } from '@/components/ui/button';
 
 export default function VerifyTokenPage() {
   const { token } = useParams();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
-    'loading'
-  );
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
   useEffect(() => {
     if (token) {
@@ -20,25 +21,32 @@ export default function VerifyTokenPage() {
     }
   }, [token]);
 
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center">Email Verification</h1>
-        {status === 'loading' && <p className="text-center">Verifying...</p>}
-        {status === 'success' && (
-          <div className="text-center">
-            <p className="text-green-600">Email verified successfully!</p>
-            <Link href="/login" className="text-indigo-600 hover:underline">
-              Click here to login
-            </Link>
-          </div>
-        )}
-        {status === 'error' && (
-          <p className="text-center text-red-600">
-            Invalid or expired verification link.
-          </p>
-        )}
+  if (status === 'loading') {
+    return (
+      <div className="space-y-3 text-center">
+        <Spinner className="h-6 w-6" />
+        <p className="text-sm text-muted-foreground">Verifying your email…</p>
       </div>
+    );
+  }
+
+  const ok = status === 'success';
+  const Icon = ok ? CheckCircle2 : XCircle;
+
+  return (
+    <div className="space-y-4 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+        <Icon className={`h-5 w-5 ${ok ? 'text-foreground' : 'text-destructive'}`} />
+      </div>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {ok ? 'Email verified' : 'Link not valid'}
+      </h1>
+      <p className="text-sm text-muted-foreground">
+        {ok ? 'Your account is ready.' : 'This verification link is invalid or has expired.'}
+      </p>
+      <Button asChild className="w-full">
+        <Link href="/login">{ok ? 'Continue to sign in' : 'Back to sign in'}</Link>
+      </Button>
     </div>
   );
 }

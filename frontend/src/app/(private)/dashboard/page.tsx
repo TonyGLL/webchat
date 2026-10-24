@@ -8,41 +8,44 @@ import RoomList from '@/components/RoomList';
 import CreateRoomForm from '@/components/CreateRoomForm';
 import MessageView from '@/components/MessageView';
 import UserProfile from '@/components/UserProfile';
+import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { rooms, loading, createRoom } = useRoom();
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const room = rooms.find((r) => r.id === selectedRoom);
 
+  // On small screens only one pane is visible: the room list, or the open chat.
   return (
     <PrivateRoute>
-      <div className="grid md:grid-cols-[350px_1fr] h-screen bg-whatsapp-deep-sea-green text-white">
-        <aside className="flex flex-col bg-whatsapp-surfie-green border-r border-gray-700">
+      <div className="flex h-dvh bg-background">
+        <aside
+          className={cn(
+            'w-full flex-col border-r md:flex md:w-80 md:shrink-0',
+            selectedRoom ? 'hidden' : 'flex'
+          )}
+        >
           <UserProfile />
-          <div className="p-4 border-b border-gray-700">
-            <h2 className="text-xl font-semibold">Chats</h2>
+          <div className="relative flex items-center justify-between px-4 pb-2 pt-4">
+            <h2 className="text-sm font-medium text-muted-foreground">Chats</h2>
+            <CreateRoomForm createRoom={createRoom} />
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="flex justify-center items-center h-full">
+              <div className="py-8">
                 <Spinner />
               </div>
             ) : (
               <RoomList rooms={rooms} onSelectRoom={setSelectedRoom} selectedRoom={selectedRoom} />
             )}
           </div>
-          <div className="p-4 border-t border-gray-700">
-            <CreateRoomForm createRoom={createRoom} />
-          </div>
         </aside>
-        <main className="flex flex-col h-screen bg-whatsapp-pearl-bush bg-opacity-10">
-          {/* Add this style for the background image */}
-          <style jsx global>{`
-            main {
-              background-image: url('/whatsapp-bg.png');
-              background-repeat: repeat;
-            }
-          `}</style>
-          <MessageView roomId={selectedRoom} />
+        <main className={cn('min-w-0 flex-1 flex-col md:flex', selectedRoom ? 'flex' : 'hidden')}>
+          <MessageView
+            roomId={selectedRoom}
+            roomName={room?.name}
+            onBack={() => setSelectedRoom(null)}
+          />
         </main>
       </div>
     </PrivateRoute>

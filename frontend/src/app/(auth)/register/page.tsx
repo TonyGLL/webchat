@@ -8,16 +8,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
 import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
 import Spinner from '@/components/Spinner';
-
-const FIELDS: { name: keyof RegisterData; label: string; type: string }[] = [
-  { name: 'name', label: 'Name', type: 'text' },
-  { name: 'last_name', label: 'Last name', type: 'text' },
-  { name: 'username', label: 'Username', type: 'text' },
-  { name: 'email', label: 'Email', type: 'email' },
-  { name: 'phone', label: 'Phone', type: 'tel' },
-  { name: 'password', label: 'Password', type: 'password' },
-];
 
 export default function RegisterPage() {
   const { register: registerUser } = useAuth();
@@ -37,7 +30,7 @@ export default function RegisterPage() {
     setError(null);
     try {
       await registerUser(data);
-      router.push(`/verify-email?email=${data.email}`);
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
     } catch (err) {
       setError(
         axios.isAxiosError(err) && err.response?.status === 409
@@ -51,45 +44,68 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-sm p-8 space-y-4 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center text-gray-800">Create an Account</h1>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-          {FIELDS.map(({ name, label, type }) => (
-            <div key={name}>
-              <label
-                htmlFor={name}
-                className="block text-sm font-medium text-gray-600"
-              >
-                {label}
-              </label>
-              <input
-                id={name}
-                type={type}
-                {...register(name)}
-                className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-              {errors[name] && (
-                <p className="mt-1 text-sm text-red-500">{errors[name]?.message}</p>
-              )}
-            </div>
-          ))}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400"
-          >
-            {loading ? <Spinner /> : 'Register'}
-          </button>
-        </form>
-        <p className="text-sm text-center text-gray-600">
-          Already have an account?{' '}
-          <Link href="/login" className="font-medium text-blue-600 hover:underline">
-            Login
-          </Link>
-        </p>
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
+        <p className="text-sm text-muted-foreground">It only takes a minute.</p>
       </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        {error && (
+          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            label="Name"
+            autoComplete="given-name"
+            error={errors.name?.message}
+            {...register('name')}
+          />
+          <FormField
+            label="Last name"
+            autoComplete="family-name"
+            error={errors.last_name?.message}
+            {...register('last_name')}
+          />
+        </div>
+        <FormField
+          label="Username"
+          autoComplete="username"
+          error={errors.username?.message}
+          {...register('username')}
+        />
+        <FormField
+          label="Email"
+          type="email"
+          autoComplete="email"
+          error={errors.email?.message}
+          {...register('email')}
+        />
+        <FormField
+          label="Phone"
+          type="tel"
+          autoComplete="tel"
+          error={errors.phone?.message}
+          {...register('phone')}
+        />
+        <FormField
+          label="Password"
+          type="password"
+          autoComplete="new-password"
+          error={errors.password?.message}
+          {...register('password')}
+        />
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? <Spinner className="h-4 w-4 text-primary-foreground" /> : 'Create account'}
+        </Button>
+      </form>
+      <p className="text-center text-sm text-muted-foreground">
+        Already have an account?{' '}
+        <Link href="/login" className="font-medium text-foreground hover:underline">
+          Sign in
+        </Link>
+      </p>
     </div>
   );
 }

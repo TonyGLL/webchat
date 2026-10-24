@@ -1,3 +1,4 @@
+import { MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function RoomList({
@@ -9,25 +10,35 @@ export default function RoomList({
   onSelectRoom: (id: string) => void;
   selectedRoom: string | null;
 }) {
+  if (rooms.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-muted-foreground">
+        <MessageSquare className="h-5 w-5" />
+        <p className="text-sm">No rooms yet. Create your first one with +.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-1 p-2">
+    <ul className="space-y-0.5 p-2">
       {rooms.map((room) => (
-        <div
-          key={room.id}
-          onClick={() => onSelectRoom(room.id)}
-          className={cn(
-            'flex items-center p-3 rounded-lg cursor-pointer transition-colors',
-            selectedRoom === room.id
-              ? 'bg-whatsapp-deep-sea-green'
-              : 'hover:bg-whatsapp-deep-sea-green hover:bg-opacity-50'
-          )}
-        >
-          <div className="w-10 h-10 rounded-full bg-whatsapp-mountain-meadow flex items-center justify-center font-bold text-white mr-3">
-            {room.name.charAt(0).toUpperCase()}
-          </div>
-          <p className="font-semibold text-white">{room.name}</p>
-        </div>
+        <li key={room.id}>
+          <button
+            type="button"
+            onClick={() => onSelectRoom(room.id)}
+            aria-current={selectedRoom === room.id ? 'true' : undefined}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent',
+              selectedRoom === room.id && 'bg-accent'
+            )}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+              {room.name.charAt(0).toUpperCase()}
+            </span>
+            <span className="truncate text-sm font-medium">{room.name}</span>
+          </button>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }

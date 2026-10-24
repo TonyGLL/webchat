@@ -1,8 +1,11 @@
 'use client';
 
+import Link from 'next/link';
+import { LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 export default function UserProfile() {
   const { logout } = useAuth();
@@ -15,21 +18,16 @@ export default function UserProfile() {
   };
 
   return (
-    <div className="flex items-center justify-between p-3 bg-whatsapp-deep-sea-green border-b border-gray-700">
-      <div className="flex items-center">
-        <div className="w-10 h-10 rounded-full bg-whatsapp-surfie-green flex items-center justify-center font-bold text-white">
+    <div className="flex h-14 items-center justify-between border-b px-4">
+      <Link href="/profile" className="flex min-w-0 items-center gap-3 rounded-md hover:opacity-80">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
           {profile?.username?.charAt(0).toUpperCase()}
         </div>
-        <div className="ml-3">
-          <p className="text-sm font-semibold text-white">{profile?.username}</p>
-        </div>
-      </div>
-      <button
-        onClick={handleLogout}
-        className="px-3 py-2 text-sm font-medium text-white bg-whatsapp-surfie-green rounded-md hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-whatsapp-deep-sea-green focus:ring-white"
-      >
-        Logout
-      </button>
+        <p className="truncate text-sm font-medium">{profile?.username}</p>
+      </Link>
+      <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Log out" title="Log out">
+        <LogOut className="h-4 w-4" />
+      </Button>
     </div>
   );
 }

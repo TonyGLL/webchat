@@ -5,8 +5,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import PrivateRoute from '@/components/PrivateRoute';
 import Spinner from '@/components/Spinner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 
 export default function ProfilePage() {
   const { profile, loading, deactivate } = useUser();
@@ -25,36 +26,41 @@ export default function ProfilePage() {
 
   return (
     <PrivateRoute>
-      <div className="container mx-auto p-4 flex justify-center items-center h-full">
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-10">
+        <Link
+          href="/dashboard"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to chats
+        </Link>
         {loading ? (
           <Spinner />
         ) : profile ? (
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>User Profile</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="font-semibold">ID</p>
-                <p className="text-muted-foreground">{profile.id}</p>
+          <div className="space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-xl font-medium">
+                {profile.username?.charAt(0).toUpperCase()}
               </div>
-              <div>
-                <p className="font-semibold">Username</p>
-                <p className="text-muted-foreground">{profile.username}</p>
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-semibold tracking-tight">{profile.username}</h1>
+                <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
               </div>
-              <div>
-                <p className="font-semibold">Email</p>
-                <p className="text-muted-foreground">{profile.email}</p>
-              </div>
+            </div>
+            <div className="space-y-3 rounded-lg border p-4">
+              <h2 className="text-sm font-medium">Danger zone</h2>
+              <p className="text-sm text-muted-foreground">
+                Deactivating your account signs you out and disables your access.
+              </p>
               <Button variant="destructive" onClick={handleDeactivate} className="w-full">
-                Deactivate Account
+                Deactivate account
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ) : (
-          <p>Could not load profile.</p>
+          <p className="text-sm text-muted-foreground">Could not load profile.</p>
         )}
-      </div>
+      </main>
     </PrivateRoute>
   );
 }

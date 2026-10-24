@@ -1,6 +1,8 @@
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
 import { useState } from 'react';
+import { SmilePlus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ReactionProps {
   messageId: string;
@@ -39,21 +41,39 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
   const groupedReactions = groupReactions(reactions);
 
   return (
-    <div className="relative">
+    <div className="relative flex flex-wrap items-center gap-1">
+      {groupedReactions.map((reaction) => {
+        const mine = reaction.users.includes(currentUserId);
+        return (
+          <button
+            key={reaction.emoji}
+            type="button"
+            onClick={() =>
+              mine ? onRemoveReaction(messageId, reaction.emoji) : onAddReaction(messageId, reaction.emoji)
+            }
+            className={cn(
+              'rounded-full border px-2 py-0.5 text-xs transition-colors hover:bg-accent',
+              mine && 'border-foreground/30 bg-accent'
+            )}
+          >
+            {reaction.emoji}
+            {reaction.count > 1 && <span className="ml-1 text-muted-foreground">{reaction.count}</span>}
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        onClick={() => setShowPicker(!showPicker)}
+        className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        aria-label="Add reaction"
+      >
+        <SmilePlus className="h-4 w-4" />
+      </button>
       {showPicker && (
-        <div>
-          <Picker data={data} onEmojiSelect={handleEmojiSelect} />
+        <div className="absolute bottom-full right-0 z-20 mb-2">
+          <Picker data={data} onEmojiSelect={handleEmojiSelect} theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'} previewPosition="none" />
         </div>
       )}
-      <div onClick={() => setShowPicker(!showPicker)} className="flex items-center gap-1 justify-end">
-        {groupedReactions.map((reaction, index) => (
-          <div
-            key={index}
-            className={`px-2 py-1 rounded-full cursor-pointer ${reaction.users.includes(currentUserId) ? 'bg-blue-500' : 'bg-gray-700'}`}>
-            {reaction.emoji} {reaction.count > 1 && <span>{reaction.count}</span>}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
