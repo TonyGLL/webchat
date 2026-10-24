@@ -23,12 +23,6 @@ Plantilla para añadir uno nuevo:
 
 ### Seguridad
 
-### H-001 Secreto JWT con valor por defecto
-- **Severidad:** 🔴 · **Fase:** 1 · **Área:** backend · **Verificación:** Confirmado
-- **Descripción:** si `JWT_SECRET` no está definido se usa `"default-secret"`, lo que permite falsificar tokens.
-- **Ubicación:** `backend/internal/shared/config/config.go`
-- **Propuesta:** devolver error al arrancar si falta o es demasiado corto.
-
 ### H-002 WebSocket acepta cualquier origen
 - **Severidad:** 🟠 · **Fase:** 1 · **Área:** backend · **Verificación:** Confirmado
 - **Descripción:** `CheckOrigin` devuelve siempre `true` (comentario en el código: "in production, you should check the origin").
@@ -179,4 +173,5 @@ _(nada por ahora)_
 
 | ID | Título | Fecha | Commit / PR |
 |----|--------|-------|-------------|
+| H-001 | Secreto JWT con valor por defecto | 2026-10-23 | _(sin commit aún)_ |
 | H-000 | Falta `CLAUDE.md` con guía del repositorio | 2026-10-23 | 8b94309 |

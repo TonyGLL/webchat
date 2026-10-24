@@ -9,6 +9,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// minJWTSecretLength is the shortest JWT signing secret we accept.
+const minJWTSecretLength = 32
+
 // NewConfig creates a new Config struct and loads values from environment variables.
 // It also loads from a .env file if the path is provided.
 func NewConfig(envFile string) (*Config, error) {
@@ -21,12 +24,16 @@ func NewConfig(envFile string) (*Config, error) {
 		Port:               Getenv("PORT", "8080"),
 		DatabaseURL:        Getenv("DATABASE_URL", ""),
 		RedisURL:           Getenv("REDIS_URL", ""),
-		JWTSecret:          Getenv("JWT_SECRET", "default-secret"),
+		JWTSecret:          Getenv("JWT_SECRET", ""),
 		CORSAllowedOrigins: parseCorsOrigins(Getenv("CORS_ALLOWED_ORIGINS", "")),
 		SMTPFrom:           Getenv("SMTP_FROM", ""),
 		SMTPPassword:       Getenv("SMTP_PASSWORD", ""),
 		SMTPHost:           Getenv("SMTP_HOST", ""),
 		SMTPPort:           Getenv("SMTP_PORT", "587"),
+	}
+
+	if len(cfg.JWTSecret) < minJWTSecretLength {
+		return nil, fmt.Errorf("JWT_SECRET must be set and at least %d characters long", minJWTSecretLength)
 	}
 
 	// If DATABASE_URL is not set, try to construct it from individual DB environment variables
