@@ -115,15 +115,29 @@ func (r *PgAuthRepository) ValidateUserPassword(ctx context.Context, id int) (st
 }
 
 const registerUserQuery = `
-	INSERT INTO users (email, name, last_name, username, phone)
-	VALUES ($1, $2, $3, $4, $5)
+	INSERT INTO users (email, name, last_name, username, phone, last_access)
+	VALUES ($1, $2, $3, $4, $5, NOW())
 	RETURNING id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at;
 `
 
-func (r *PgAuthRepository) Register(ctx context.Context, user *domain.User) (*domain.User, error) {
-	row := r.db.QueryRowContext(ctx, registerUserQuery, user.Email, user.Name, user.LastName, user.Username, user.Phone)
+const createPasswordQuery = `INSERT INTO passwords (user_id, hash) VALUES ($1, $2);`
+
+// RegisterWithPassword inserts the user and their password in a single transaction,
+// so a failure in either step never leaves a user without a password behind.
+func (r *PgAuthRepository) RegisterWithPassword(ctx context.Context, user *domain.User, hashedPassword string) (*domain.User, error) {
+	pool, ok := r.db.(*sql.DB)
+	if !ok {
+		return nil, errors.New("register requires a *sql.DB to start a transaction")
+	}
+
+	tx, err := pool.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() // no-op once committed
+
 	newUser := &domain.User{}
-	err := row.Scan(
+	err = tx.QueryRowContext(ctx, registerUserQuery, user.Email, user.Name, user.LastName, user.Username, user.Phone).Scan(
 		&newUser.ID,
 		&newUser.Name,
 		&newUser.LastName,
@@ -140,21 +154,20 @@ func (r *PgAuthRepository) Register(ctx context.Context, user *domain.User) (*do
 	)
 	if err != nil {
 		var pqErr *pq.Error
-		if errors.As(err, &pqErr) {
-			if pqErr.Code.Name() == "unique_violation" {
-				return nil, shared_domain.ErrConflict
-			}
+		if errors.As(err, &pqErr) && pqErr.Code.Name() == "unique_violation" {
+			return nil, shared_domain.ErrConflict
 		}
 		return nil, err
 	}
+
+	if _, err := tx.ExecContext(ctx, createPasswordQuery, newUser.ID, hashedPassword); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
 	return newUser, nil
-}
-
-const createPasswordQuery = `INSERT INTO passwords (user_id, hash) VALUES ($1, $2);`
-
-func (r *PgAuthRepository) CreatePassword(ctx context.Context, userID int, hashedPassword string) error {
-	_, err := r.db.ExecContext(ctx, createPasswordQuery, userID, hashedPassword)
-	return err
 }
 
 const setLastAccessQuery = `UPDATE users SET last_access = NOW() WHERE id = $1;`

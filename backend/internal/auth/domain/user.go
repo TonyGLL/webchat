@@ -17,7 +17,7 @@ type User struct {
 	Email           string
 	Phone           string
 	AvatarUrl       *string
-	LastAccess      time.Time
+	LastAccess      *time.Time
 	Deleted         bool
 	GoogleSub       *string
 	EmailVerifiedAt *time.Time
