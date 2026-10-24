@@ -14,10 +14,11 @@ type CreateRoomDTO struct {
 type CreateRoomUseCase struct {
 	roomRepo   domain.RoomRepository
 	memberRepo domain.RoomMemberRepository
+	subscriber domain.RealtimeSubscriber
 }
 
-func NewCreateRoomUseCase(roomRepo domain.RoomRepository, memberRepo domain.RoomMemberRepository) *CreateRoomUseCase {
-	return &CreateRoomUseCase{roomRepo: roomRepo, memberRepo: memberRepo}
+func NewCreateRoomUseCase(roomRepo domain.RoomRepository, memberRepo domain.RoomMemberRepository, subscriber domain.RealtimeSubscriber) *CreateRoomUseCase {
+	return &CreateRoomUseCase{roomRepo: roomRepo, memberRepo: memberRepo, subscriber: subscriber}
 }
 
 func (uc *CreateRoomUseCase) Execute(ctx context.Context, input CreateRoomDTO, ownerID int) (*domain.Room, error) {
@@ -33,6 +34,10 @@ func (uc *CreateRoomUseCase) Execute(ctx context.Context, input CreateRoomDTO, o
 	err = uc.memberRepo.AddMember(ctx, member)
 	if err != nil {
 		return nil, err
+	}
+
+	if uc.subscriber != nil {
+		uc.subscriber.SubscribeUser(ownerID, createdRoom.ID.String())
 	}
 
 	return createdRoom, nil

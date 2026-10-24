@@ -12,10 +12,11 @@ type AcceptInviteDTO struct {
 type AcceptInviteUseCase struct {
 	inviteRepo     domain.InviteRepository
 	roomMemberRepo domain.RoomMemberRepository
+	subscriber     domain.RealtimeSubscriber
 }
 
-func NewAcceptInviteUseCase(inviteRepo domain.InviteRepository, roomMemberRepo domain.RoomMemberRepository) *AcceptInviteUseCase {
-	return &AcceptInviteUseCase{inviteRepo: inviteRepo, roomMemberRepo: roomMemberRepo}
+func NewAcceptInviteUseCase(inviteRepo domain.InviteRepository, roomMemberRepo domain.RoomMemberRepository, subscriber domain.RealtimeSubscriber) *AcceptInviteUseCase {
+	return &AcceptInviteUseCase{inviteRepo: inviteRepo, roomMemberRepo: roomMemberRepo, subscriber: subscriber}
 }
 
 func (uc *AcceptInviteUseCase) Execute(ctx context.Context, dto AcceptInviteDTO, userID int) (*domain.Invite, error) {
@@ -38,6 +39,10 @@ func (uc *AcceptInviteUseCase) Execute(ctx context.Context, dto AcceptInviteDTO,
 	err = uc.roomMemberRepo.AddMember(ctx, newMember)
 	if err != nil {
 		return nil, err
+	}
+
+	if uc.subscriber != nil {
+		uc.subscriber.SubscribeUser(userID, invite.RoomID.String())
 	}
 
 	return invite, nil

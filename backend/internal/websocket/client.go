@@ -17,6 +17,8 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
+	// maxMessageSize caps what a client may send us. Clients send nothing today (messages go
+	// through the REST API); raise it if client events such as "typing" or acks are added.
 	maxMessageSize = 512
 )
 
@@ -162,7 +164,7 @@ func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLi
 		UserID: id,
 		ID:     uuid.New().String(),
 	}
-	client.hub.register <- client
+	hub.Register(client)
 
 	// Subscribe the client to their rooms.
 	go func() {

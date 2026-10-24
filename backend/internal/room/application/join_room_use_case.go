@@ -17,10 +17,11 @@ var (
 type JoinRoomUseCase struct {
 	roomRepo   domain.RoomRepository
 	memberRepo domain.RoomMemberRepository
+	subscriber domain.RealtimeSubscriber
 }
 
-func NewJoinRoomUseCase(roomRepo domain.RoomRepository, memberRepo domain.RoomMemberRepository) *JoinRoomUseCase {
-	return &JoinRoomUseCase{roomRepo: roomRepo, memberRepo: memberRepo}
+func NewJoinRoomUseCase(roomRepo domain.RoomRepository, memberRepo domain.RoomMemberRepository, subscriber domain.RealtimeSubscriber) *JoinRoomUseCase {
+	return &JoinRoomUseCase{roomRepo: roomRepo, memberRepo: memberRepo, subscriber: subscriber}
 }
 
 func (uc *JoinRoomUseCase) Execute(ctx context.Context, roomID uuid.UUID, userID int) error {
@@ -42,5 +43,11 @@ func (uc *JoinRoomUseCase) Execute(ctx context.Context, roomID uuid.UUID, userID
 		return ErrAlreadyMember
 	}
 	newMember := &domain.RoomMember{RoomID: roomID, UserID: userID, Role: domain.RoleMember}
-	return uc.memberRepo.AddMember(ctx, newMember)
+	if err := uc.memberRepo.AddMember(ctx, newMember); err != nil {
+		return err
+	}
+	if uc.subscriber != nil {
+		uc.subscriber.SubscribeUser(userID, roomID.String())
+	}
+	return nil
 }

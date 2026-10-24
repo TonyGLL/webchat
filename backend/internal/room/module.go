@@ -18,12 +18,13 @@ func RegisterModule(
 	validate *validator.Validate,
 	authMiddleware gin.HandlerFunc,
 	listUserRoomsUseCase *application.ListUserRoomsUseCase, // Pass the use case in
+	subscriber domain.RealtimeSubscriber,
 ) {
 	// Initialize other use cases
-	createRoomUseCase := application.NewCreateRoomUseCase(roomRepo, memberRepo)
-	joinRoomUseCase := application.NewJoinRoomUseCase(roomRepo, memberRepo)
+	createRoomUseCase := application.NewCreateRoomUseCase(roomRepo, memberRepo, subscriber)
+	joinRoomUseCase := application.NewJoinRoomUseCase(roomRepo, memberRepo, subscriber)
 	createInviteUseCase := application.NewCreateInviteUseCase(inviteRepo, roomRepo, memberRepo)
-	acceptInviteUseCase := application.NewAcceptInviteUseCase(inviteRepo, memberRepo)
+	acceptInviteUseCase := application.NewAcceptInviteUseCase(inviteRepo, memberRepo, subscriber)
 
 	// Initialize the controller, reusing the provided use case
 	roomController := presentation.NewRoomController(

@@ -58,16 +58,6 @@ Plantilla para añadir uno nuevo:
 - **Descripción:** el estado de salas y clientes vive en un solo proceso; no se puede escalar horizontalmente.
 - **Propuesta:** Redis pub/sub entre instancias.
 
-### H-033 Mutex y canal sin buffer en el hub
-- **Severidad:** 🟡 · **Fase:** 5 · **Área:** backend · **Verificación:** Por confirmar
-- **Descripción:** `broadcast`, `register` y `unregister` son canales sin buffer y hay un `sync.Mutex` junto a un bucle de eventos; revisar posibles bloqueos con clientes lentos y que `rooms` se proteja de forma uniforme.
-- **Ubicación:** `backend/internal/websocket/hub.go`
-
-### H-034 Límite de 512 bytes por mensaje entrante del cliente
-- **Severidad:** 🟢 · **Fase:** 3 · **Área:** backend · **Verificación:** Confirmado
-- **Descripción:** `maxMessageSize = 512` aplica a lo que el cliente envía por WebSocket. Hoy no se procesa nada, pero habrá que ampliarlo si se añaden eventos (typing, ack).
-- **Ubicación:** `backend/internal/websocket/client.go`
-
 ### Operación y documentación
 
 ### H-051 Contraseñas escritas directamente en docker-compose.yml
@@ -93,6 +83,9 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-033 | Hub de WebSocket: se bloqueaba para siempre con un cliente lento (re-tomaba su propio candado), el canal de eventos no tenía búfer y había una carrera al registrar clientes. Reescrito y probado con `-race` | 2026-10-23 | _(este commit)_ |
+| H-062 | Las salas creadas/unidas después de conectar no recibían mensajes en vivo hasta reconectar: ahora el hub suscribe al usuario al crear sala, unirse o aceptar invitación | 2026-10-23 | _(este commit)_ |
+| H-034 | Límite de 512 bytes del cliente por WebSocket: documentado en el código (hoy el cliente no envía nada por ahí) | 2026-10-23 | _(este commit)_ |
 | H-010 | Imagen Docker: ahora distroless con certificados CA, usuario no root, binario compilado sin CGO (42 MB) | 2026-10-23 | 13b60f9 |
 | H-021 | CI en GitHub Actions: formato, vet, build y tests (backend); tipos, lint y build (frontend) | 2026-10-23 | 13b60f9 |
 | H-040 | README raíz y de backend reescritos con puertos, rutas y comandos reales | 2026-10-23 | 13b60f9 |

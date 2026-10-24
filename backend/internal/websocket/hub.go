@@ -7,33 +7,32 @@ import (
 	"sync"
 )
 
+// broadcastBuffer lets request handlers publish events without waiting for the hub loop.
+const broadcastBuffer = 256
+
 // Hub maintains the set of active clients and broadcasts messages to the
 // clients in specific rooms.
 type Hub struct {
-	// Registered clients.
-	clients map[*Client]bool
-
-	// Inbound messages from the clients.
+	// Inbound messages from the application.
 	broadcast chan *Message
-
-	// Register requests from the clients.
-	register chan *Client
 
 	// Unregister requests from clients.
 	unregister chan *Client
 
-	// A map where keys are room IDs and values are maps of clients in that room.
-	rooms map[string]map[*Client]bool
-
-	// Mutex to protect concurrent access to the rooms map.
+	// mu protects clients and rooms, which are touched by the hub loop and by other goroutines.
 	mu sync.Mutex
+
+	// Registered clients.
+	clients map[*Client]bool
+
+	// A map where keys are room IDs and values are the clients subscribed to that room.
+	rooms map[string]map[*Client]bool
 }
 
 // NewHub creates a new Hub.
 func NewHub() *Hub {
 	return &Hub{
-		broadcast:  make(chan *Message),
-		register:   make(chan *Client),
+		broadcast:  make(chan *Message, broadcastBuffer),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
 		rooms:      make(map[string]map[*Client]bool),
@@ -44,91 +43,105 @@ func NewHub() *Hub {
 func (h *Hub) Run() {
 	for {
 		select {
-		case client := <-h.register:
-			h.clients[client] = true
 		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
-				h.removeClientFromAllRooms(client)
-			}
+			h.mu.Lock()
+			h.removeClientLocked(client)
+			h.mu.Unlock()
 		case message := <-h.broadcast:
 			h.handleBroadcast(message)
 		}
 	}
 }
 
-// handleBroadcast sends a message to all clients in the specified room.
-func (h *Hub) handleBroadcast(message *Message) {
+// Register adds a client. It is synchronous so the caller can subscribe the client
+// to rooms right after, knowing it is already known to the hub.
+func (h *Hub) Register(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.clients[client] = true
+}
 
-	roomID := message.RoomID
-	if room, ok := h.rooms[roomID]; ok {
-		// Convert the message payload to JSON
-		payloadBytes, err := json.Marshal(message.Payload)
-		if err != nil {
-			log.Printf("error marshalling broadcast message payload: %v", err)
-			return
-		}
-
-		// Create the final message structure
-		finalMessage := WebsocketMessage{
-			Type:    message.Type,
-			Payload: json.RawMessage(payloadBytes),
-		}
-
-		// Serialize the final message
-		finalBytes, err := json.Marshal(finalMessage)
-		if err != nil {
-			log.Printf("error marshalling final websocket message: %v", err)
-			return
-		}
-
-		for client := range room {
-			select {
-			case client.send <- finalBytes:
-			default:
-				close(client.send)
-				delete(h.clients, client)
-				h.removeClientFromAllRooms(client)
-			}
+// removeClientLocked disconnects a client everywhere. The caller must hold h.mu.
+func (h *Hub) removeClientLocked(client *Client) {
+	if !h.clients[client] {
+		return
+	}
+	delete(h.clients, client)
+	close(client.send)
+	for roomID, members := range h.rooms {
+		delete(members, client)
+		if len(members) == 0 {
+			delete(h.rooms, roomID)
 		}
 	}
 }
 
-// AddClientToRoom adds a client to a specific room.
+// handleBroadcast sends a message to all clients in the specified room.
+// Clients whose send buffer is full are considered stuck and are dropped.
+func (h *Hub) handleBroadcast(message *Message) {
+	payloadBytes, err := json.Marshal(message.Payload)
+	if err != nil {
+		log.Printf("error marshalling broadcast message payload: %v", err)
+		return
+	}
+	finalBytes, err := json.Marshal(WebsocketMessage{Type: message.Type, Payload: json.RawMessage(payloadBytes)})
+	if err != nil {
+		log.Printf("error marshalling final websocket message: %v", err)
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	var stuck []*Client
+	for client := range h.rooms[message.RoomID] {
+		select {
+		case client.send <- finalBytes:
+		default:
+			stuck = append(stuck, client)
+		}
+	}
+	for _, client := range stuck {
+		h.removeClientLocked(client)
+	}
+}
+
+// AddClientToRoom subscribes a connected client to a room.
 func (h *Hub) AddClientToRoom(client *Client, roomID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	if !h.clients[client] {
+		return // already disconnected: do not leak it into a room
+	}
+	h.addToRoomLocked(client, roomID)
+}
+
+func (h *Hub) addToRoomLocked(client *Client, roomID string) {
 	if _, ok := h.rooms[roomID]; !ok {
 		h.rooms[roomID] = make(map[*Client]bool)
 	}
 	h.rooms[roomID][client] = true
 }
 
-// RemoveClientFromRoom removes a client from a specific room.
-func (h *Hub) removeClientFromAllRooms(client *Client) {
+// SubscribeUser subscribes every open connection of a user to a room, so rooms
+// created or joined after connecting start receiving events immediately.
+func (h *Hub) SubscribeUser(userID int, roomID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	for roomID := range h.rooms {
-		if _, ok := h.rooms[roomID][client]; ok {
-			delete(h.rooms[roomID], client)
-			if len(h.rooms[roomID]) == 0 {
-				delete(h.rooms, roomID)
-			}
+	for client := range h.clients {
+		if client.UserID == userID {
+			h.addToRoomLocked(client, roomID)
 		}
 	}
 }
 
 // Broadcast sends a message to be processed by the hub.
 func (h *Hub) Broadcast(messageType string, payload interface{}, roomID string) {
-	message := &Message{
+	h.broadcast <- &Message{
 		Type:    messageType,
 		Payload: payload,
 		RoomID:  roomID,
 	}
-	h.broadcast <- message
 }

@@ -121,7 +121,7 @@ func main() {
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL)
 	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService))
-	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase)
+	room.RegisterModule(roomRepository, memberRepository, inviteRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub)
 	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, http.JWTMiddleware(jwtService))
 
 	// --- Start Server ---

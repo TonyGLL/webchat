@@ -58,7 +58,7 @@ func TestJoinRoom(t *testing.T) {
 		prv: {ID: prv, IsPrivate: true},
 	}}
 	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{}}
-	uc := NewJoinRoomUseCase(rooms, members)
+	uc := NewJoinRoomUseCase(rooms, members, nil)
 	ctx := context.Background()
 
 	if err := uc.Execute(ctx, pub, 1); err != nil {
@@ -82,7 +82,7 @@ func TestInviteFlow(t *testing.T) {
 	}}
 	invites := &fakeInvites{invites: map[string]*domain.Invite{}}
 	create := NewCreateInviteUseCase(invites, &fakeRooms{}, members)
-	accept := NewAcceptInviteUseCase(invites, members)
+	accept := NewAcceptInviteUseCase(invites, members, nil)
 	ctx := context.Background()
 	dto := CreateInviteDTO{RoomID: room.String(), ExpiresIn: "24h"}
 
