@@ -57,13 +57,22 @@ describe('api client token refresh', () => {
     expect(post).toHaveBeenCalledTimes(1);
   });
 
-  it('ends the session when the refresh fails', async () => {
+  it('ends the session when the server rejects the refresh token', async () => {
     fakeServer();
-    vi.spyOn(axios, 'post').mockRejectedValue(new Error('refresh rejected'));
+    vi.spyOn(axios, 'post').mockRejectedValue(Object.assign(new Error('refresh rejected'), { response: { status: 401 } }));
 
     await expect(api.get('/rooms')).rejects.toThrow();
 
     expect(tokenStorage.get()).toBeNull();
+  });
+
+  it('keeps the session when the refresh fails only because the network is down', async () => {
+    fakeServer();
+    vi.spyOn(axios, 'post').mockRejectedValue(new Error('Network Error'));
+
+    await expect(api.get('/rooms')).rejects.toThrow();
+
+    expect(tokenStorage.get()).not.toBeNull();
   });
 
   it('does not try to refresh failed /auth/ calls (e.g. wrong password)', async () => {

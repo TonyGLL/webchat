@@ -8,9 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+// RefreshReuseGrace is how long a refresh token keeps working after it has been exchanged.
+const RefreshReuseGrace = 30 * time.Second
 
 type RefreshTokenUseCase struct {
 	authRepo   domain.AuthRepository
@@ -51,10 +55,13 @@ func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input dtos.RefreshTo
 		return nil, shared_domain.ErrInvalidToken
 	}
 
-	// 4. Delete the old refresh token to prevent reuse
-	if err := uc.tokenRepo.DeleteToken(ctx, "refresh_token", claims.ID); err != nil {
+	// 4. Retire the old refresh token. It is not deleted outright but left alive for a few
+	// seconds: two tabs restoring the session together, or a response lost on the network, would
+	// otherwise present an already-used token and sign the user out. After the grace period the
+	// token is dead, so a stolen copy is only useful for a moment.
+	if err := uc.tokenRepo.StoreToken(ctx, claims.UserID, claims.ID, "refresh_token", RefreshReuseGrace); err != nil {
 		// Log the error but continue, as the user should still get a new token
-		fmt.Printf("Warning: failed to delete old refresh token: %v\n", err)
+		fmt.Printf("Warning: failed to retire old refresh token: %v\n", err)
 	}
 
 	// 5. Get user details to build the response

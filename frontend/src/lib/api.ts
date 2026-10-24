@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { tokenStorage } from './tokenStorage';
+import { isSessionRejected } from './sessionRestore';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8081/api/v1';
 
@@ -54,7 +55,9 @@ api.interceptors.response.use(
       original.headers.Authorization = `Bearer ${newToken}`;
       return api(original);
     } catch (refreshError) {
-      tokenStorage.clear(); // session is over; AuthContext reacts and sends the user to /login
+      // Only a rejected refresh token ends the session (AuthContext then sends the user to
+      // /login); a network blip must not sign anyone out.
+      if (isSessionRejected(refreshError)) tokenStorage.clear();
       return Promise.reject(refreshError);
     }
   }

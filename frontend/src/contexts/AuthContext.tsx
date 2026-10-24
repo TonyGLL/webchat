@@ -5,6 +5,7 @@ import { authService, LoginData, RegisterData, User } from '@/services/authServi
 import { userService } from '@/services/userService';
 import { refreshAccessToken } from '@/lib/api';
 import { AuthTokens, tokenStorage } from '@/lib/tokenStorage';
+import { restoreSession } from '@/lib/sessionRestore';
 
 interface AuthContextValue {
   /** Profile of the signed-in user; null while loading or signed out. */
@@ -41,11 +42,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     const restore = async () => {
       if (!tokenStorage.get() && tokenStorage.mayHaveSession()) {
-        try {
-          await refreshAccessToken();
-        } catch {
-          tokenStorage.clear();
-        }
+        // Only an explicit rejection ends the session; an unreachable server keeps the stored
+        // hint, so the next load tries again instead of asking the user to sign in.
+        if ((await restoreSession(refreshAccessToken)) === 'rejected') tokenStorage.clear();
       }
       if (cancelled) return;
       if (!tokenStorage.get()) {
