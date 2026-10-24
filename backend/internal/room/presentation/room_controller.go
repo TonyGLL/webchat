@@ -2,9 +2,12 @@ package presentation
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"backend/internal/room/application"
+	"backend/internal/room/domain"
+	shared_domain "backend/internal/shared/domain"
 	"backend/internal/shared/http/request"
 	"backend/internal/shared/http/response"
 
@@ -58,7 +61,15 @@ func (c *RoomController) CreateInvite(ctx *gin.Context) {
 
 	invite, err := c.createInviteUseCase.Execute(ctx.Request.Context(), dto, userID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, "Failed to create invite")
+		switch {
+		case errors.Is(err, shared_domain.ErrForbidden):
+			response.Error(ctx, http.StatusForbidden, "Only the room owner or an admin can invite")
+		case errors.Is(err, shared_domain.ErrInvalidInput):
+			response.Error(ctx, http.StatusBadRequest, "Invalid input")
+		default:
+			log.Printf("failed to create invite: %v", err)
+			response.Error(ctx, http.StatusInternalServerError, "Failed to create invite")
+		}
 		return
 	}
 
@@ -128,8 +139,11 @@ func (c *RoomController) JoinRoom(ctx *gin.Context) {
 			response.Error(ctx, http.StatusForbidden, err.Error())
 		case errors.Is(err, application.ErrAlreadyMember):
 			response.Error(ctx, http.StatusConflict, err.Error())
+		case errors.Is(err, application.ErrRoomNotFound):
+			response.Error(ctx, http.StatusNotFound, err.Error())
 		default:
-			response.Error(ctx, http.StatusInternalServerError, err.Error())
+			log.Printf("failed to join room: %v", err)
+			response.Error(ctx, http.StatusInternalServerError, "Failed to join room")
 		}
 		return
 	}
@@ -155,8 +169,11 @@ func (c *RoomController) AcceptInvite(ctx *gin.Context) {
 		switch {
 		case errors.Is(err, application.ErrAlreadyMember):
 			response.Error(ctx, http.StatusConflict, err.Error())
+		case errors.Is(err, domain.ErrInviteNotFound):
+			response.Error(ctx, http.StatusNotFound, err.Error())
 		default:
-			response.Error(ctx, http.StatusInternalServerError, err.Error())
+			log.Printf("failed to accept invite: %v", err)
+			response.Error(ctx, http.StatusInternalServerError, "Failed to accept invite")
 		}
 		return
 	}

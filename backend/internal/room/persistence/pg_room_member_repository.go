@@ -1,6 +1,9 @@
 package persistence
 
 import (
+	"database/sql"
+	"errors"
+
 	"backend/internal/room/domain"
 	"backend/internal/shared/infra/db"
 	"context"
@@ -27,6 +30,9 @@ func (r *PgRoomMemberRepository) FindMember(ctx context.Context, roomID uuid.UUI
 	member := &domain.RoomMember{}
 	err := r.db.QueryRowContext(ctx, query, roomID, userID).Scan(&member.RoomID, &member.UserID, &member.Role, &member.JoinedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return member, nil

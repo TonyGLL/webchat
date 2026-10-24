@@ -3,12 +3,15 @@
 package persistence
 
 import (
+	"database/sql"
+	"errors"
+
 	"backend/internal/room/domain"
 	"backend/internal/shared/infra/db"
 	"context"
 )
 
-// NOTE: This repository requires a new `invites` table.
+// Invites live in the `invites` table (see migrations/schema.sql).
 // You should create a migration with the following SQL:
 // CREATE TABLE invites (
 //     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,6 +44,9 @@ func (r *PgInviteRepository) GetByCode(ctx context.Context, code string) (*domai
 	invite := &domain.Invite{}
 	err := r.db.QueryRowContext(ctx, query, code).Scan(&invite.ID, &invite.RoomID, &invite.Code, &invite.ExpiresAt, &invite.InvitedByID, &invite.Email, &invite.CreatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrInviteNotFound
+		}
 		return nil, err
 	}
 	return invite, nil

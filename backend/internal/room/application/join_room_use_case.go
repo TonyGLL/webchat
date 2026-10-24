@@ -11,6 +11,7 @@ import (
 var (
 	ErrRoomIsPrivate = errors.New("cannot join a private room without an invitation")
 	ErrAlreadyMember = errors.New("user is already a member of this room")
+	ErrRoomNotFound  = errors.New("room not found")
 )
 
 type JoinRoomUseCase struct {
@@ -28,7 +29,7 @@ func (uc *JoinRoomUseCase) Execute(ctx context.Context, roomID uuid.UUID, userID
 		return err
 	}
 	if room == nil {
-		return errors.New("room not found")
+		return ErrRoomNotFound
 	}
 	if room.IsPrivate {
 		return ErrRoomIsPrivate

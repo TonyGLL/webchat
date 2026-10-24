@@ -1,6 +1,9 @@
 package persistence
 
 import (
+	"database/sql"
+	"errors"
+
 	"backend/internal/room/domain"
 	"backend/internal/shared/infra/db"
 	"context"
@@ -30,6 +33,9 @@ func (r *PgRoomRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.
 	room := &domain.Room{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(&room.ID, &room.OwnerID, &room.Name, &room.Topic, &room.IsPrivate, &room.CreatedAt, &room.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return room, nil

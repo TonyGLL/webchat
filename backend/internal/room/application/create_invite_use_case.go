@@ -22,10 +22,11 @@ type CreateInviteDTO struct {
 type CreateInviteUseCase struct {
 	inviteRepo domain.InviteRepository
 	roomRepo   domain.RoomRepository
+	memberRepo domain.RoomMemberRepository
 }
 
-func NewCreateInviteUseCase(inviteRepo domain.InviteRepository, roomRepo domain.RoomRepository) *CreateInviteUseCase {
-	return &CreateInviteUseCase{inviteRepo: inviteRepo, roomRepo: roomRepo}
+func NewCreateInviteUseCase(inviteRepo domain.InviteRepository, roomRepo domain.RoomRepository, memberRepo domain.RoomMemberRepository) *CreateInviteUseCase {
+	return &CreateInviteUseCase{inviteRepo: inviteRepo, roomRepo: roomRepo, memberRepo: memberRepo}
 }
 
 func (uc *CreateInviteUseCase) Execute(ctx context.Context, dto CreateInviteDTO, invitedByID int) (*domain.Invite, error) {
@@ -34,9 +35,14 @@ func (uc *CreateInviteUseCase) Execute(ctx context.Context, dto CreateInviteDTO,
 		return nil, shared_domain.ErrInvalidInput
 	}
 
-	// Check if the user is a member of the room
-	// Note: We might need a RoomMemberRepository for this check.
-	// Assuming for now that the room repository can provide this info or the check is done in the controller.
+	// Only the owner or an admin of the room can invite people.
+	member, err := uc.memberRepo.FindMember(ctx, roomID, invitedByID)
+	if err != nil {
+		return nil, err
+	}
+	if member == nil || (member.Role != domain.RoleOwner && member.Role != domain.RoleAdmin) {
+		return nil, shared_domain.ErrForbidden
+	}
 
 	duration, err := time.ParseDuration(dto.ExpiresIn)
 	if err != nil {

@@ -25,6 +25,14 @@ func (uc *AcceptInviteUseCase) Execute(ctx context.Context, dto AcceptInviteDTO,
 		return nil, err
 	}
 
+	member, err := uc.roomMemberRepo.FindMember(ctx, invite.RoomID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if member != nil {
+		return nil, ErrAlreadyMember
+	}
+
 	// Add user to the room
 	newMember := &domain.RoomMember{RoomID: invite.RoomID, UserID: userID, Role: domain.RoleMember}
 	err = uc.roomMemberRepo.AddMember(ctx, newMember)

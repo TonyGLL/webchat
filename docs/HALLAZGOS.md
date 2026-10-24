@@ -34,12 +34,6 @@ Plantilla para añadir uno nuevo:
 - **Descripción:** login, registro, reenvío de verificación y envío de mensajes no tienen límite.
 - **Propuesta:** middleware con Redis (token bucket) por IP y por usuario.
 
-### H-007 Unirse a cualquier sala por id
-- **Severidad:** 🟡 · **Fase:** 1 · **Área:** backend · **Verificación:** Por confirmar
-- **Descripción:** `POST /rooms/join/:room_id` podría permitir entrar a salas privadas sin invitación.
-- **Ubicación:** `backend/internal/room/application/join_room_use_case.go`
-- **Propuesta:** distinguir salas públicas/privadas.
-
 ### H-008 Endpoint de envío de verificación sin autenticación
 - **Nota:** la verificación de email está pausada (decisión del 2026-10-23); retomar junto con este hallazgo.
 - **Severidad:** 🟡 · **Fase:** 1 · **Área:** backend · **Verificación:** Confirmado (la ruta `POST /auth/send-verify-email/:user_id` es pública)
@@ -125,7 +119,7 @@ Plantilla para añadir uno nuevo:
 
 ### H-050 Rutas del frontend que no coinciden con el backend
 - **Severidad:** 🟠 · **Fase:** 0 · **Área:** front + back · **Verificación:** Confirmado en el código (falta probarlo en ejecución)
-- **Descripción:** el frontend llama `POST /auth/refresh`, pero el backend expone `POST /auth/refresh-token` (y espera `refreshToken` en el cuerpo). La ruta de verificación de email ya se corrigió en H-053.
+- **Descripción:** el frontend llama `POST /auth/refresh`, pero el backend expone `POST /auth/refresh-token` (y espera `refreshToken` en el cuerpo). La ruta de verificación de email ya se corrigió en H-053. En `roomService.ts` también hay rutas que no existen en el backend (`/rooms/:id/join`, `/rooms/:id/invites`, `/rooms/invites/:token/accept`; el backend usa `/rooms/join/:room_id`, `/rooms/invite/:room_id`, `/rooms/accept-invite/:code`).
 - **Ubicación:** `frontend/src/services/authService.ts`, `backend/internal/auth/module.go`
 - **Propuesta:** alinear las rutas y generar el cliente desde OpenAPI para que no se desincronicen.
 
@@ -160,6 +154,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-007 | Salas y acceso: unirse a salas públicas fallaba con 500; las salas "privadas" del frontend quedaban públicas (`is_public` vs `is_private`); cualquiera podía crear invitaciones de salas ajenas (ahora solo dueño/admin); invitaciones repetidas/inexistentes dan 409/404 | 2026-10-23 | _(este commit)_ |
 | H-006 | Autorización por sala: enviar, leer, editar y reaccionar exigen ser miembro; editar exige ser el autor (403 si no). Verificado en vivo y con tests | 2026-10-23 | 8d991fd |
 | H-003 | Token JWT en la URL del WebSocket; ahora se canjea por un ticket de un solo uso (30 s) vía `POST /ws-ticket` | 2026-10-23 | b1ca39e |
 | H-002 | WebSocket aceptaba cualquier origen; ahora solo los de `CORS_ALLOWED_ORIGINS` (y respuesta 401 clara sin token) | 2026-10-23 | b2791fd |

@@ -22,7 +22,7 @@ func RegisterModule(
 	// Initialize other use cases
 	createRoomUseCase := application.NewCreateRoomUseCase(roomRepo, memberRepo)
 	joinRoomUseCase := application.NewJoinRoomUseCase(roomRepo, memberRepo)
-	createInviteUseCase := application.NewCreateInviteUseCase(inviteRepo, roomRepo)
+	createInviteUseCase := application.NewCreateInviteUseCase(inviteRepo, roomRepo, memberRepo)
 	acceptInviteUseCase := application.NewAcceptInviteUseCase(inviteRepo, memberRepo)
 
 	// Initialize the controller, reusing the provided use case

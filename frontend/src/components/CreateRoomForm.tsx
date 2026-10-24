@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 export default function CreateRoomForm({
   createRoom,
 }: {
-  createRoom: (data: { name: string; is_public: boolean; topic: string }) => Promise<void> | void;
+  createRoom: (data: { name: string; is_private: boolean; topic: string }) => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -21,7 +21,7 @@ export default function CreateRoomForm({
     if (!name.trim() || submitting) return;
     setSubmitting(true);
     try {
-      await createRoom({ name: name.trim(), is_public: isPublic, topic: 'Games' });
+      await createRoom({ name: name.trim(), is_private: !isPublic, topic: 'Games' });
       setName('');
       setOpen(false);
     } catch (err) {
