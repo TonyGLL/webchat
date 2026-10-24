@@ -130,10 +130,17 @@ type ResetPasswordUseCase struct {
 	authRepo        domain.AuthRepository
 	tokenRepo       domain.TokenRepository
 	passwordService domain.PasswordService
+	realtime        Realtime
 }
 
-func NewResetPasswordUseCase(authRepo domain.AuthRepository, tokenRepo domain.TokenRepository, ps domain.PasswordService) *ResetPasswordUseCase {
-	return &ResetPasswordUseCase{authRepo: authRepo, tokenRepo: tokenRepo, passwordService: ps}
+// Realtime lets a password reset cut the user's open websocket connections.
+type Realtime interface {
+	DisconnectUser(userID int)
+}
+
+// NewResetPasswordUseCase builds the use case; realtime may be nil.
+func NewResetPasswordUseCase(authRepo domain.AuthRepository, tokenRepo domain.TokenRepository, ps domain.PasswordService, realtime Realtime) *ResetPasswordUseCase {
+	return &ResetPasswordUseCase{authRepo: authRepo, tokenRepo: tokenRepo, passwordService: ps, realtime: realtime}
 }
 
 func (uc *ResetPasswordUseCase) Execute(ctx context.Context, token, newPassword string) error {
@@ -168,5 +175,12 @@ func (uc *ResetPasswordUseCase) Execute(ctx context.Context, token, newPassword 
 		log.Printf("failed to burn password reset token: %v", err)
 	}
 	// Whoever had the old password (or a stolen session) is signed out everywhere.
-	return uc.tokenRepo.RevokeUserSessions(ctx, userID, RefreshTokenDuration)
+	if err := uc.tokenRepo.RevokeUserSessions(ctx, userID, RefreshTokenDuration); err != nil {
+		return err
+	}
+	// ...and so are the sockets they already opened: the access token check only runs per request.
+	if uc.realtime != nil {
+		uc.realtime.DisconnectUser(userID)
+	}
+	return nil
 }

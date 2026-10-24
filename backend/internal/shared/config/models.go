@@ -19,6 +19,10 @@ type Config struct {
 	SMTPHost           string
 	SMTPPort           string
 
+	// TrustedProxies (TRUSTED_PROXIES, comma-separated IPs/CIDRs) lists the reverse proxies whose
+	// X-Forwarded-For is believed. Empty: no proxy is trusted and the client IP is the TCP peer.
+	TrustedProxies []string
+
 	// Database pool tuning (DB_MAX_OPEN_CONNS, DB_MAX_IDLE_CONNS, DB_CONN_MAX_LIFETIME, DB_CONN_MAX_IDLE_TIME).
 	DBMaxOpenConns    int
 	DBMaxIdleConns    int

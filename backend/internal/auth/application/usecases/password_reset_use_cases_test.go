@@ -53,12 +53,17 @@ type plainHasher struct{}
 func (plainHasher) HashPassword(p string) (string, error) { return "hash:" + p, nil }
 func (plainHasher) CheckPasswordHash(p, h string) bool    { return h == "hash:"+p }
 
+type fakeRealtime struct{ disconnected []int }
+
+func (r *fakeRealtime) DisconnectUser(id int) { r.disconnected = append(r.disconnected, id) }
+
 type resetFixture struct {
-	request *RequestPasswordResetUseCase
-	reset   *ResetPasswordUseCase
-	repo    *resetAuthRepo
-	tokens  *fakeTokens
-	mailer  *fakeMailer
+	realtime *fakeRealtime
+	request  *RequestPasswordResetUseCase
+	reset    *ResetPasswordUseCase
+	repo     *resetAuthRepo
+	tokens   *fakeTokens
+	mailer   *fakeMailer
 }
 
 func newResetFixture() *resetFixture {
@@ -70,10 +75,12 @@ func newResetFixture() *resetFixture {
 	mailer := &fakeMailer{}
 	request := NewRequestPasswordResetUseCase(repo, tokens, mailer, "https://chat.example.com/")
 	request.dispatch = func(fn func()) { fn() } // deliver inline so tests can assert on the mail
+	realtime := &fakeRealtime{}
 	return &resetFixture{
-		request: request,
-		reset:   NewResetPasswordUseCase(repo, tokens, plainHasher{}),
-		repo:    repo, tokens: tokens, mailer: mailer,
+		realtime: realtime,
+		request:  request,
+		reset:    NewResetPasswordUseCase(repo, tokens, plainHasher{}, realtime),
+		repo:     repo, tokens: tokens, mailer: mailer,
 	}
 }
 
@@ -153,6 +160,9 @@ func TestResetPasswordHappyPathIsSingleUseAndEndsSessions(t *testing.T) {
 	if f.tokens.revokedAt.IsZero() {
 		t.Fatal("open sessions must be revoked")
 	}
+	if len(f.realtime.disconnected) != 1 || f.realtime.disconnected[0] != 7 {
+		t.Fatalf("the user's live sockets must be cut, got %v", f.realtime.disconnected)
+	}
 	if err := f.reset.Execute(context.Background(), token, "another-secret-1"); !errors.Is(err, shared_domain.ErrInvalidToken) {
 		t.Fatalf("the link must work only once, got %v", err)
 	}
@@ -162,6 +172,9 @@ func TestResetPasswordRejectsBadTokensAndKeepsLinkOnWeakPassword(t *testing.T) {
 	f := newResetFixture()
 	if err := f.reset.Execute(context.Background(), "made-up", "a-brand-new-secret"); !errors.Is(err, shared_domain.ErrInvalidToken) {
 		t.Fatalf("unknown token: got %v", err)
+	}
+	if len(f.realtime.disconnected) != 0 {
+		t.Fatal("a refused reset must not disconnect anybody")
 	}
 
 	_ = f.request.Execute(context.Background(), "ana@example.com")

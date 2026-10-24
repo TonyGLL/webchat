@@ -23,6 +23,7 @@ func RegisterModule(
 	frontendURL string,
 	secureCookies bool,
 	authMiddleware gin.HandlerFunc,
+	realtime usecases.Realtime,
 ) {
 	// Initialize services
 	passwordService := domain.NewPasswordService()
@@ -36,7 +37,7 @@ func RegisterModule(
 
 	logoutUseCase := usecases.NewLogoutUseCase(tokenRepository, jwtService)
 	requestPasswordResetUseCase := usecases.NewRequestPasswordResetUseCase(authRepository, tokenRepository, mailerService, frontendURL)
-	resetPasswordUseCase := usecases.NewResetPasswordUseCase(authRepository, tokenRepository, passwordService)
+	resetPasswordUseCase := usecases.NewResetPasswordUseCase(authRepository, tokenRepository, passwordService, realtime)
 
 	// Initialize the controller
 	authController := presentation.NewAuthController(loginUseCase, registerUseCase, refreshTokenUseCase, sendVerifyEmailUseCase, verifyEmailUseCase, logoutUseCase, requestPasswordResetUseCase, resetPasswordUseCase, validate, secureCookies)
