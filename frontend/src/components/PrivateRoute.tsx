@@ -21,7 +21,7 @@ export default function PrivateRoute({
 
   if (loading || !tokens) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-dvh">
         <Spinner />
       </div>
     );
