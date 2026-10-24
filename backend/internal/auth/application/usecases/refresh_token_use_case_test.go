@@ -68,6 +68,18 @@ func (fakeJWT) ParseToken(token string) (*domain.CustomClaims, error) {
 	if strings.HasPrefix(token, "access") {
 		return &domain.CustomClaims{UserID: 7, Type: domain.TokenTypeAccess}, nil
 	}
+	if strings.HasPrefix(token, "verify") {
+		return &domain.CustomClaims{UserID: 7, Type: domain.TokenTypeVerify}, nil
+	}
+	if strings.HasPrefix(token, "legacy-nojti") {
+		return &domain.CustomClaims{UserID: 7}, nil
+	}
+	if strings.HasPrefix(token, "legacy:") {
+		return &domain.CustomClaims{UserID: 7, RegisteredClaims: jwt.RegisteredClaims{
+			ID:       token[len("legacy:"):],
+			IssuedAt: jwt.NewNumericDate(time.Unix(1, 0)),
+		}}, nil
+	}
 	return &domain.CustomClaims{UserID: 7, Type: domain.TokenTypeRefresh, RegisteredClaims: jwt.RegisteredClaims{
 		ID:       token[len("refresh:"):],
 		IssuedAt: jwt.NewNumericDate(time.Unix(1, 0)),
@@ -131,5 +143,22 @@ func TestRefreshRejectsTokensThatAreNotRefreshTokens(t *testing.T) {
 	uc, _, _ := newRefreshFixture()
 	if _, err := uc.Execute(context.Background(), dtos.RefreshTokenInputDTO{RefreshToken: "access"}); err != shared_domain.ErrInvalidToken {
 		t.Fatalf("an access token must not work as a refresh token, got %v", err)
+	}
+}
+
+// Sessions that were open before tokens carried a type must renew once, not sign out.
+func TestRefreshAcceptsUntypedRefreshTokensStoredInRedis(t *testing.T) {
+	uc, _, _ := newRefreshFixture()
+	if _, err := uc.Execute(context.Background(), dtos.RefreshTokenInputDTO{RefreshToken: "legacy:first"}); err != nil {
+		t.Fatalf("an untyped refresh token with a stored jti should renew, got %v", err)
+	}
+}
+
+func TestRefreshStillRejectsUntypedAndVerifyTokensWithoutAStoredJti(t *testing.T) {
+	uc, _, _ := newRefreshFixture()
+	for _, token := range []string{"legacy-nojti", "verify", "legacy:not-stored"} {
+		if _, err := uc.Execute(context.Background(), dtos.RefreshTokenInputDTO{RefreshToken: token}); err != shared_domain.ErrInvalidToken {
+			t.Fatalf("%s must be rejected, got %v", token, err)
+		}
 	}
 }

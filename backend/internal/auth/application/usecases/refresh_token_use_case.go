@@ -37,7 +37,7 @@ func NewRefreshTokenUseCase(
 func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input dtos.RefreshTokenInputDTO) (*dtos.AuthResponseDTO, error) {
 	// 1. Parse the refresh token
 	claims, err := uc.jwtService.ParseToken(input.RefreshToken)
-	if err != nil || claims.Type != domain.TokenTypeRefresh {
+	if err != nil || !isRefreshToken(claims) {
 		return nil, shared_domain.ErrInvalidToken
 	}
 
@@ -115,4 +115,13 @@ func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input dtos.RefreshTo
 		Token:        newAccessToken,
 		RefreshToken: newRefreshToken,
 	}, nil
+}
+
+// isRefreshToken accepts tokens typed "refresh". Refresh tokens issued before tokens carried a
+// type have no `typ` but do have a jti; that is still safe because step 2 of Execute requires the
+// jti to be stored as a refresh token in Redis, which no access or verification token ever is
+// (they carry no jti). It lets sessions open at the upgrade renew once instead of signing out;
+// it can go once every such token has expired (7 days after the upgrade).
+func isRefreshToken(claims *domain.CustomClaims) bool {
+	return claims.Type == domain.TokenTypeRefresh || (claims.Type == "" && claims.ID != "")
 }
