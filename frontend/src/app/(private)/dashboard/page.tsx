@@ -31,7 +31,7 @@ export default function DashboardPage() {
   const tour = useOnboarding(profile?.id);
   const [chosenRoom, setSelectedRoom] = useState<string | null>(null);
   const { rooms, loading, createRoom, leaveRoom, openDirect, joinRoom, refreshRooms } = useRoom(chosenRoom);
-  const { rooms: discoverable, refresh: refreshDiscover } = useDiscoverRooms(rooms.length);
+  const { rooms: discoverable, hasMore: discoverHasMore, loadingMore: discoverLoadingMore, loadMore: loadMoreDiscover, refresh: refreshDiscover } = useDiscoverRooms(rooms.length);
   const { invitations, error: invitationError, respond } = useInvitations(async (roomId) => {
     await refreshRooms();
     setSelectedRoom(roomId);
@@ -123,6 +123,9 @@ export default function DashboardPage() {
                 />
                 <DiscoverRooms
                   rooms={discoverable}
+                  hasMore={discoverHasMore}
+                  loadingMore={discoverLoadingMore}
+                  onLoadMore={loadMoreDiscover}
                   onJoin={async (id) => {
                     setSelectedRoom(await joinRoom(id));
                     refreshDiscover();

@@ -43,6 +43,15 @@ type RoomSummary struct {
 	IsMember    bool      `json:"is_member"`
 }
 
+// MaxUnreadCount is the most unread messages a room list reports: counting further is wasted work.
+const MaxUnreadCount = 100
+
+// UserRef is the little this module needs to know about another user.
+type UserRef struct {
+	ID    int
+	Email string
+}
+
 type RoomMember struct {
 	RoomID   uuid.UUID `json:"room_id"`
 	UserID   int       `json:"user_id"`

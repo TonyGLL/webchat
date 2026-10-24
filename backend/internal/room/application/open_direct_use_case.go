@@ -22,6 +22,14 @@ func (uc *OpenDirectUseCase) Execute(ctx context.Context, userID, otherID int) (
 	if userID == otherID {
 		return nil, shared_domain.ErrInvalidInput
 	}
+	// A missing or deactivated person cannot be messaged (same answer for both).
+	other, err := uc.roomRepo.FindActiveUser(ctx, otherID)
+	if err != nil {
+		return nil, err
+	}
+	if other == nil {
+		return nil, domain.ErrUserNotFound
+	}
 	room, err := uc.roomRepo.FindOrCreateDirect(ctx, userID, otherID)
 	if err != nil {
 		return nil, err

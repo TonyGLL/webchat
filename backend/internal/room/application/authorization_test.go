@@ -11,7 +11,11 @@ import (
 	"github.com/google/uuid"
 )
 
-type fakeRooms struct{ rooms map[uuid.UUID]*domain.Room }
+type fakeRooms struct {
+	rooms map[uuid.UUID]*domain.Room
+	// users are the active users; when nil every id counts as an active user without an email.
+	users map[int]*domain.UserRef
+}
 
 func (f *fakeRooms) Create(_ context.Context, r *domain.Room) (*domain.Room, error) { return r, nil }
 func (f *fakeRooms) FindByID(_ context.Context, id uuid.UUID) (*domain.Room, error) {
@@ -21,8 +25,15 @@ func (f *fakeRooms) FindOrCreateDirect(context.Context, int, int) (*domain.Room,
 	return &domain.Room{ID: uuid.New(), IsDirect: true}, nil
 }
 func (f *fakeRooms) FindRoomsByUserID(context.Context, int) ([]*domain.Room, error) { return nil, nil }
-func (f *fakeRooms) ListDiscoverable(context.Context, int) ([]*domain.RoomSummary, error) {
+func (f *fakeRooms) FindRoomIDsByUserID(context.Context, int) ([]uuid.UUID, error)  { return nil, nil }
+func (f *fakeRooms) ListDiscoverable(context.Context, int, int, *uuid.UUID) ([]*domain.RoomSummary, error) {
 	return nil, nil
+}
+func (f *fakeRooms) FindActiveUser(_ context.Context, id int) (*domain.UserRef, error) {
+	if f.users == nil {
+		return &domain.UserRef{ID: id}, nil
+	}
+	return f.users[id], nil
 }
 
 type fakeMembers struct {
@@ -88,7 +99,7 @@ func TestInviteFlow(t *testing.T) {
 	}}
 	invites := &fakeInvites{invites: map[string]*domain.Invite{}}
 	create := NewCreateInviteUseCase(invites, &fakeRooms{}, members)
-	accept := NewAcceptInviteUseCase(invites, members, nil, nil)
+	accept := NewAcceptInviteUseCase(invites, &fakeRooms{}, members, nil, nil)
 	ctx := context.Background()
 	dto := CreateInviteDTO{RoomID: room.String(), ExpiresIn: "24h"}
 
@@ -173,7 +184,7 @@ func TestLeaveRoom(t *testing.T) {
 	}
 }
 
-func (f *fakeMembers) ListMembers(_ context.Context, room uuid.UUID) ([]*domain.MemberInfo, error) {
+func (f *fakeMembers) ListMembers(_ context.Context, room uuid.UUID, _, _ int) ([]*domain.MemberInfo, error) {
 	out := []*domain.MemberInfo{}
 	for id, role := range f.members[room] {
 		out = append(out, &domain.MemberInfo{UserID: id, Role: role})
@@ -190,10 +201,10 @@ func TestListMembersShowsPresenceToMembersOnly(t *testing.T) {
 	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{room: {1: domain.RoleOwner, 2: domain.RoleMember}}}
 	uc := NewListMembersUseCase(members, fakePresence{online: map[int]bool{2: true}})
 
-	if _, err := uc.Execute(context.Background(), room, 3); !errors.Is(err, shared_domain.ErrForbidden) {
+	if _, err := uc.Execute(context.Background(), room, 3, 0, 0); !errors.Is(err, shared_domain.ErrForbidden) {
 		t.Fatalf("outsider: err = %v, want ErrForbidden", err)
 	}
-	list, err := uc.Execute(context.Background(), room, 1)
+	list, err := uc.Execute(context.Background(), room, 1, 0, 0)
 	if err != nil || len(list) != 2 {
 		t.Fatalf("member: err=%v len=%d", err, len(list))
 	}
@@ -254,5 +265,67 @@ func TestBannedUsersCannotJoin(t *testing.T) {
 	}
 	if err := uc.Execute(context.Background(), pub, 1); err != nil {
 		t.Fatalf("normal user: %v", err)
+	}
+}
+
+func TestOpenDirectRejectsMissingOrDeactivatedUser(t *testing.T) {
+	rooms := &fakeRooms{users: map[int]*domain.UserRef{1: {ID: 1}}} // user 2 is gone or deactivated
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{}}
+	uc := NewOpenDirectUseCase(rooms, members, nil)
+
+	if _, err := uc.Execute(context.Background(), 1, 2); !errors.Is(err, domain.ErrUserNotFound) {
+		t.Fatalf("err = %v, want ErrUserNotFound", err)
+	}
+}
+
+func TestInviteExpiryIsBounded(t *testing.T) {
+	room := uuid.New()
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{room: {1: domain.RoleOwner}}}
+	create := NewCreateInviteUseCase(&fakeInvites{invites: map[string]*domain.Invite{}}, &fakeRooms{}, members)
+
+	for _, in := range []string{"30s", "-1h", "721h", "87600h", "soon"} {
+		dto := CreateInviteDTO{RoomID: room.String(), ExpiresIn: in}
+		if _, err := create.Execute(context.Background(), dto, 1); !errors.Is(err, shared_domain.ErrInvalidInput) {
+			t.Fatalf("%q: err = %v, want ErrInvalidInput", in, err)
+		}
+	}
+	for _, in := range []string{"1m", "24h", "720h"} {
+		dto := CreateInviteDTO{RoomID: room.String(), ExpiresIn: in}
+		if _, err := create.Execute(context.Background(), dto, 1); err != nil {
+			t.Fatalf("%q: unexpected err %v", in, err)
+		}
+	}
+}
+
+func TestAcceptInviteEnforcesEmailAndCreatorPower(t *testing.T) {
+	room := uuid.New()
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{room: {1: domain.RoleAdmin}}}
+	rooms := &fakeRooms{users: map[int]*domain.UserRef{
+		5: {ID: 5, Email: "Ana@Example.com"},
+		6: {ID: 6, Email: "other@example.com"},
+	}}
+	invites := &fakeInvites{invites: map[string]*domain.Invite{
+		"mail": {RoomID: room, Code: "mail", InvitedByID: 1, Email: "ana@example.com"},
+		"open": {RoomID: room, Code: "open", InvitedByID: 1},
+	}}
+	accept := NewAcceptInviteUseCase(invites, rooms, members, nil, nil)
+	ctx := context.Background()
+
+	if _, err := accept.Execute(ctx, AcceptInviteDTO{Code: "mail"}, 6); !errors.Is(err, domain.ErrInviteNotFound) {
+		t.Fatalf("wrong email: err = %v, want ErrInviteNotFound", err)
+	}
+	if _, err := accept.Execute(ctx, AcceptInviteDTO{Code: "mail"}, 5); err != nil {
+		t.Fatalf("matching email (case-insensitive): unexpected err %v", err)
+	}
+
+	// The creator is demoted: every code they issued stops working.
+	members.members[room][1] = domain.RoleMember
+	if _, err := accept.Execute(ctx, AcceptInviteDTO{Code: "open"}, 6); !errors.Is(err, domain.ErrInviteNotFound) {
+		t.Fatalf("demoted creator: err = %v, want ErrInviteNotFound", err)
+	}
+	// ...or leaves the room.
+	delete(members.members[room], 1)
+	if _, err := accept.Execute(ctx, AcceptInviteDTO{Code: "open"}, 6); !errors.Is(err, domain.ErrInviteNotFound) {
+		t.Fatalf("departed creator: err = %v, want ErrInviteNotFound", err)
 	}
 }

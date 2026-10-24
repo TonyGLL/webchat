@@ -7,12 +7,24 @@ import { RoomSummary } from '@/services/roomService';
 import { useT } from '@/lib/i18n/useT';
 
 /** Rooms the user has not joined. Public ones open with a click; private ones are only listed. */
-export default function DiscoverRooms({ rooms, onJoin }: { rooms: RoomSummary[]; onJoin: (roomId: string) => Promise<void> }) {
+export default function DiscoverRooms({
+  rooms,
+  onJoin,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
+}: {
+  rooms: RoomSummary[];
+  onJoin: (roomId: string) => Promise<void>;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
+}) {
   const { t } = useT();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
-  if (rooms.length === 0) return null;
+  if (rooms.length === 0 && !hasMore) return null;
 
   const join = async (id: string) => {
     setBusy(id);
@@ -55,6 +67,13 @@ export default function DiscoverRooms({ rooms, onJoin }: { rooms: RoomSummary[];
           </li>
         ))}
       </ul>
+      {hasMore && onLoadMore && (
+        <div className="px-4 pt-2">
+          <Button size="sm" variant="ghost" className="h-7 px-2.5 text-xs" disabled={loadingMore} onClick={onLoadMore}>
+            {t('discover.loadMore')}
+          </Button>
+        </div>
+      )}
       {error && (
         <p className="px-4 pt-1 text-xs text-destructive" role="alert">
           {t('discover.joinFailed')}

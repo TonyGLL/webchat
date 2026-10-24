@@ -109,7 +109,7 @@ func main() {
 
 	// --- Use Cases and Adapters needed across modules ---
 	listUserRoomsUseCase := room_app.NewListUserRoomsUseCase(roomRepository)
-	roomListerAdapter := room_app.NewRoomListerAdapter(listUserRoomsUseCase)
+	roomListerAdapter := room_app.NewRoomListerAdapter(roomRepository)
 
 	// --- Server Setup ---
 	server := http.NewServer(cfg)

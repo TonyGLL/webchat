@@ -70,10 +70,25 @@ func NewRoomController(
 	}
 }
 
+// queryInt reads an optional non-negative integer query parameter (0 when absent). On a malformed
+// value it answers 400 itself and reports false.
+func queryInt(ctx *gin.Context, name string) (int, bool) {
+	raw := ctx.Query(name)
+	if raw == "" {
+		return 0, true
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		response.Error(ctx, http.StatusBadRequest, "Invalid "+name)
+		return 0, false
+	}
+	return n, true
+}
+
 func (c *RoomController) CreateInvite(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -90,7 +105,7 @@ func (c *RoomController) CreateInvite(ctx *gin.Context) {
 		case errors.Is(err, shared_domain.ErrForbidden):
 			response.Error(ctx, http.StatusForbidden, "Only the room owner or an admin can invite")
 		case errors.Is(err, shared_domain.ErrInvalidInput):
-			response.Error(ctx, http.StatusBadRequest, "Invalid input")
+			response.Error(ctx, http.StatusBadRequest, "Invalid input: expires_in must be between 1m and 720h")
 		default:
 			log.Printf("failed to create invite: %v", err)
 			response.Error(ctx, http.StatusInternalServerError, "Failed to create invite")
@@ -105,7 +120,7 @@ func (c *RoomController) CreateInvite(ctx *gin.Context) {
 func (c *RoomController) CreateRoom(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -117,8 +132,8 @@ func (c *RoomController) CreateRoom(ctx *gin.Context) {
 
 	room, err := c.createRoomUseCase.Execute(ctx, dto, userID)
 	if err != nil {
-		// Here you could map domain errors to HTTP status codes
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		log.Printf("failed to create room: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to create room")
 		return
 	}
 
@@ -129,13 +144,14 @@ func (c *RoomController) CreateRoom(ctx *gin.Context) {
 func (c *RoomController) GetUserRooms(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	rooms, err := c.listUserRoomsUseCase.Execute(ctx, userID)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		log.Printf("failed to list rooms: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to list rooms")
 		return
 	}
 
@@ -146,7 +162,7 @@ func (c *RoomController) GetUserRooms(ctx *gin.Context) {
 func (c *RoomController) MarkRead(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	roomID, err := uuid.Parse(ctx.Param("room_id"))
@@ -170,7 +186,7 @@ func (c *RoomController) MarkRead(ctx *gin.Context) {
 func (c *RoomController) OpenDirect(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	otherID, err := strconv.Atoi(ctx.Param("user_id"))
@@ -196,7 +212,7 @@ func (c *RoomController) OpenDirect(ctx *gin.Context) {
 func (c *RoomController) ListMembers(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	roomID, err := uuid.Parse(ctx.Param("room_id"))
@@ -204,7 +220,15 @@ func (c *RoomController) ListMembers(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
 		return
 	}
-	members, err := c.listMembersUseCase.Execute(ctx, roomID, userID)
+	limit, ok := queryInt(ctx, "limit")
+	if !ok {
+		return
+	}
+	offset, ok := queryInt(ctx, "offset")
+	if !ok {
+		return
+	}
+	members, err := c.listMembersUseCase.Execute(ctx, roomID, userID, limit, offset)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrForbidden) {
 			response.Error(ctx, http.StatusForbidden, "You are not a member of this room")
@@ -221,7 +245,7 @@ func (c *RoomController) ListMembers(ctx *gin.Context) {
 func (c *RoomController) LeaveRoom(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	roomID, err := uuid.Parse(ctx.Param("room_id"))
@@ -248,7 +272,7 @@ func (c *RoomController) LeaveRoom(ctx *gin.Context) {
 func (c *RoomController) JoinRoom(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -281,7 +305,7 @@ func (c *RoomController) JoinRoom(ctx *gin.Context) {
 func (c *RoomController) AcceptInvite(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -314,13 +338,28 @@ func (c *RoomController) AcceptInvite(ctx *gin.Context) {
 func (c *RoomController) DiscoverRooms(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	rooms, err := c.discoverRoomsUseCase.Execute(ctx, userID)
+	limit, ok := queryInt(ctx, "limit")
+	if !ok {
+		return
+	}
+	var after *uuid.UUID
+	if raw := ctx.Query("after"); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			response.Error(ctx, http.StatusBadRequest, "Invalid after cursor")
+			return
+		}
+		after = &id
+	}
+
+	rooms, err := c.discoverRoomsUseCase.Execute(ctx, userID, limit, after)
 	if err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		log.Printf("failed to discover rooms: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to discover rooms")
 		return
 	}
 
@@ -331,7 +370,7 @@ func (c *RoomController) DiscoverRooms(ctx *gin.Context) {
 func (c *RoomController) InviteUser(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	roomID, err := uuid.Parse(ctx.Param("room_id"))
@@ -371,7 +410,7 @@ func (c *RoomController) InviteUser(ctx *gin.Context) {
 func (c *RoomController) ListInvitations(ctx *gin.Context) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	invitations, err := c.listInvitationsUseCase.Execute(ctx, userID)
@@ -386,7 +425,7 @@ func (c *RoomController) ListInvitations(ctx *gin.Context) {
 func (c *RoomController) respondInvitation(ctx *gin.Context, accept bool) {
 	userID, err := request.GetUserID(ctx)
 	if err != nil {
-		response.Error(ctx, http.StatusUnauthorized, err.Error())
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	id, err := uuid.Parse(ctx.Param("id"))

@@ -235,6 +235,7 @@ const en = {
   'profile.deleteForever': 'Delete my account forever',
   'profile.delete': 'Delete account',
   'profile.deleteError': 'Wrong password, or the account could not be deleted.',
+  'discover.loadMore': 'Show more rooms',
 } as const;
 
 export type MessageKey = keyof typeof en;
