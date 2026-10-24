@@ -1,4 +1,3 @@
-
 package dtos
 
 import "time"
@@ -8,6 +7,7 @@ type UserProfileDTO struct {
 	Name      string    `json:"name"`
 	LastName  string    `json:"last_name"`
 	Username  string    `json:"username"`
+	Email     string    `json:"email"`
 	AvatarUrl *string   `json:"avatar_url"`
 	CreatedAt time.Time `json:"created_at"`
 }

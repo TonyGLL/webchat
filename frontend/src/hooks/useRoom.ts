@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { roomService } from '@/services/roomService';
+import { roomService, Room, CreateRoomData } from '@/services/roomService';
 
 export const useRoom = () => {
-  const [rooms, setRooms] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRooms = async () => {
@@ -20,7 +20,7 @@ export const useRoom = () => {
     fetchRooms();
   }, []);
 
-  const createRoom = async (data: { name: string; is_private: boolean, topic: string }) => {
+  const createRoom = async (data: CreateRoomData) => {
     await roomService.createRoom(data);
     fetchRooms();
   };

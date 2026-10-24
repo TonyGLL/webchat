@@ -24,10 +24,9 @@ Plantilla para añadir uno nuevo:
 ### Seguridad
 
 ### H-004 Tokens guardados en `localStorage`
-- **Severidad:** 🟠 · **Fase:** 1 · **Área:** frontend · **Verificación:** Confirmado
-- **Descripción:** cualquier XSS puede robar access y refresh token.
-- **Ubicación:** `frontend/src/hooks/useAuth.ts` y otros 3 puntos que leen `authTokens`.
-- **Propuesta:** cookies httpOnly + SameSite, o al menos centralizar el acceso en un único módulo.
+- **Severidad:** 🟡 · **Fase:** 1 · **Área:** frontend + backend · **Verificación:** Confirmado
+- **Avance:** el acceso al almacenamiento ya está centralizado en `frontend/src/lib/tokenStorage.ts` (antes estaba repartido en 4 sitios) y el access token dura 1 hora (H-061), lo que reduce el daño de un robo.
+- **Pendiente:** mover el refresh token a una cookie `httpOnly` + `SameSite` puesta por el backend (login/refresh/logout), y mantener el access token solo en memoria. Solo hay que cambiar `tokenStorage.ts` y los endpoints de auth.
 
 ### H-008 Endpoint de envío de verificación sin autenticación
 - **Nota:** la verificación de email está pausada (decisión del 2026-10-23); retomar junto con este hallazgo.
@@ -51,22 +50,6 @@ Plantilla para añadir uno nuevo:
 ### H-021 No hay CI
 - **Severidad:** 🟠 · **Fase:** 0 · **Área:** repo · **Verificación:** Confirmado (no existe `.github/`)
 - **Propuesta:** workflow con vet, test, lint y build.
-
-### H-022 Tipado débil en el frontend
-- **Severidad:** 🟡 · **Fase:** 2 · **Área:** frontend · **Verificación:** Confirmado
-- **Descripción:** `useState<any>` para el usuario; (el id de usuario es `SERIAL`, así que `number` es correcto en ese caso).
-- **Ubicación:** `frontend/src/hooks/useAuth.ts`, `frontend/src/services/authService.ts`
-- **Propuesta:** tipos generados desde OpenAPI; activar reglas de lint contra `any`.
-
-### H-023 Estado de auth duplicado por hook
-- **Severidad:** 🟡 · **Fase:** 1 · **Área:** frontend · **Verificación:** Confirmado
-- **Descripción:** `useAuth` es un hook con estado local, no un contexto. Cada componente que lo usa crea su propia copia y vuelve a pedir el perfil.
-- **Propuesta:** `AuthContext` único.
-
-### H-024 Sin renovación automática del token
-- **Severidad:** 🟠 · **Fase:** 1 · **Área:** frontend · **Verificación:** Confirmado (no hay interceptores de axios)
-- **Descripción:** el backend ofrece refresh pero el frontend lo ignora; al expirar el access token se cierra la sesión.
-- **Propuesta:** interceptor con cola de peticiones durante la renovación.
 
 ### Datos y rendimiento
 
@@ -102,18 +85,6 @@ Plantilla para añadir uno nuevo:
 - **Ubicación:** `backend/docker-compose.yml`
 - **Propuesta:** leerlas de variables de entorno (`${POSTGRES_PASSWORD}`) definidas en un archivo ignorado por git, y rotar las actuales porque ya están en el historial.
 
-### H-054 El script `lint` del frontend no funciona
-- **Severidad:** 🟡 · **Fase:** 0 · **Área:** frontend · **Verificación:** Confirmado (`bun run lint` falla)
-- **Descripción:** `next lint` ya no existe en Next 16; el script intenta tratar `lint` como un directorio.
-- **Ubicación:** `frontend/package.json`
-- **Propuesta:** cambiar a `eslint .` (ya hay `eslint.config.mjs`) y añadirlo al CI.
-
-### H-050 Rutas del frontend que no coinciden con el backend
-- **Severidad:** 🟠 · **Fase:** 0 · **Área:** front + back · **Verificación:** Confirmado en el código (falta probarlo en ejecución)
-- **Descripción:** el frontend llama `POST /auth/refresh`, pero el backend expone `POST /auth/refresh-token` (y espera `refreshToken` en el cuerpo). La ruta de verificación de email ya se corrigió en H-053. En `roomService.ts` también hay rutas que no existen en el backend (`/rooms/:id/join`, `/rooms/:id/invites`, `/rooms/invites/:token/accept`; el backend usa `/rooms/join/:room_id`, `/rooms/invite/:room_id`, `/rooms/accept-invite/:code`).
-- **Ubicación:** `frontend/src/services/authService.ts`, `backend/internal/auth/module.go`
-- **Propuesta:** alinear las rutas y generar el cliente desde OpenAPI para que no se desincronicen.
-
 ### H-040 README raíz y de backend desactualizados
 - **Severidad:** 🟡 · **Fase:** 0 · **Área:** docs · **Verificación:** Confirmado
 - **Descripción:** el README raíz menciona un `docker-compose.yml` en la raíz que no existe (está en `backend/`); el del backend describe `POST /messages` con `authorId`/`channelId` y el puerto 3000, mientras la app usa 8080 por defecto.
@@ -145,6 +116,12 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-061 | Login devolvía un "access token" de 7 días (en realidad un refresh token) y un refresh token que era solo un UUID: la renovación nunca funcionó. Ahora access 1 h + refresh JWT de un solo uso, guardado en Redis; los refresh tokens ya no sirven como access tokens | 2026-10-23 | _(este commit)_ |
+| H-023 | Estado de auth duplicado por hook: ahora un único `AuthContext` (un solo pedido de perfil para toda la app) | 2026-10-23 | _(este commit)_ |
+| H-024 | Renovación automática del token: cliente axios único con interceptor que renueva una vez y reintenta | 2026-10-23 | _(este commit)_ |
+| H-050 | Rutas del frontend que no coincidían con el backend (refresh, verify, rooms join/invite/accept, users/deactivate) y eventos WebSocket con otros nombres (reacciones y edición no llegaban en vivo) | 2026-10-23 | _(este commit)_ |
+| H-022 | Tipado del frontend: sin `any` en código propio; tipos de User, Room, mensajes y eventos WebSocket | 2026-10-23 | _(este commit)_ |
+| H-054 | Script `lint` del frontend: ahora `eslint .` con ESLint 9 + eslint-config-next; 0 errores | 2026-10-23 | _(este commit)_ |
 | H-005 | Sin rate limiting: ahora login (10/min), registro (20/10 min), refresh (30/min), reenvío de verificación (5/10 min), ws-ticket y mensajes, por IP, con Redis y respuesta 429 | 2026-10-23 | 9870410 |
 | H-009 | Política de contraseña: 8–72 caracteres, rechaza contraseñas comunes y las que contienen tu usuario o email (validado en backend y frontend) | 2026-10-23 | 9870410 |
 | H-007 | Salas y acceso: unirse a salas públicas fallaba con 500; las salas "privadas" del frontend quedaban públicas (`is_public` vs `is_private`); cualquiera podía crear invitaciones de salas ajenas (ahora solo dueño/admin); invitaciones repetidas/inexistentes dan 409/404 | 2026-10-23 | 7cada01 |

@@ -17,7 +17,7 @@ interface MessageViewProps {
   onBack: () => void;
 }
 
-const formatTimestamp = (date: Date) => {
+const formatTimestamp = (date: string | Date) => {
   const options: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: 'numeric', hour12: true };
 
   if (!dayjs(date).isToday()) {

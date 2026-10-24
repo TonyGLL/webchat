@@ -37,6 +37,12 @@ func JWTMiddleware(service application.JwtService) gin.HandlerFunc {
 			return
 		}
 
+		// Refresh tokens carry an ID (jti) and must not be accepted as access tokens.
+		if claims.ID != "" {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			return
+		}
+
 		// Set the user ID in the context for subsequent handlers.
 		ctx.Set(CtxUserIDKey, claims.UserID)
 

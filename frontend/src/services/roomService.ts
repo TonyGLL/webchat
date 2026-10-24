@@ -1,43 +1,51 @@
-import axios from 'axios';
+import { api } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+export interface Room {
+  id: string;
+  name: string;
+  topic: string | null;
+  is_private: boolean;
+  owner_id: number;
+  created_at: string;
+}
 
-const api = axios.create({
-  baseURL: API_URL,
-});
+export interface CreateRoomData {
+  name: string;
+  is_private: boolean;
+  topic: string;
+}
 
-api.interceptors.request.use((config) => {
-  const tokens = localStorage.getItem('authTokens');
-  if (tokens) {
-    const { accessToken } = JSON.parse(tokens);
-    config.headers.Authorization = `Bearer ${accessToken}`;
-  }
-  return config;
-});
+export interface Invite {
+  id: string;
+  room_id: string;
+  code: string;
+  expires_at: string;
+}
 
 export const roomService = {
-  createRoom: async (data: { name: string; is_private: boolean, topic: string }) => {
+  createRoom: async (data: CreateRoomData): Promise<Room> => {
     const response = await api.post('/rooms', data);
     return response.data;
   },
 
-  getUserRooms: async () => {
+  getUserRooms: async (): Promise<Room[] | null> => {
     const response = await api.get('/rooms');
     return response.data;
   },
 
   joinRoom: async (roomId: string) => {
-    const response = await api.post(`/rooms/${roomId}/join`);
+    const response = await api.post(`/rooms/join/${roomId}`);
     return response.data;
   },
 
-  createInvite: async (roomId: string, data: { user_id: number; expires_at: string }) => {
-    const response = await api.post(`/rooms/${roomId}/invites`, data);
+  /** `expiresIn` is a Go duration such as "24h". Only the room owner or an admin can invite. */
+  createInvite: async (roomId: string, data: { expires_in: string; email?: string }): Promise<Invite> => {
+    const response = await api.post(`/rooms/invite/${roomId}`, data);
     return response.data;
   },
 
-  acceptInvite: async (token: string) => {
-    const response = await api.post(`/rooms/invites/${token}/accept`);
+  acceptInvite: async (code: string): Promise<Invite> => {
+    const response = await api.post(`/rooms/accept-invite/${code}`);
     return response.data;
   },
 };

@@ -65,19 +65,24 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 		return nil, err
 	}
 
-	// Generate Refresh Token
-	refreshTokenID := uuid.New().String()
-	token, err := uc.jwtService.GenerateRefreshToken(user.ID, refreshTokenID, RefreshTokenDuration)
+	// Short-lived access token
+	accessToken, err := uc.jwtService.GenerateToken(user.ID, AccessTokenDuration)
 	if err != nil {
 		return nil, err
 	}
 
-	// Store refresh token in Redis
-	if err := uc.tokenRepo.StoreToken(ctx, user.ID, refreshTokenID, "verify_email_token", RefreshTokenDuration); err != nil {
+	// Long-lived refresh token; its ID is stored in Redis so it can be revoked and used only once
+	refreshTokenID := uuid.New().String()
+	refreshToken, err := uc.jwtService.GenerateRefreshToken(user.ID, refreshTokenID, RefreshTokenDuration)
+	if err != nil {
 		return nil, err
 	}
 
-	response := uc.buildLoginResponse(user, token, refreshTokenID)
+	if err := uc.tokenRepo.StoreToken(ctx, user.ID, refreshTokenID, "refresh_token", RefreshTokenDuration); err != nil {
+		return nil, err
+	}
+
+	response := uc.buildLoginResponse(user, accessToken, refreshToken)
 
 	return &response, nil
 }

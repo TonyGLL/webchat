@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { IGetRoomMessages, messageService } from '@/services/messageService';
+import { IGetRoomMessages, IReaction, messageService } from '@/services/messageService';
 import { useSocket } from './useSocket';
 
-// Assuming a structure for messages sent from the server
-interface WebSocketMessage {
-  type: 'new_message' | 'update_message' | 'add_reaction' | 'update_reaction' | 'remove_reaction';
-  payload: any;
-}
+// Events the backend broadcasts to a room (see backend/internal/message/application).
+type WebSocketMessage =
+  | { type: 'new_message'; payload: IGetRoomMessages }
+  | { type: 'update_message'; payload: { message_id: string; content: string } }
+  | { type: 'reaction_added'; payload: IReaction & { message_id: string } }
+  | { type: 'reaction_removed'; payload: IReaction & { message_id: string } };
 
 export const useMessages = (roomId: string | null) => {
   const socket = useSocket();
@@ -40,55 +41,51 @@ export const useMessages = (roomId: string | null) => {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
 
-        if (message.type === 'new_message' && message.payload.room_id === roomId) {
-          setMessages((prev) => [message.payload, ...prev]);
-        }
+        switch (message.type) {
+          case 'new_message':
+            if (message.payload.room_id === roomId) {
+              setMessages((prev) =>
+                prev.some((m) => m.id === message.payload.id) ? prev : [message.payload, ...prev]
+              );
+            }
+            break;
 
-        if (message.type === 'update_message') {
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === message.payload.message_id) {
-                return {
-                  ...msg,
-                  content: message.payload.content,
-                  is_edited: true,
-                };
-              }
-              return msg;
-            })
-          );
-        }
+          case 'update_message':
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === message.payload.message_id
+                  ? { ...msg, content: message.payload.content, edited_at: new Date().toISOString() }
+                  : msg
+              )
+            );
+            break;
 
-        if (message.type === 'add_reaction') {
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === message.payload.message_id) {
-                const newReactions = msg.reactions ? [...msg.reactions, message.payload] : [message.payload];
-                return {
-                  ...msg,
-                  reactions: newReactions,
-                };
-              }
-              return msg;
-            })
-          );
-        }
-
-        if (message.type === 'remove_reaction') {
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === message.payload.message_id) {
-                const newReactions = msg.reactions?.filter(
-                  (r) => !(r.emoji === message.payload.emoji && r.user_id === message.payload.user_id)
+          case 'reaction_added':
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== message.payload.message_id) return msg;
+                const exists = msg.reactions?.some(
+                  (r) => r.user_id === message.payload.user_id && r.emoji === message.payload.emoji
                 );
-                return {
-                  ...msg,
-                  reactions: newReactions,
-                };
-              }
-              return msg;
-            })
-          );
+                return exists ? msg : { ...msg, reactions: [...(msg.reactions ?? []), message.payload] };
+              })
+            );
+            break;
+
+          case 'reaction_removed':
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === message.payload.message_id
+                  ? {
+                      ...msg,
+                      reactions: msg.reactions?.filter(
+                        (r) => !(r.emoji === message.payload.emoji && r.user_id === message.payload.user_id)
+                      ),
+                    }
+                  : msg
+              )
+            );
+            break;
         }
       } catch (error) {
         console.error('Error parsing incoming socket message:', error);

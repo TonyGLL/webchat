@@ -15,7 +15,7 @@ interface ReactionProps {
 export default function Reaction({ messageId, reactions, onAddReaction, onRemoveReaction, currentUserId }: ReactionProps) {
   const [showPicker, setShowPicker] = useState(false);
 
-  const handleEmojiSelect = (emoji: any) => {
+  const handleEmojiSelect = (emoji: { native: string }) => {
     const existingReaction = reactions.find((r) => r.emoji === emoji.native && r.user_id === currentUserId);
     if (existingReaction) {
       onRemoveReaction(messageId, emoji.native);

@@ -1,8 +1,7 @@
-import axios from 'axios';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import { api } from '@/lib/api';
 
 export interface IReaction {
+  message_id?: string;
   user_id: number;
   emoji: string;
 }
@@ -12,25 +11,13 @@ export interface IGetRoomMessages {
   content: string;
   author_id: number;
   room_id: string;
-  created_at: Date;
+  created_at: string;
+  edited_at?: string | null;
   reactions?: IReaction[];
 }
 
-const api = axios.create({
-  baseURL: API_URL,
-});
-
-api.interceptors.request.use((config) => {
-  const tokens = localStorage.getItem('authTokens');
-  if (tokens) {
-    const { accessToken } = JSON.parse(tokens);
-    config.headers.Authorization = `Bearer ${accessToken}`;
-  }
-  return config;
-});
-
 export const messageService = {
-  getMessages: async (roomId: string, page: number, pageSize: number): Promise<IGetRoomMessages[]> => {
+  getMessages: async (roomId: string, page: number, pageSize: number): Promise<IGetRoomMessages[] | null> => {
     const response = await api.get(`/messages/${roomId}/messages`, {
       params: { page, pageSize },
     });

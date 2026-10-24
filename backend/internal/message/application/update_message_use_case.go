@@ -39,7 +39,7 @@ func (uc *UpdateMessageUseCase) Execute(ctx context.Context, messageID uuid.UUID
 	}
 
 	if uc.wsBroadcaster != nil {
-		uc.wsBroadcaster.Broadcast("update_message", dto, roomID)
+		uc.wsBroadcaster.Broadcast("update_message", map[string]interface{}{"message_id": messageID, "content": dto.Content}, roomID)
 	}
 	return nil
 }
