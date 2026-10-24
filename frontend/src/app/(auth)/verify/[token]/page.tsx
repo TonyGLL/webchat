@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { authService } from '@/services/authService';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -11,9 +11,12 @@ import { Button } from '@/components/ui/button';
 export default function VerifyTokenPage() {
   const { token } = useParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  // The token is single-use; React dev mode runs effects twice, so guard the request.
+  const requested = useRef(false);
 
   useEffect(() => {
-    if (token) {
+    if (token && !requested.current) {
+      requested.current = true;
       authService
         .verifyEmail(token as string)
         .then(() => setStatus('success'))
