@@ -4,6 +4,7 @@ import { Bell, BellOff } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAlertPrefs } from '@/hooks/useAlertPrefs';
+import { popoverPosition } from '@/lib/popover';
 import { playMessageSound } from '@/lib/sound';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/useT';
@@ -21,15 +22,25 @@ function Switch({ checked, onChange, label, disabled }: { checked: boolean; onCh
   );
 }
 
+const PANEL_WIDTH = 256;
+
 /** Bell button with the two notification switches: message sounds and desktop notifications. */
 export default function AlertSettings({ className }: { className?: string }) {
   const { t } = useT();
   const { prefs, update } = useAlertPrefs();
   const [open, setOpen] = useState(false);
   const [hint, setHint] = useState<'blocked' | 'unsupported' | null>(null);
+  // Fixed position computed from the trigger, so the panel is never clipped by the viewport edge
+  // or by a container (the bell sits near the left edge, inside the sidebar).
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panelId = useId();
+
+  const placePanel = () => {
+    const rect = trigger.current?.getBoundingClientRect();
+    return rect ? popoverPosition(rect, window.innerWidth, PANEL_WIDTH) : null;
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -39,13 +50,21 @@ export default function AlertSettings({ className }: { className?: string }) {
       setOpen(false);
       trigger.current?.focus();
     };
+    const onResize = () => setPos(placePanel());
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
     };
   }, [open]);
+
+  const toggle = () => {
+    if (!open) setPos(placePanel());
+    setOpen((v) => !v);
+  };
 
   const setDesktop = async (on: boolean) => {
     setHint(null);
@@ -72,7 +91,7 @@ export default function AlertSettings({ className }: { className?: string }) {
         variant="ghost"
         size="icon"
         className={className}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-label={t('alerts.open')}
         aria-expanded={open}
         aria-controls={panelId}
@@ -81,7 +100,11 @@ export default function AlertSettings({ className }: { className?: string }) {
         <Icon className="h-4 w-4" />
       </Button>
       {open && (
-        <div id={panelId} className="absolute right-0 top-full z-30 mt-1 w-64 rounded-lg border bg-card p-3 shadow-lg">
+        <div
+          id={panelId}
+          style={pos ?? undefined}
+          className={cn('fixed z-30 rounded-lg border bg-card p-3 shadow-lg', !pos && 'invisible')}
+        >
           <h3 className="mb-1 text-[13px] font-semibold">{t('alerts.title')}</h3>
           <Switch label={t('alerts.sound')} checked={prefs.sound} onChange={(sound) => update({ sound })} />
           <Switch label={t('alerts.desktop')} checked={prefs.desktop} onChange={setDesktop} />
