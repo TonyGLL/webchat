@@ -50,10 +50,19 @@ func (r *PgAuthRepository) GetUserByID(ctx context.Context, id int) (*domain.Use
 	return user, nil
 }
 
-const getUserByEmailOrUsernameQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at FROM users u WHERE (u.email = $1 OR u.username = $1) AND u.deleted = FALSE;`
+// The identity is looked up by email when the input contains '@' and by username otherwise, never
+// both: usernames cannot contain '@', so one input always means one account. Both compare
+// case-insensitively (backed by the unique lower() indexes from migration 000013).
+const getUserByEmailQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at FROM users u WHERE lower(u.email) = lower($1) AND u.deleted = FALSE;`
+
+const getUserByUsernameQuery = `SELECT id, name, last_name, username, email, phone, avatar_url, last_access, deleted, google_sub, email_verified_at, created_at, updated_at FROM users u WHERE lower(u.username) = lower($1) AND u.deleted = FALSE;`
 
 func (r *PgAuthRepository) GetUserByEmailOrUsername(ctx context.Context, emailOrUsername string) (*domain.User, error) {
-	row := r.db.QueryRowContext(ctx, getUserByEmailOrUsernameQuery, emailOrUsername)
+	query := getUserByUsernameQuery
+	if domain.LooksLikeEmail(emailOrUsername) {
+		query = getUserByEmailQuery
+	}
+	row := r.db.QueryRowContext(ctx, query, emailOrUsername)
 	user := &domain.User{}
 	err := row.Scan(
 		&user.ID,
@@ -79,7 +88,7 @@ func (r *PgAuthRepository) GetUserByEmailOrUsername(ctx context.Context, emailOr
 	return user, nil
 }
 
-const getVerifyEmailQuery = `SELECT u.id, u.email FROM users u WHERE u.email = $1 AND u.id = $2 AND u.deleted = FALSE AND u.email_verified_at IS NULL;`
+const getVerifyEmailQuery = `SELECT u.id, u.email FROM users u WHERE lower(u.email) = lower($1) AND u.id = $2 AND u.deleted = FALSE AND u.email_verified_at IS NULL;`
 
 func (r *PgAuthRepository) GetUserVerifyEmail(ctx context.Context, email string, userID int) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx, getVerifyEmailQuery, email, userID)
@@ -202,4 +211,14 @@ func (r *PgAuthRepository) UpdatePassword(ctx context.Context, id int, hashedPas
 		return shared_domain.ErrNotFound
 	}
 	return nil
+}
+
+// IsActive reports whether the user exists and has not been deactivated.
+func (r *PgAuthRepository) IsActive(ctx context.Context, id int) (bool, error) {
+	var active bool
+	err := r.db.QueryRowContext(ctx, `SELECT NOT deleted FROM users WHERE id = $1`, id).Scan(&active)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return active, err
 }

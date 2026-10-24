@@ -10,6 +10,10 @@ type PasswordService interface {
 	CheckPasswordHash(password, hash string) bool
 }
 
+// bcryptCost is the work factor for new hashes. Older hashes (default cost 10) still verify and
+// keep their own cost until the user changes the password.
+const bcryptCost = 12
+
 // bcryptPasswordService is an implementation of PasswordService using bcrypt.
 type bcryptPasswordService struct{}
 
@@ -19,7 +23,7 @@ func NewPasswordService() PasswordService {
 }
 
 func (s *bcryptPasswordService) HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	if err != nil {
 		return "", err
 	}

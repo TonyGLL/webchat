@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,7 +65,10 @@ func (fakeJWT) GenerateRefreshToken(_ int, id string, _ time.Duration) (string, 
 // ParseToken stamps every token as issued at the Unix epoch plus one second, i.e. long before
 // any revocation moment the tests create.
 func (fakeJWT) ParseToken(token string) (*domain.CustomClaims, error) {
-	return &domain.CustomClaims{UserID: 7, RegisteredClaims: jwt.RegisteredClaims{
+	if strings.HasPrefix(token, "access") {
+		return &domain.CustomClaims{UserID: 7, Type: domain.TokenTypeAccess}, nil
+	}
+	return &domain.CustomClaims{UserID: 7, Type: domain.TokenTypeRefresh, RegisteredClaims: jwt.RegisteredClaims{
 		ID:       token[len("refresh:"):],
 		IssuedAt: jwt.NewNumericDate(time.Unix(1, 0)),
 	}}, nil
@@ -120,5 +124,12 @@ func TestRefreshTokenSurvivesBrieflyForConcurrentTabs(t *testing.T) {
 	tokens.now = tokens.now.Add(RefreshReuseGrace + time.Second)
 	if _, err := uc.Execute(context.Background(), dtos.RefreshTokenInputDTO{RefreshToken: first}); err != shared_domain.ErrInvalidToken {
 		t.Fatalf("a used token must die after the grace period, got %v", err)
+	}
+}
+
+func TestRefreshRejectsTokensThatAreNotRefreshTokens(t *testing.T) {
+	uc, _, _ := newRefreshFixture()
+	if _, err := uc.Execute(context.Background(), dtos.RefreshTokenInputDTO{RefreshToken: "access"}); err != shared_domain.ErrInvalidToken {
+		t.Fatalf("an access token must not work as a refresh token, got %v", err)
 	}
 }

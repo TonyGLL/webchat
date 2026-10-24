@@ -22,6 +22,7 @@ func RegisterModule(
 	store shared_app.Store,
 	frontendURL string,
 	secureCookies bool,
+	authMiddleware gin.HandlerFunc,
 ) {
 	// Initialize services
 	passwordService := domain.NewPasswordService()
@@ -49,7 +50,7 @@ func RegisterModule(
 		authRoutes.POST("/logout", authController.Logout)
 		authRoutes.POST("/forgot-password", authController.ForgotPassword)
 		authRoutes.POST("/reset-password", authController.ResetPassword)
-		authRoutes.POST("/send-verify-email/:user_id", authController.SendVerifyEmail)
+		authRoutes.POST("/send-verify-email/:user_id", authMiddleware, authController.SendVerifyEmail)
 		authRoutes.POST("/verify-email/:token", authController.VerifyEmail)
 	}
 }

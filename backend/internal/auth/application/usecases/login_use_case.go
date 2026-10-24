@@ -7,6 +7,8 @@ import (
 	shared_domain "backend/internal/shared/domain"
 	"context"
 	"errors"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +17,13 @@ import (
 const (
 	AccessTokenDuration  = time.Hour * 1
 	RefreshTokenDuration = time.Hour * 24 * 7 // 7 days
+)
+
+// dummyHash is compared against when the user does not exist, so an unknown account costs about
+// as much time as a wrong password and the response time does not reveal which accounts exist.
+var (
+	dummyHash     string
+	dummyHashOnce sync.Once
 )
 
 type LoginUseCase struct {
@@ -39,9 +48,10 @@ func NewLoginUseCase(
 
 // Execute handles user login. It returns the authenticated user or an error.
 func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (*dtos.AuthResponseDTO, error) {
-	user, err := uc.authRepo.GetUserByEmailOrUsername(ctx, input.User)
+	user, err := uc.authRepo.GetUserByEmailOrUsername(ctx, strings.TrimSpace(input.User))
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
+			uc.spendHashTime(input.Password)
 			return nil, shared_domain.ErrInvalidCredentials // User not found
 		}
 		return nil, err
@@ -50,6 +60,7 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 	hashedPassword, err := uc.authRepo.ValidateUserPassword(ctx, user.ID)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
+			uc.spendHashTime(input.Password)
 			return nil, shared_domain.ErrInvalidCredentials // Password not found for user
 		}
 		return nil, err
@@ -85,6 +96,14 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 	response := uc.buildLoginResponse(user, accessToken, refreshToken)
 
 	return &response, nil
+}
+
+// spendHashTime runs one bcrypt comparison whose result is ignored.
+func (uc *LoginUseCase) spendHashTime(password string) {
+	dummyHashOnce.Do(func() {
+		dummyHash, _ = uc.passwordService.HashPassword("not-a-real-password")
+	})
+	uc.passwordService.CheckPasswordHash(password, dummyHash)
 }
 
 func (uc *LoginUseCase) buildLoginResponse(user *domain.User, accessToken, refreshToken string) dtos.AuthResponseDTO {

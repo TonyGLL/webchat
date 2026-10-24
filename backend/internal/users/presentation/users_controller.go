@@ -68,13 +68,23 @@ func (ctrl *UsersController) DeactivateUser(ctx *gin.Context) {
 		return
 	}
 
-	err := ctrl.DeactivateUserUseCase.Execute(ctx.Request.Context(), userID.(int))
+	var body deleteAccountBody // same shape: the current password
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		response.Error(ctx, http.StatusBadRequest, "password is required")
+		return
+	}
+
+	err := ctrl.DeactivateUserUseCase.Execute(ctx.Request.Context(), userID.(int), body.Password)
 	if err != nil {
-		if errors.Is(err, shared_domain.ErrNotFound) {
+		switch {
+		case errors.Is(err, shared_domain.ErrInvalidCredentials):
+			response.Error(ctx, http.StatusForbidden, "Wrong password")
+		case errors.Is(err, shared_domain.ErrNotFound):
 			ctx.JSON(http.StatusNotFound, shared_domain.ErrorResponse(err))
-			return
+		default:
+			log.Printf("failed to deactivate account: %v", err)
+			ctx.JSON(http.StatusInternalServerError, shared_domain.ErrorResponse(err))
 		}
-		ctx.JSON(http.StatusInternalServerError, shared_domain.ErrorResponse(err))
 		return
 	}
 

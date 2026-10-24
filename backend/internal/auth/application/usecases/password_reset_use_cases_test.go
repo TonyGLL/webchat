@@ -68,8 +68,10 @@ func newResetFixture() *resetFixture {
 	}
 	tokens := newFakeTokens()
 	mailer := &fakeMailer{}
+	request := NewRequestPasswordResetUseCase(repo, tokens, mailer, "https://chat.example.com/")
+	request.dispatch = func(fn func()) { fn() } // deliver inline so tests can assert on the mail
 	return &resetFixture{
-		request: NewRequestPasswordResetUseCase(repo, tokens, mailer, "https://chat.example.com/"),
+		request: request,
 		reset:   NewResetPasswordUseCase(repo, tokens, plainHasher{}),
 		repo:    repo, tokens: tokens, mailer: mailer,
 	}

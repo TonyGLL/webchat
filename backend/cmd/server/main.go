@@ -92,6 +92,9 @@ func main() {
 	inviteRepository := room_persistence.NewPgInviteRepository(database)
 	invitationRepository := room_persistence.NewPgInvitationRepository(database)
 
+	// Rejects access tokens of deactivated accounts and of sessions revoked after they were issued.
+	authMiddleware := http.JWTMiddleware(jwtService, auth_persistence.NewSessionGuard(tokenRepository, authRepository))
+
 	// --- Websocket Hub ---
 	wsHub := websocket.NewHub()
 	wsUpgrader := websocket.NewUpgrader(cfg.CORSAllowedOrigins)
@@ -119,6 +122,7 @@ func main() {
 		{Method: "POST", Path: "/api/v1/ws-ticket", Limit: 30, Window: time.Minute},
 		{Method: "POST", Path: "/api/v1/messages", Limit: 120, Window: time.Minute},
 		{Method: "GET", Path: "/api/v1/users/export", Limit: 5, Window: time.Hour},
+		{Method: "DELETE", Path: "/api/v1/users/deactivate", Limit: 5, Window: time.Hour},
 		{Method: "DELETE", Path: "/api/v1/users/me", Limit: 5, Window: time.Hour},
 		{Method: "GET", Path: "/api/v1/messages/search", Limit: 60, Window: time.Minute},
 	}))
@@ -127,7 +131,7 @@ func main() {
 	// single-use ticket that /ws redeems, so the JWT never appears in the URL.
 	wsTickets := websocket.NewRedisTicketStore(redisClient)
 	presence := websocket.NewRedisPresence(redisClient)
-	apiV1.POST("/ws-ticket", http.JWTMiddleware(jwtService), websocket.IssueTicket(wsTickets))
+	apiV1.POST("/ws-ticket", authMiddleware, websocket.IssueTicket(wsTickets))
 	apiV1.GET("/ws", func(c *gin.Context) {
 		websocket.ServeWs(wsHub, wsUpgrader, wsTickets, roomListerAdapter, presence, c)
 	})
@@ -142,12 +146,12 @@ func main() {
 
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
-	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL, cfg.IsProduction())
-	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, http.JWTMiddleware(jwtService), wsHub, presence)
+	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL, cfg.IsProduction(), authMiddleware)
+	users.RegisterModule(usersRepository, apiV1, validate, mailerService, store, authMiddleware, wsHub, presence, tokenRepository)
 	moderationRepository := moderation_persistence.NewPgRepository(database)
-	room.RegisterModule(roomRepository, memberRepository, inviteRepository, invitationRepository, apiV1, validate, http.JWTMiddleware(jwtService), listUserRoomsUseCase, wsHub, presence, moderationRepository)
-	moderation.RegisterModule(moderationRepository, wsHub, apiV1, http.JWTMiddleware(jwtService))
-	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, http.JWTMiddleware(jwtService), moderationRepository)
+	room.RegisterModule(roomRepository, memberRepository, inviteRepository, invitationRepository, apiV1, validate, authMiddleware, listUserRoomsUseCase, wsHub, presence, moderationRepository)
+	moderation.RegisterModule(moderationRepository, wsHub, apiV1, authMiddleware)
+	message.RegisterModule(messageRepository, reactionRepository, wsHub, apiV1, validate, authMiddleware, moderationRepository)
 
 	// --- Start Server ---
 	server.Run()

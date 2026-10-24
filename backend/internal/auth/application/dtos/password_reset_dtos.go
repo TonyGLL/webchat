@@ -1,7 +1,7 @@
 package dtos
 
 type ForgotPasswordInputDTO struct {
-	Email string `json:"email" validate:"required,email"`
+	Email string `json:"email" validate:"required,email,max=255"`
 }
 
 type ResetPasswordInputDTO struct {

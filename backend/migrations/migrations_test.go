@@ -44,4 +44,47 @@ func TestUpOnEmptyDatabase(t *testing.T) {
 			t.Errorf("table %s missing after migrations (err=%v)", table, err)
 		}
 	}
+
+	checkIdentityMigrationRefusesDuplicates(t, db)
+}
+
+// checkIdentityMigrationRefusesDuplicates verifies that 000013 fails loudly, without changing
+// data, when two accounts already collide under lower(). Everything runs in transactions that
+// are rolled back.
+func checkIdentityMigrationRefusesDuplicates(t *testing.T, db *sql.DB) {
+	t.Helper()
+	up, err := files.ReadFile("000013_auth_case_insensitive_identity.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	run := func(users [][3]string) error {
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback()
+		for _, stmt := range []string{`DROP INDEX users_email_lower_key`, `DROP INDEX users_username_lower_key`} {
+			if _, err := tx.Exec(stmt); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, u := range users {
+			if _, err := tx.Exec(`INSERT INTO users (name, username, email) VALUES ($1, $2, $3)`, u[0], u[1], u[2]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		_, err = tx.Exec(string(up))
+		return err
+	}
+
+	if err := run([][3]string{{"A", "ana", "ana@example.com"}, {"B", "Ana", "other@example.com"}}); err == nil {
+		t.Error("migration must fail when usernames collide case-insensitively")
+	}
+	if err := run([][3]string{{"A", "ana", "ana@example.com"}, {"B", "bob", "ANA@example.com"}}); err == nil {
+		t.Error("migration must fail when emails collide case-insensitively")
+	}
+	if err := run([][3]string{{"A", "ana", "ana@example.com"}, {"B", "bob", "bob@example.com"}}); err != nil {
+		t.Errorf("migration must pass on clean data: %v", err)
+	}
 }

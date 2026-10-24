@@ -1,10 +1,13 @@
 package http
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
+	auth_domain "backend/internal/auth/domain"
 	"backend/internal/shared/application"
 
 	"github.com/gin-gonic/gin"
@@ -13,8 +16,15 @@ import (
 // CtxUserIDKey is the key for the user ID in the context.
 const CtxUserIDKey = "userID"
 
-// JWTMiddleware creates a Gin middleware for JWT authentication.
-func JWTMiddleware(service application.JwtService) gin.HandlerFunc {
+// SessionGuard decides whether an otherwise valid access token still belongs to a live session:
+// the account may have been deactivated or deleted, or its sessions revoked (password reset),
+// after the token was issued.
+type SessionGuard interface {
+	Valid(ctx context.Context, userID int, issuedAt time.Time) bool
+}
+
+// JWTMiddleware creates a Gin middleware for JWT authentication. The guard may be nil (tests).
+func JWTMiddleware(service application.JwtService, guard SessionGuard) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		authHeader := ctx.GetHeader("Authorization")
 		if authHeader == "" {
@@ -37,10 +47,23 @@ func JWTMiddleware(service application.JwtService) gin.HandlerFunc {
 			return
 		}
 
-		// Refresh tokens carry an ID (jti) and must not be accepted as access tokens.
-		if claims.ID != "" {
+		// Only access tokens open the API: refresh and e-mail verification tokens share the
+		// signing secret but must never authenticate a request. Tokens issued before the "typ"
+		// claim existed are rejected too, so open sessions refresh once after the upgrade.
+		if claims.Type != auth_domain.TokenTypeAccess || claims.ID != "" {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
+		}
+
+		if guard != nil {
+			var issuedAt time.Time
+			if claims.IssuedAt != nil {
+				issuedAt = claims.IssuedAt.Time
+			}
+			if !guard.Valid(ctx.Request.Context(), claims.UserID, issuedAt) {
+				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+				return
+			}
 		}
 
 		// Set the user ID in the context for subsequent handlers.
