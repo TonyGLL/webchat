@@ -30,7 +30,7 @@ export default function RegisterPage() {
     setError(null);
     try {
       await registerUser(data);
-      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+      router.push('/login');
     } catch (err) {
       setError(
         axios.isAxiosError(err) && err.response?.status === 409

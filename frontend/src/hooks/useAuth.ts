@@ -34,14 +34,9 @@ export const useAuth = () => {
     setUser(profile);
   };
 
+  // Email verification is paused for now: registering only creates the account.
   const register = async (data: RegisterData) => {
-    const created = await authService.register(data);
-    try {
-      await authService.sendVerifyEmail(created.id, created.email);
-    } catch (err) {
-      // The account exists; the user can still request the email again later.
-      console.error('Failed to send verification email', err);
-    }
+    await authService.register(data);
   };
 
   const logout = () => {

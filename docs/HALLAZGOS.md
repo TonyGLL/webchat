@@ -59,6 +59,7 @@ Plantilla para añadir uno nuevo:
 - **Propuesta:** distinguir salas públicas/privadas.
 
 ### H-008 Endpoint de envío de verificación sin autenticación
+- **Nota:** la verificación de email está pausada (decisión del 2026-10-23); retomar junto con este hallazgo.
 - **Severidad:** 🟡 · **Fase:** 1 · **Área:** backend · **Verificación:** Confirmado (la ruta `POST /auth/send-verify-email/:user_id` es pública)
 - **Descripción:** cualquiera puede disparar correos a un usuario por su id.
 - **Propuesta:** rate limiting y evitar que el id sea enumerable; revisar si debe exigir autenticación.

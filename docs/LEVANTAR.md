@@ -107,7 +107,7 @@ Notas sobre cada variable:
 | `CORS_ALLOWED_ORIGINS` | Sí en la práctica | Lista separada por comas. Debe incluir el origen del frontend. |
 | `PORT` | No | Por defecto `8081`. |
 | `FRONTEND_URL` | No | URL pública del frontend para los enlaces de los correos. Por defecto `http://localhost:3100`. |
-| `SMTP_*` | Solo para verificar emails | Con Gmail necesitas una "contraseña de aplicación". |
+| `SMTP_*` | No por ahora (verificación pausada) | Con Gmail necesitas una "contraseña de aplicación". |
 | `APP_ENV` | No | `prod` o `production` activa el modo producción. |
 
 ### 3.2 Arrancar
@@ -173,7 +173,7 @@ Otros comandos: `bun run build` (compilar), `bun run lint`.
 
 ### 5.1 Crear un usuario
 
-Desde el navegador: `http://localhost:3100/register`. El formulario pide nombre, apellido, usuario (3-30 caracteres), email, teléfono y contraseña (mínimo 8). Al registrarte, el backend te envía un correo con el enlace de verificación (`FRONTEND_URL/verify/<token>`, válido 10 minutos).
+Desde el navegador: `http://localhost:3100/register`. El formulario pide nombre, apellido, usuario (3-30 caracteres), email, teléfono y contraseña (mínimo 8). Al terminar te lleva al login.
 
 Por la API (alternativa):
 
@@ -181,19 +181,11 @@ Por la API (alternativa):
 curl -s -X POST http://localhost:8081/api/v1/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"name":"Tony","last_name":"Gomez","username":"tony","email":"tu@correo.com","phone":"5551234567","password":"clave12345"}'
-# devuelve {"id": <n>, "email": "..."}; luego pide el correo de verificación:
-curl -s -X POST http://localhost:8081/api/v1/auth/send-verify-email/<id> \
-  -H 'Content-Type: application/json' -d '{"email":"tu@correo.com"}'
 ```
 
-### 5.2 Verificar el email
+### 5.2 Verificación de email (pausada)
 
-Abre el enlace del correo. Si **no tienes SMTP configurado** (o no llegó), verifica a mano:
-
-```bash
-docker exec -it webchat-db psql -U root -d webchat \
-  -c "UPDATE users SET email_verified_at = NOW() WHERE email = 'tu@correo.com';"
-```
+Por ahora **no se verifica el email**: el login no lo exige y el registro ya no envía correo, así que no necesitas configurar `SMTP_*`. El código de verificación (rutas `/auth/send-verify-email` y `/auth/verify-email`, páginas `/verify-email` y `/verify/[token]`) sigue en el repositorio, sin usarse, para retomarlo más adelante.
 
 ### 5.3 Iniciar sesión
 
@@ -237,7 +229,6 @@ Para el backend y el frontend locales: `Ctrl+C` en cada terminal.
 | El frontend carga pero no hay datos o error CORS | `CORS_ALLOWED_ORIGINS` no incluye `http://localhost:3100` | Corrígelo en `.env.local` y reinicia el backend. |
 | Las peticiones del frontend van a `undefined/...` | Falta `frontend/.env.local` | Créalo y reinicia `bun dev`. |
 | `air: command not found` | `~/go/bin` no está en el `PATH` | `export PATH=$PATH:$(go env GOPATH)/bin` |
-| No llega el correo de verificación | SMTP sin configurar o `FRONTEND_URL` incorrecta | Revisa las `SMTP_*`; usa el atajo SQL del paso 5.2. |
 
 ## Limitaciones conocidas hoy
 
