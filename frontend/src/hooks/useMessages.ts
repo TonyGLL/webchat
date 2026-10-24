@@ -11,12 +11,21 @@ type WebSocketMessage =
 
 const PAGE_SIZE = 50;
 
+/** A message the user sent that the server has not confirmed yet. */
+export interface PendingMessage {
+  tempId: string;
+  room_id: string;
+  content: string;
+  status: 'sending' | 'failed';
+}
+
 export const useMessages = (roomId: string | null) => {
   const socket = useSocket();
   const [messages, setMessages] = useState<IGetRoomMessages[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [pending, setPending] = useState<PendingMessage[]>([]);
 
   const fetchMessages = useCallback(async () => {
     if (!roomId) {
@@ -37,6 +46,7 @@ export const useMessages = (roomId: string | null) => {
 
   useEffect(() => {
     fetchMessages();
+    setPending([]); // unconfirmed messages belong to the room they were typed in
   }, [fetchMessages]);
 
   // Events sent while the connection was down are lost: reload the latest page after a reconnect.
@@ -135,13 +145,34 @@ export const useMessages = (roomId: string | null) => {
     }
   };
 
-  const createMessage = async (data: { room_id: string; content: string }) => {
+  const deliver = async (item: PendingMessage) => {
+    setPending((prev) => prev.map((p) => (p.tempId === item.tempId ? { ...p, status: 'sending' } : p)));
     try {
-      await messageService.createMessage({ room_id: data.room_id, content: data.content });
+      const created = await messageService.createMessage({ room_id: item.room_id, content: item.content });
+      setPending((prev) => prev.filter((p) => p.tempId !== item.tempId));
+      // The websocket event usually arrives first; only add the message if it did not.
+      if (created?.id && item.room_id === roomId) {
+        setMessages((prev) => (prev.some((m) => m.id === created.id) ? prev : [created, ...prev]));
+      }
     } catch (error) {
       console.error('Failed to send message', error);
+      setPending((prev) => prev.map((p) => (p.tempId === item.tempId ? { ...p, status: 'failed' } : p)));
     }
   };
+
+  /** Shows the message immediately as pending, then confirms or marks it failed. */
+  const createMessage = async (data: { room_id: string; content: string }) => {
+    const item: PendingMessage = { tempId: crypto.randomUUID(), ...data, status: 'sending' };
+    setPending((prev) => [...prev, item]);
+    await deliver(item);
+  };
+
+  const retryMessage = (tempId: string) => {
+    const item = pending.find((p) => p.tempId === tempId);
+    if (item && item.status === 'failed') void deliver(item);
+  };
+
+  const discardMessage = (tempId: string) => setPending((prev) => prev.filter((p) => p.tempId !== tempId));
 
   const addReaction = async (messageId: string, emoji: string) => {
     try {
@@ -159,5 +190,5 @@ export const useMessages = (roomId: string | null) => {
     }
   };
 
-  return { messages, loading, loadingMore, hasMore, loadMore, createMessage, addReaction, removeReaction, setMessages };
+  return { messages, pending, retryMessage, discardMessage, loading, loadingMore, hasMore, loadMore, createMessage, addReaction, removeReaction, setMessages };
 };

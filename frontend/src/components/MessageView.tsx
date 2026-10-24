@@ -30,8 +30,19 @@ const formatTimestamp = (date: string | Date) => {
 };
 
 export default function MessageView({ roomId, roomName, onBack }: MessageViewProps) {
-  const { messages, loading, loadingMore, hasMore, loadMore, createMessage, addReaction, removeReaction } =
-    useMessages(roomId);
+  const {
+    messages,
+    pending,
+    retryMessage,
+    discardMessage,
+    loading,
+    loadingMore,
+    hasMore,
+    loadMore,
+    createMessage,
+    addReaction,
+    removeReaction,
+  } = useMessages(roomId);
   const { profile } = useUser();
   const [content, setContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -45,7 +56,7 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
   // prepended, keep the reader where they were.
   useEffect(() => {
     const container = scrollRef.current;
-    const newestId = ordered[ordered.length - 1]?.id ?? null;
+    const newestId = pending[0]?.tempId ?? ordered[ordered.length - 1]?.id ?? null;
 
     if (heightBeforeLoadRef.current !== null && container) {
       container.scrollTop = container.scrollHeight - heightBeforeLoadRef.current;
@@ -54,7 +65,7 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
     newestIdRef.current = newestId;
-  }, [ordered]);
+  }, [ordered, pending.length]);
 
   useEffect(() => {
     newestIdRef.current = null; // a different room: jump to its latest message
@@ -132,6 +143,31 @@ export default function MessageView({ roomId, roomName, onBack }: MessageViewPro
                 </li>
               );
             })}
+            {pending.map((item) => (
+              <li key={item.tempId} className="flex flex-col items-end gap-1">
+                <div
+                  className={cn(
+                    'max-w-[80%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-primary-foreground',
+                    item.status === 'sending' ? 'opacity-60' : 'opacity-100 ring-2 ring-destructive'
+                  )}
+                >
+                  <p className="whitespace-pre-wrap break-words text-sm">{item.content}</p>
+                </div>
+                {item.status === 'sending' ? (
+                  <p className="text-[11px] text-muted-foreground">Sending…</p>
+                ) : (
+                  <p className="flex gap-2 text-[11px] text-destructive" role="alert">
+                    Not sent.
+                    <button type="button" className="underline" onClick={() => retryMessage(item.tempId)}>
+                      Retry
+                    </button>
+                    <button type="button" className="underline" onClick={() => discardMessage(item.tempId)}>
+                      Discard
+                    </button>
+                  </p>
+                )}
+              </li>
+            ))}
           </ul>
         )}
         <div ref={messagesEndRef} />
