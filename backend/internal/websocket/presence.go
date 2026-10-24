@@ -3,17 +3,25 @@ package websocket
 import (
 	"context"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 )
 
 const (
-	presenceKey = "webchat:presence"
+	// legacyPresenceKey was the single sorted set holding every connection. It is no longer
+	// read; NewRedisPresence deletes it once so it does not linger without a TTL.
+	legacyPresenceKey = "webchat:presence"
+	// presenceKeyPrefix prefixes one sorted set per user ("webchat:presence:u:<id>") whose members
+	// are client IDs and whose scores are the time each connection expires.
+	presenceKeyPrefix = "webchat:presence:u:"
 	// presenceTTL is how long a connection counts as online without a heartbeat. Heartbeats
 	// come with every pong (about every 54 s), so a crashed instance's users expire by themselves.
 	presenceTTL = 2 * time.Minute
+	// maxOnlineLookup caps how many users one OnlineUsers call checks, and onlineChunk how many
+	// checks go in one pipeline.
+	maxOnlineLookup = 1000
+	onlineChunk     = 200
 )
 
 // PresenceStore tracks which users have at least one open connection, across all instances.
@@ -28,85 +36,97 @@ type PresenceStore interface {
 	OnlineUsers(ctx context.Context, userIDs []int) (map[int]bool, error)
 }
 
-// RedisPresence keeps a sorted set whose members are "userID:clientID" and whose scores are
-// the time each connection expires.
+// RedisPresence keeps, per user, a sorted set of client IDs scored by the time each connection
+// expires. Every decision touches only that user's key, so its cost does not grow with the
+// number of connected users.
 type RedisPresence struct {
 	client *redis.Client
 	now    func() time.Time
 }
 
+// NewRedisPresence builds the store and, in the background, drops the legacy global key.
 func NewRedisPresence(client *redis.Client) *RedisPresence {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), redisOpTimeout)
+		defer cancel()
+		_ = client.Del(ctx, legacyPresenceKey).Err()
+	}()
 	return &RedisPresence{client: client, now: time.Now}
 }
 
-func (p *RedisPresence) member(userID int, clientID string) string {
-	return strconv.Itoa(userID) + ":" + clientID
+func userKey(userID int) string {
+	return presenceKeyPrefix + strconv.Itoa(userID)
 }
 
 func (p *RedisPresence) expiry() float64 {
 	return float64(p.now().Add(presenceTTL).Unix())
 }
 
-// liveMembers returns the non-expired members, after dropping the expired ones.
-func (p *RedisPresence) liveMembers(ctx context.Context) ([]string, error) {
-	now := strconv.FormatInt(p.now().Unix(), 10)
-	if err := p.client.ZRemRangeByScore(ctx, presenceKey, "-inf", now).Err(); err != nil {
-		return nil, err
-	}
-	return p.client.ZRangeByScore(ctx, presenceKey, &redis.ZRangeBy{Min: "(" + now, Max: "+inf"}).Result()
-}
+// connectScript registers a connection, prunes the user's expired ones and returns how many
+// are left, atomically. KEYS[1]=user key; ARGV: now, expiry, client id, key TTL in seconds.
+var connectScript = redis.NewScript(`
+redis.call('ZADD', KEYS[1], ARGV[2], ARGV[3])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
+redis.call('EXPIRE', KEYS[1], ARGV[4])
+return redis.call('ZCARD', KEYS[1])
+`)
 
-func connectionsOf(members []string, userID int) int {
-	prefix := strconv.Itoa(userID) + ":"
-	n := 0
-	for _, m := range members {
-		if strings.HasPrefix(m, prefix) {
-			n++
-		}
-	}
-	return n
-}
+// disconnectScript removes a connection, prunes expired ones and returns how many are left.
+var disconnectScript = redis.NewScript(`
+redis.call('ZREM', KEYS[1], ARGV[2])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
+return redis.call('ZCARD', KEYS[1])
+`)
 
 func (p *RedisPresence) Connect(ctx context.Context, userID int, clientID string) (bool, error) {
-	if err := p.client.ZAdd(ctx, presenceKey, &redis.Z{Score: p.expiry(), Member: p.member(userID, clientID)}).Err(); err != nil {
-		return false, err
-	}
-	members, err := p.liveMembers(ctx)
+	n, err := connectScript.Run(ctx, p.client, []string{userKey(userID)},
+		p.now().Unix(), p.expiry(), clientID, int(presenceTTL.Seconds())).Int()
 	if err != nil {
 		return false, err
 	}
-	return connectionsOf(members, userID) == 1, nil
+	return n == 1, nil
 }
 
 func (p *RedisPresence) Touch(ctx context.Context, userID int, clientID string) error {
-	return p.client.ZAdd(ctx, presenceKey, &redis.Z{Score: p.expiry(), Member: p.member(userID, clientID)}).Err()
+	key := userKey(userID)
+	_, err := p.client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		pipe.ZAdd(ctx, key, &redis.Z{Score: p.expiry(), Member: clientID})
+		pipe.Expire(ctx, key, presenceTTL)
+		return nil
+	})
+	return err
 }
 
 func (p *RedisPresence) Disconnect(ctx context.Context, userID int, clientID string) (bool, error) {
-	if err := p.client.ZRem(ctx, presenceKey, p.member(userID, clientID)).Err(); err != nil {
-		return false, err
-	}
-	members, err := p.liveMembers(ctx)
+	n, err := disconnectScript.Run(ctx, p.client, []string{userKey(userID)}, p.now().Unix(), clientID).Int()
 	if err != nil {
 		return false, err
 	}
-	return connectionsOf(members, userID) == 0, nil
+	return n == 0, nil
 }
 
+// OnlineUsers checks each requested user with one ZCOUNT of their live connections, pipelined.
+// Lookups are capped (extra ids are reported offline) so a huge listing cannot flood Redis.
 func (p *RedisPresence) OnlineUsers(ctx context.Context, userIDs []int) (map[int]bool, error) {
-	members, err := p.liveMembers(ctx)
-	if err != nil {
-		return nil, err
+	if len(userIDs) > maxOnlineLookup {
+		userIDs = userIDs[:maxOnlineLookup]
 	}
 	online := make(map[int]bool, len(userIDs))
-	wanted := make(map[int]bool, len(userIDs))
-	for _, id := range userIDs {
-		wanted[id] = true
-	}
-	for _, m := range members {
-		idPart, _, _ := strings.Cut(m, ":")
-		if id, err := strconv.Atoi(idPart); err == nil && wanted[id] {
-			online[id] = true
+	after := "(" + strconv.FormatInt(p.now().Unix(), 10)
+	for start := 0; start < len(userIDs); start += onlineChunk {
+		chunk := userIDs[start:min(start+onlineChunk, len(userIDs))]
+		pipe := p.client.Pipeline()
+		counts := make([]*redis.IntCmd, len(chunk))
+		for i, id := range chunk {
+			counts[i] = pipe.ZCount(ctx, userKey(id), after, "+inf")
+		}
+		if _, err := pipe.Exec(ctx); err != nil {
+			return nil, err
+		}
+		for i, id := range chunk {
+			if counts[i].Val() > 0 {
+				online[id] = true
+			}
 		}
 	}
 	return online, nil
