@@ -86,7 +86,7 @@ Plantilla para añadir uno nuevo:
 
 ### H-022 Tipado débil en el frontend
 - **Severidad:** 🟡 · **Fase:** 2 · **Área:** frontend · **Verificación:** Confirmado
-- **Descripción:** `useState<any>` para el usuario; `User.id` tipado como `number` mientras el backend usa `uuid` en otros módulos (por confirmar el tipo real del id de usuario).
+- **Descripción:** `useState<any>` para el usuario; (el id de usuario es `SERIAL`, así que `number` es correcto en ese caso).
 - **Ubicación:** `frontend/src/hooks/useAuth.ts`, `frontend/src/services/authService.ts`
 - **Propuesta:** tipos generados desde OpenAPI; activar reglas de lint contra `any`.
 
@@ -139,6 +139,23 @@ Plantilla para añadir uno nuevo:
 - **Ubicación:** `backend/internal/websocket/client.go`
 
 ### Operación y documentación
+
+### H-051 Contraseñas escritas directamente en docker-compose.yml
+- **Severidad:** 🟠 · **Fase:** 1 · **Área:** infra · **Verificación:** Confirmado (las claves `POSTGRES_PASSWORD` y `REDIS_PASSWORD` tienen valor literal en un archivo versionado; no se revisó el valor)
+- **Ubicación:** `backend/docker-compose.yml`
+- **Propuesta:** leerlas de variables de entorno (`${POSTGRES_PASSWORD}`) definidas en un archivo ignorado por git, y rotar las actuales porque ya están en el historial.
+
+### H-052 El registro del frontend no envía los campos que exige el backend
+- **Severidad:** 🔴 · **Fase:** 0 · **Área:** front + back · **Verificación:** Confirmado en el código
+- **Descripción:** el formulario envía `username`, `email`, `password` (mín. 6); el backend exige además `name`, `last_name`, `phone` y contraseña de mín. 8. Registrarse desde la interfaz devuelve 400.
+- **Ubicación:** `frontend/src/app/(auth)/register/page.tsx`, `frontend/src/services/authService.ts`, `backend/internal/auth/application/dtos/auth_dto.go`
+- **Propuesta:** añadir los campos al formulario y alinear las reglas de validación.
+
+### H-053 Enlace de verificación de email sin dominio
+- **Severidad:** 🟠 · **Fase:** 0 · **Área:** backend · **Verificación:** Confirmado en el código
+- **Descripción:** `strings.TrimRight("", "/")` usa una cadena vacía como base, así que el enlace queda `?token=...`.
+- **Ubicación:** `backend/internal/auth/application/usecases/send_verify_email_use_case.go`
+- **Propuesta:** variable `FRONTEND_URL` en la configuración y construir `FRONTEND_URL/verify/<token>`.
 
 ### H-050 Rutas del frontend que no coinciden con el backend
 - **Severidad:** 🟠 · **Fase:** 0 · **Área:** front + back · **Verificación:** Confirmado en el código (falta probarlo en ejecución)
