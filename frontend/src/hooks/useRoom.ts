@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { roomService, Room, CreateRoomData } from '@/services/roomService';
 import { countIncomingMessage } from '@/lib/unread';
-import { useSocket } from './useSocket';
+import { useSocketEvent } from './useSocketEvents';
 import { useUser } from './useUser';
 
 /** `activeRoomId` is the room being viewed: its messages are read as they arrive. */
 export const useRoom = (activeRoomId: string | null = null) => {
-  const socket = useSocket();
   const { profile } = useUser();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,33 +33,22 @@ export const useRoom = (activeRoomId: string | null = null) => {
   }, [activeRoomId]);
 
   // Live counters: count messages that arrive in rooms that are not open; keep the open one read.
-  useEffect(() => {
-    if (!socket) return;
-    const onMessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'role_changed' && data.payload.user_id === profile?.id) {
-          const { room_id, role } = data.payload;
-          setRooms((prev) => prev.map((r) => (r.id === room_id ? { ...r, my_role: role } : r)));
-          return;
-        }
-        if (data.type === 'member_removed' && data.payload.user_id === profile?.id) {
-          setRooms((prev) => prev.filter((r) => r.id !== data.payload.room_id));
-          return;
-        }
-        if (data.type !== 'new_message') return;
-        const message = data.payload as { room_id: string; author_id: number };
-        if (message.room_id === activeRoomId && message.author_id !== profile?.id) {
-          roomService.markRead(activeRoomId).catch(() => undefined);
-        }
-        setRooms((prev) => countIncomingMessage(prev, message, activeRoomId, profile?.id));
-      } catch {
-        // not a message event we understand
-      }
-    };
-    socket.addEventListener('message', onMessage);
-    return () => socket.removeEventListener('message', onMessage);
-  }, [socket, activeRoomId, profile?.id]);
+  useSocketEvent('role_changed', ({ room_id, user_id, role }) => {
+    if (user_id !== profile?.id) return;
+    setRooms((prev) => prev.map((r) => (r.id === room_id ? { ...r, my_role: role } : r)));
+  });
+
+  useSocketEvent('member_removed', ({ room_id, user_id }) => {
+    if (user_id !== profile?.id) return;
+    setRooms((prev) => prev.filter((r) => r.id !== room_id));
+  });
+
+  useSocketEvent('new_message', (message) => {
+    if (message.room_id === activeRoomId && message.author_id !== profile?.id) {
+      roomService.markRead(activeRoomId).catch(() => undefined);
+    }
+    setRooms((prev) => countIncomingMessage(prev, message, activeRoomId, profile?.id));
+  });
 
   const createRoom = async (data: CreateRoomData) => {
     await roomService.createRoom(data);
