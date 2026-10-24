@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -35,6 +37,10 @@ func NewConfig(envFile string) (*Config, error) {
 
 	if len(cfg.JWTSecret) < minJWTSecretLength {
 		return nil, fmt.Errorf("JWT_SECRET must be set and at least %d characters long", minJWTSecretLength)
+	}
+
+	if err := loadPoolConfig(cfg); err != nil {
+		return nil, err
 	}
 
 	// If DATABASE_URL is not set, try to construct it from individual DB environment variables
@@ -114,4 +120,49 @@ func LoadConfig(path string) error {
 		return fmt.Errorf("error loading .env file from path %s: %w", path, err)
 	}
 	return nil
+}
+
+// loadPoolConfig reads and validates the database pool settings.
+func loadPoolConfig(cfg *Config) error {
+	var err error
+	if cfg.DBMaxOpenConns, err = positiveInt("DB_MAX_OPEN_CONNS", 25); err != nil {
+		return err
+	}
+	if cfg.DBMaxIdleConns, err = positiveInt("DB_MAX_IDLE_CONNS", min(25, cfg.DBMaxOpenConns)); err != nil {
+		return err
+	}
+	if cfg.DBMaxIdleConns > cfg.DBMaxOpenConns {
+		return fmt.Errorf("DB_MAX_IDLE_CONNS (%d) must not exceed DB_MAX_OPEN_CONNS (%d)", cfg.DBMaxIdleConns, cfg.DBMaxOpenConns)
+	}
+	if cfg.DBConnMaxLifetime, err = positiveDuration("DB_CONN_MAX_LIFETIME", 30*time.Minute); err != nil {
+		return err
+	}
+	if cfg.DBConnMaxIdleTime, err = positiveDuration("DB_CONN_MAX_IDLE_TIME", 5*time.Minute); err != nil {
+		return err
+	}
+	return nil
+}
+
+func positiveInt(key string, fallback int) (int, error) {
+	raw := strings.TrimSpace(Getenv(key, ""))
+	if raw == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer, got %q", key, raw)
+	}
+	return n, nil
+}
+
+func positiveDuration(key string, fallback time.Duration) (time.Duration, error) {
+	raw := strings.TrimSpace(Getenv(key, ""))
+	if raw == "" {
+		return fallback, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0, fmt.Errorf("%s must be a positive Go duration (e.g. 30m), got %q", key, raw)
+	}
+	return d, nil
 }

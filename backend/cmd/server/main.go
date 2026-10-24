@@ -48,7 +48,12 @@ func main() {
 	// --- Shared Dependencies ---
 	validate := validator.New()
 
-	database, err := db.NewDBPool(cfg.DatabaseURL)
+	database, err := db.NewDBPool(cfg.DatabaseURL, db.PoolSettings{
+		MaxOpenConns:    cfg.DBMaxOpenConns,
+		MaxIdleConns:    cfg.DBMaxIdleConns,
+		ConnMaxLifetime: cfg.DBConnMaxLifetime,
+		ConnMaxIdleTime: cfg.DBConnMaxIdleTime,
+	})
 	if err != nil {
 		log.Fatalf("could not initialize database connection: %s", err)
 	}

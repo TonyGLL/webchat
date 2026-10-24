@@ -46,7 +46,12 @@ func run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("load configuration: %w", err)
 	}
-	database, err := db.NewDBPool(cfg.DatabaseURL)
+	database, err := db.NewDBPool(cfg.DatabaseURL, db.PoolSettings{
+		MaxOpenConns:    cfg.DBMaxOpenConns,
+		MaxIdleConns:    cfg.DBMaxIdleConns,
+		ConnMaxLifetime: cfg.DBConnMaxLifetime,
+		ConnMaxIdleTime: cfg.DBConnMaxIdleTime,
+	})
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
