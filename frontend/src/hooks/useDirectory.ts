@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { DirectoryUser, userService } from '@/services/userService';
 import { useDebounce } from '@/lib/useDebounce';
 import { useSocket } from './useSocket';
+import { usePolling } from './usePolling';
 import { useSocketEvent } from './useSocketEvents';
 
 const REFRESH_MS = 60_000;
@@ -12,24 +13,22 @@ export const useDirectory = (query = '') => {
   const q = useDebounce(query.trim(), 250);
   const [people, setPeople] = useState<DirectoryUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const latestRequest = useRef(0);
 
   // Reload when the filter changes, when the connection (re)opens (presence events sent while it
-  // was down are lost) and periodically, so newly registered people show up.
-  useEffect(() => {
-    let cancelled = false;
-    const load = () =>
-      userService
-        .getDirectory(q)
-        .then((list) => !cancelled && setPeople(list))
-        .catch((error) => console.error('Failed to load people', error))
-        .finally(() => !cancelled && setLoading(false));
-    load();
-    const timer = setInterval(load, REFRESH_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
+  // was down are lost) and periodically while the tab is visible, so newly registered people show up.
+  // `socket` is a dependency on purpose: a new connection gives `load` a new identity and so a reload.
+  const load = useCallback(() => {
+    void socket;
+    const request = ++latestRequest.current;
+    const isLatest = () => request === latestRequest.current;
+    userService
+      .getDirectory(q)
+      .then((list) => isLatest() && setPeople(list))
+      .catch((error) => console.error('Failed to load people', error))
+      .finally(() => isLatest() && setLoading(false));
   }, [q, socket]);
+  usePolling(load, REFRESH_MS);
 
   useSocketEvent('presence', ({ user_id, online }) => {
     setPeople((prev) => prev.map((p) => (p.id === user_id ? { ...p, online } : p)));

@@ -14,9 +14,10 @@ import InvitationList from '@/components/InvitationList';
 import { useDiscoverRooms } from '@/hooks/useDiscoverRooms';
 import { useInvitations } from '@/hooks/useInvitations';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useMessageAlerts } from '@/hooks/useMessageAlerts';
 import { useUser } from '@/hooks/useUser';
-import OnboardingDialog from '@/components/OnboardingDialog';
+import dynamic from 'next/dynamic';
 import UserProfile from '@/components/UserProfile';
 import SearchResults from '@/components/SearchResults';
 import { Input } from '@/components/ui/input';
@@ -25,9 +26,14 @@ import { IGetRoomMessages, messageService } from '@/services/messageService';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/useT';
 
+// Only shown on a user's first visit (or when reopened): keep it out of the first-load bundle.
+const OnboardingDialog = dynamic(() => import('@/components/OnboardingDialog'), { ssr: false });
+
 export default function DashboardPage() {
   const { t } = useT();
   const { profile } = useUser();
+  // One people panel (and so one directory fetch loop): in the right column from `lg` up, in the sidebar below.
+  const wide = useMediaQuery('(min-width: 1024px)');
   const tour = useOnboarding(profile?.id);
   const [chosenRoom, setSelectedRoom] = useState<string | null>(null);
   const { rooms, loading, createRoom, leaveRoom, openDirect, joinRoom, refreshRooms } = useRoom(chosenRoom);
@@ -129,9 +135,11 @@ export default function DashboardPage() {
                   }}
                 />
                 {/* Small screens have no side column: people live here instead. */}
-                <div className="border-t lg:hidden">
-                  <PeoplePanel onOpenDirect={openPerson} />
-                </div>
+                {!wide && (
+                  <div className="border-t">
+                    <PeoplePanel onOpenDirect={openPerson} />
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -154,9 +162,11 @@ export default function DashboardPage() {
           />
         </main>
         {/* Always visible on wide screens, whichever room (or none) is open. */}
-        <aside className="hidden w-[248px] shrink-0 border-l bg-card lg:block">
-          <PeoplePanel onOpenDirect={openPerson} />
-        </aside>
+        {wide && (
+          <aside className="w-[248px] shrink-0 border-l bg-card">
+            <PeoplePanel onOpenDirect={openPerson} />
+          </aside>
+        )}
       </div>
     </PrivateRoute>
   );

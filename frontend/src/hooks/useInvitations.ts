@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Invitation, roomService } from '@/services/roomService';
+import { usePolling } from './usePolling';
 
 const POLL_MS = 15_000;
 
-/** Invitations addressed to the current user, refreshed while the app is open. */
+/** Invitations addressed to the current user, refreshed while the app is open and visible. */
 export const useInvitations = (onAccepted?: (roomId: string) => void) => {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [error, setError] = useState(false);
@@ -16,15 +17,7 @@ export const useInvitations = (onAccepted?: (roomId: string) => void) => {
     }
   }, []);
 
-  useEffect(() => {
-    refresh();
-    const timer = setInterval(refresh, POLL_MS);
-    window.addEventListener('focus', refresh);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('focus', refresh);
-    };
-  }, [refresh]);
+  usePolling(refresh, POLL_MS);
 
   const respond = async (invitation: Invitation, accept: boolean) => {
     setError(false);
