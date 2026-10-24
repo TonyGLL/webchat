@@ -27,13 +27,10 @@ The complete, step-by-step guide (environment variables, database schema, ports,
 # 1. Database and cache
 cd backend && docker compose up -d db redis
 
-# 2. Schema (first time only)
-docker exec -i webchat-db psql -U root -d webchat < migrations/schema.sql
-
-# 3. Backend: cp .env.example .env.local, fill in the values, then
+# 2. Backend (it applies the database migrations on startup): cp .env.example .env.local, fill in the values, then
 make watch            # http://localhost:8081
 
-# 4. Frontend: cp .env.example .env.local, then
+# 3. Frontend: cp .env.example .env.local, then
 cd ../frontend && bun install && bun dev    # http://localhost:3100
 ```
 
@@ -52,7 +49,7 @@ backend/    Go API (Clean Architecture, one package per module)
   internal/auth|users|room|message/   domain, application, persistence, presentation
   internal/websocket/                  hub, clients, single-use tickets
   internal/shared/                     config, HTTP server/middleware, infra (db, redis, services)
-  migrations/schema.sql                database schema
+  migrations/                          versioned SQL migrations (applied on startup)
 frontend/   Next.js app
   src/app/            routes ((auth) and (private) groups)
   src/lib/            API client (token refresh) and token storage

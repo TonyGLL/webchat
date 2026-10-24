@@ -21,6 +21,7 @@ import (
 	"backend/internal/users"
 	users_persistence "backend/internal/users/persistence"
 	"backend/internal/websocket"
+	"backend/migrations"
 
 	room_app "backend/internal/room/application"
 	room_persistence "backend/internal/room/persistence"
@@ -49,6 +50,10 @@ func main() {
 		log.Fatalf("could not initialize database connection: %s", err)
 	}
 	defer database.Close()
+
+	if err := migrations.Up(database); err != nil {
+		log.Fatalf("could not apply database migrations: %s", err)
+	}
 
 	redisClient, err := redis.NewClient(ctx, cfg.RedisURL)
 	if err != nil {

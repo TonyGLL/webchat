@@ -43,11 +43,6 @@ Plantilla para añadir uno nuevo:
 
 ### Datos y rendimiento
 
-### H-030 Migraciones manuales
-- **Severidad:** 🟠 · **Fase:** 0 · **Área:** backend · **Verificación:** Confirmado
-- **Descripción:** solo existe `migrations/schema.sql`; no hay control de versiones del esquema.
-- **Propuesta:** golang-migrate o goose, ejecutadas en el arranque o en un paso de despliegue.
-
 ### H-031 Paginación del historial
 - **Severidad:** 🟡 · **Fase:** 2 · **Área:** front + back · **Verificación:** Por confirmar
 - **Descripción:** verificar que `GET /messages/:roomId/messages` pagina por cursor y que el frontend carga más al hacer scroll.
@@ -83,6 +78,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-030 | Migraciones versionadas con golang-migrate, aplicadas al arrancar; las bases creadas a mano se adoptan como versión 1 | 2026-10-23 | _(este commit)_ |
 | H-033 | Hub de WebSocket: se bloqueaba para siempre con un cliente lento (re-tomaba su propio candado), el canal de eventos no tenía búfer y había una carrera al registrar clientes. Reescrito y probado con `-race` | 2026-10-23 | a7758b5 |
 | H-062 | Las salas creadas/unidas después de conectar no recibían mensajes en vivo hasta reconectar: ahora el hub suscribe al usuario al crear sala, unirse o aceptar invitación | 2026-10-23 | a7758b5 |
 | H-034 | Límite de 512 bytes del cliente por WebSocket: documentado en el código (hoy el cliente no envía nada por ahí) | 2026-10-23 | a7758b5 |

@@ -45,22 +45,20 @@ Debes ver `webchat-db` y `webchat-redis` en estado `running`.
 
 Las contraseñas de Postgres y Redis están definidas en `backend/docker-compose.yml` (variables `POSTGRES_PASSWORD` y `REDIS_PASSWORD`). Las necesitarás en el paso 3. Ábrelo tú y cópialas; esta guía no las repite.
 
-## Paso 2: Crear las tablas
+## Paso 2: Tablas de la base de datos (automático)
 
-No hay herramienta de migraciones todavía (hallazgo H-030), así que el esquema se aplica a mano, **una sola vez** por base de datos nueva:
+Ya no hay que aplicar el esquema a mano: el backend ejecuta las **migraciones** (`backend/migrations/*.sql`, versionadas con golang-migrate) al arrancar. En una base vacía crea todas las tablas; en una base que ya tenía las tablas de antes, la adopta como versión 1 sin tocar los datos.
 
-```bash
-cd backend
-docker exec -i webchat-db psql -U root -d webchat < migrations/schema.sql
-```
-
-Comprobar:
+Comprobar (después de arrancar el backend en el paso 3):
 
 ```bash
 docker exec -it webchat-db psql -U root -d webchat -c '\dt'
+docker exec -it webchat-db psql -U root -d webchat -c 'select * from schema_migrations'
 ```
 
-Deben aparecer `users`, `passwords`, `rooms`, `room_members`, `messages`, `reactions`, etc. Si dice que las tablas ya existen, ya estaba hecho.
+Deben aparecer `users`, `passwords`, `rooms`, `room_members`, `messages`, `reactions`, etc., y la versión actual.
+
+**Cambiar el esquema:** añade un par de archivos numerados en `backend/migrations/`, por ejemplo `000002_add_xxx.up.sql` y `000002_add_xxx.down.sql`. Nunca edites una migración ya aplicada.
 
 Para empezar desde cero (borra **todos** los datos):
 
@@ -68,7 +66,7 @@ Para empezar desde cero (borra **todos** los datos):
 cd backend
 docker compose down -v
 docker compose up -d db redis
-# y repetir este paso 2
+# y volver a arrancar el backend: recrea las tablas
 ```
 
 ## Paso 3: Configurar y levantar el backend
@@ -236,7 +234,6 @@ Registradas en [HALLAZGOS.md](HALLAZGOS.md); cuando se resuelvan, actualiza esta
 
 - **H-050:** el frontend llama a `/auth/refresh`, pero el backend expone `/auth/refresh-token`.
 - **H-054:** `bun run lint` no funciona en el frontend (usa `next lint`, que ya no existe en Next 16).
-- **H-030:** el esquema de la base de datos se aplica a mano.
 
 ## Dónde está cada cosa
 
@@ -244,7 +241,7 @@ Registradas en [HALLAZGOS.md](HALLAZGOS.md); cuando se resuelvan, actualiza esta
 |---|---|
 | Orquestación Docker (db, redis, api) | `backend/docker-compose.yml` |
 | Comandos del backend | `backend/Makefile` |
-| Esquema SQL | `backend/migrations/schema.sql` |
+| Migraciones SQL | `backend/migrations/` |
 | Lectura de variables de entorno | `backend/internal/shared/config/config.go` |
 | Arquitectura y convenciones | `CLAUDE.md` |
 | Plan de trabajo | `docs/ROADMAP.md`, `docs/CASOS_DE_USO.md`, `docs/HALLAZGOS.md` |
