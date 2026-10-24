@@ -22,9 +22,10 @@ func RegisterModule(
 	authMiddleware gin.HandlerFunc,
 	realtime usecases.Realtime,
 	presence usecases.PresenceChecker,
+	sessions usecases.SessionRevoker,
 ) {
 	// Initialize use cases
-	deactivateUserUseCase := usecases.NewDeactivateUserUseCase(usersRepository)
+	deactivateUserUseCase := usecases.NewDeactivateUserUseCase(usersRepository, auth_domain.NewPasswordService(), sessions, realtime)
 	getUserProfileUseCase := usecases.NewGetUserProfileUseCase(usersRepository)
 
 	exportAccountUseCase := usecases.NewExportAccountUseCase(usersRepository)

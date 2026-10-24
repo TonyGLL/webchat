@@ -27,7 +27,8 @@ export const makeRegisterSchema = (t: Translate) =>
     username: z
       .string()
       .min(3, { message: t('validation.usernameMin', { min: 3 }) })
-      .max(30, { message: t('validation.usernameMax', { max: 30 }) }),
+      .max(30, { message: t('validation.usernameMax', { max: 30 }) })
+      .regex(/^[a-zA-Z0-9_.-]+$/, { message: t('validation.usernameChars') }),
     email: z.string().email({ message: t('validation.invalidEmail') }),
     phone: z.string().min(1, { message: t('validation.phoneRequired') }),
     password: z

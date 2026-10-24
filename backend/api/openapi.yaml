@@ -268,8 +268,9 @@ paths:
       tags: [Auth]
       operationId: sendVerifyEmail
       summary: Send a verification email
-      description: Email verification is currently **paused**; the login does not require it.
-      security: []
+      description: |
+        Email verification is currently **paused**; the login does not require it. Requires the
+        access token of the account itself: `user_id` must be the caller's id.
       parameters:
         - $ref: "#/components/parameters/UserId"
       requestBody:
@@ -284,6 +285,12 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/MessageOk" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The `user_id` is not the caller's.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
@@ -352,11 +359,30 @@ paths:
       tags: [Users]
       operationId: deactivateAccount
       summary: Deactivate the account
-      description: Disables access; the data is kept.
+      description: |
+        Disables access; the data is kept. Needs the current password. Every open session ends at
+        once (access tokens stop working, refresh tokens are revoked, live connections are cut).
+        Limited to 5 per hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, format: password }
       responses:
         "200": { $ref: "#/components/responses/MessageOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Wrong password.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /users/export:
     get:
@@ -1269,12 +1295,17 @@ components:
       type: object
       required: [email, password, name, last_name, username, phone]
       properties:
-        email: { type: string, format: email }
+        email: { type: string, format: email, maxLength: 255, description: Stored in lowercase; unique regardless of case. }
         password: { type: string, format: password, minLength: 8, maxLength: 72 }
-        name: { type: string }
-        last_name: { type: string }
-        username: { type: string, minLength: 3, maxLength: 30 }
-        phone: { type: string }
+        name: { type: string, maxLength: 100 }
+        last_name: { type: string, maxLength: 100 }
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: "^[a-zA-Z0-9_.-]{3,30}$"
+          description: Letters, digits, `_`, `.` and `-` only (no `@`); unique regardless of case.
+        phone: { type: string, maxLength: 30 }
 
     LoginRequest:
       type: object
@@ -1282,8 +1313,9 @@ components:
       properties:
         user:
           type: string
-          description: The account's email.
-        password: { type: string, format: password }
+          description: The account's email (case-insensitive) or its username. An input with `@` is looked up as an email, anything else as a username.
+          maxLength: 255
+        password: { type: string, format: password, maxLength: 72 }
 
     AuthUser:
       type: object

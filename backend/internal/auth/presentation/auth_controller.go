@@ -9,6 +9,7 @@ import (
 	"backend/internal/auth/application/usecases"
 	"backend/internal/auth/domain"
 	shared_domain "backend/internal/shared/domain"
+	"backend/internal/shared/http/request"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -158,6 +159,10 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "User with this email or username already exists"})
 			return
 		}
+		if errors.Is(err, domain.ErrInvalidUsername) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		if errors.Is(err, domain.ErrPasswordTooShort) || errors.Is(err, domain.ErrPasswordTooLong) ||
 			errors.Is(err, domain.ErrPasswordCommon) || errors.Is(err, domain.ErrPasswordPersonal) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -185,6 +190,13 @@ func (ctrl *AuthController) SendVerifyEmail(ctx *gin.Context) {
 
 	if err := ctrl.Validate.Struct(input); err != nil {
 		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		return
+	}
+
+	// Only the account owner may trigger the mail (this route used to be an open mail-bomb and
+	// account-existence oracle).
+	if callerID, err := request.GetUserID(ctx); err != nil || callerID != input.ID {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 		return
 	}
 

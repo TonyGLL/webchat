@@ -104,7 +104,7 @@ func TestPublicEndpointsAreExplicit(t *testing.T) {
 	// Everything is protected by default; these are the only operations that opt out.
 	want := []string{
 		"POST /auth/login", "POST /auth/logout", "POST /auth/register",
-		"POST /auth/send-verify-email/{user_id}", "POST /auth/verify-email/{token}",
+		"POST /auth/verify-email/{token}",
 		"GET /health", "GET /ready", "GET /ws",
 	}
 	var got []string

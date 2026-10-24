@@ -31,8 +31,8 @@ export const userService = {
     await api.delete('/users/me', { data: { password } });
   },
 
-  deactivate: async () => {
-    const response = await api.delete('/users/deactivate');
+  deactivate: async (password: string) => {
+    const response = await api.delete('/users/deactivate', { data: { password } });
     return response.data;
   },
 };

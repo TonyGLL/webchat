@@ -37,7 +37,7 @@ func NewRefreshTokenUseCase(
 func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input dtos.RefreshTokenInputDTO) (*dtos.AuthResponseDTO, error) {
 	// 1. Parse the refresh token
 	claims, err := uc.jwtService.ParseToken(input.RefreshToken)
-	if err != nil {
+	if err != nil || claims.Type != domain.TokenTypeRefresh {
 		return nil, shared_domain.ErrInvalidToken
 	}
 

@@ -20,7 +20,7 @@ func NewLogoutUseCase(tokenRepo domain.TokenRepository, jwtService shared_app.Jw
 // Execute is best-effort and idempotent: an unknown or expired token is already "logged out".
 func (uc *LogoutUseCase) Execute(ctx context.Context, refreshToken string) error {
 	claims, err := uc.jwtService.ParseToken(refreshToken)
-	if err != nil || claims.ID == "" {
+	if err != nil || claims.Type != domain.TokenTypeRefresh || claims.ID == "" {
 		return nil
 	}
 	return uc.tokenRepo.DeleteToken(ctx, "refresh_token", claims.ID)

@@ -48,14 +48,21 @@ type RequestPasswordResetUseCase struct {
 	tokenRepo     domain.TokenRepository
 	mailerService shared_app.MailerService
 	frontendURL   string
+	// dispatch runs the mail delivery off the request, so the response time does not reveal
+	// whether the address has an account. Tests replace it with a synchronous call.
+	dispatch func(func())
 }
 
+// mailSendTimeout bounds one background delivery attempt.
+const mailSendTimeout = 30 * time.Second
+
 func NewRequestPasswordResetUseCase(authRepo domain.AuthRepository, tokenRepo domain.TokenRepository, mailer shared_app.MailerService, frontendURL string) *RequestPasswordResetUseCase {
-	return &RequestPasswordResetUseCase{authRepo: authRepo, tokenRepo: tokenRepo, mailerService: mailer, frontendURL: frontendURL}
+	return &RequestPasswordResetUseCase{authRepo: authRepo, tokenRepo: tokenRepo, mailerService: mailer, frontendURL: frontendURL,
+		dispatch: func(fn func()) { go fn() }}
 }
 
 func (uc *RequestPasswordResetUseCase) Execute(ctx context.Context, email string) error {
-	email = strings.TrimSpace(email)
+	email = domain.NormalizeEmail(email)
 	user, err := uc.authRepo.GetUserByEmailOrUsername(ctx, email)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
@@ -96,10 +103,20 @@ func (uc *RequestPasswordResetUseCase) Execute(ctx context.Context, email string
 			"Hi " + user.Name + ",\n\nTo choose a new password open this link (valid for " + strconv.Itoa(minutes) + " minutes, single use):\n" + link +
 			"\n\nIf you did not ask for this, ignore this message: your password stays the same.",
 	}
-	if err := uc.mailerService.Send(&message); err != nil {
-		// Do not tell the caller: a failure here must look like any other outcome.
-		log.Printf("failed to send password reset email: %v", err)
-	}
+	uc.dispatch(func() {
+		// The mailer takes no context: give up waiting after a while so the goroutine ends.
+		sent := make(chan error, 1)
+		go func() { sent <- uc.mailerService.Send(&message) }()
+		select {
+		case err := <-sent:
+			// Do not tell the caller: a failure here must look like any other outcome.
+			if err != nil {
+				log.Printf("failed to send password reset email: %v", err)
+			}
+		case <-time.After(mailSendTimeout):
+			log.Printf("password reset email timed out after %s", mailSendTimeout)
+		}
+	})
 	return nil
 }
 

@@ -1,17 +1,17 @@
 package dtos
 
 type LoginInputDTO struct {
-	User     string `json:"user" validate:"required"`
-	Password string `json:"password" validate:"required"`
+	User     string `json:"user" validate:"required,max=255"`
+	Password string `json:"password" validate:"required,max=72"`
 }
 
 type RegisterInputDTO struct {
-	Email    string `json:"email" validate:"required,email"`
+	Email    string `json:"email" validate:"required,email,max=255"`
 	Password string `json:"password" validate:"required,min=8,max=72"`
-	Name     string `json:"name" validate:"required"`
-	LastName string `json:"last_name" validate:"required"`
-	Username string `json:"username" validate:"required,min=3,max=30"`
-	Phone    string `json:"phone" validate:"required"`
+	Name     string `json:"name" validate:"required,max=100"`
+	LastName string `json:"last_name" validate:"required,max=100"`
+	Username string `json:"username" validate:"required,min=3,max=30"` // charset: domain.ValidateUsername
+	Phone    string `json:"phone" validate:"required,max=30"`
 }
 
 type SendVerifyEmailInputDTO struct {

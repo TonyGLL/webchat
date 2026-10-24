@@ -54,6 +54,7 @@ func (uc *SendVerifyEmailUseCase) Execute(ctx context.Context, input dtos.SendVe
 	claims := map[string]interface{}{
 		"user_id": user.ID,
 		"email":   user.Email,
+		"typ":     domain.TokenTypeVerify,
 	}
 	token, err := uc.jwtService.GenerateTokenFromClaims(claims, tokenDuration) // 10 minutes
 	if err != nil {

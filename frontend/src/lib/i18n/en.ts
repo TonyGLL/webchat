@@ -15,6 +15,7 @@ const en = {
   'validation.lastNameRequired': 'Last name is required',
   'validation.usernameMin': 'Username must be at least {min} characters',
   'validation.usernameMax': 'Username must be at most {max} characters',
+  'validation.usernameChars': 'Username can only contain letters, digits, "_", "." and "-"',
   'validation.phoneRequired': 'Phone is required',
 
   'validation.passwordMatch': 'Passwords do not match',
@@ -229,6 +230,7 @@ const en = {
   'profile.dangerTitle': 'Danger zone',
   'profile.deactivateBody': 'Deactivating your account signs you out and disables your access.',
   'profile.deactivate': 'Deactivate account',
+  'profile.deactivateError': 'Wrong password, or the account could not be deactivated.',
   'profile.deleteBody':
     'Deleting is permanent. Rooms you own pass to another member (or are removed if you are alone); your messages stay, shown as “deleted user”.',
   'profile.confirmPassword': 'Confirm with your password',

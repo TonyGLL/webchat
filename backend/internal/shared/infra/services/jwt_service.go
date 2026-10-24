@@ -34,6 +34,10 @@ func (s *JWTService) GenerateTokenFromClaims(claims map[string]interface{}, ttl 
 	for k, v := range claims {
 		stdClaims[k] = v
 	}
+	// Callers that do not say what the token is for get the least useful type.
+	if _, ok := stdClaims["typ"]; !ok {
+		stdClaims["typ"] = domain.TokenTypeVerify
+	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, stdClaims)
 	return token.SignedString([]byte(s.secret))
@@ -44,6 +48,7 @@ func (s *JWTService) GenerateToken(userID int, ttl time.Duration) (string, error
 	now := time.Now()
 	claims := &domain.CustomClaims{
 		UserID: userID,
+		Type:   domain.TokenTypeAccess,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
@@ -59,6 +64,7 @@ func (s *JWTService) GenerateRefreshToken(userID int, tokenID string, ttl time.D
 	now := time.Now()
 	claims := &domain.CustomClaims{
 		UserID: userID,
+		Type:   domain.TokenTypeRefresh,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        tokenID,
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -77,7 +83,7 @@ func (s *JWTService) ParseToken(tokenStr string) (*domain.CustomClaims, error) {
 			return nil, errors.New("unexpected signing method")
 		}
 		return s.secret, nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil {
 		return nil, err
 	}
