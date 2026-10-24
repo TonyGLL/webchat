@@ -1,174 +1,95 @@
 # WebChat
 
-WebChat is a modern, real-time chat application featuring a backend built with Go and a frontend powered by Next.js. The application is designed to be scalable, maintainable, and performant, following industry best practices.
+Real-time chat application: a Go backend (Gin, PostgreSQL, Redis, WebSockets) and a Next.js frontend. Minimal UI, JWT authentication with silent token refresh, chat rooms with invitations, message editing and emoji reactions.
 
 ## Features
 
-*   **Real-time Messaging:** Instantaneous message delivery using WebSockets.
-*   **User Authentication:** Secure user registration and login with JWT-based authentication.
-*   **Multi-room Chat:** Ability to create and join different chat rooms.
-*   **Clean Architecture:** A well-structured backend that separates concerns for better maintainability.
-*   **Modern Frontend:** A responsive and user-friendly interface built with Next.js and Tailwind CSS.
+- Real-time messaging over WebSockets (single-use ticket authentication, origin checks).
+- Registration and login with JWT: 1-hour access token plus a single-use refresh token.
+- Public and private rooms; invitations created by room owners/admins.
+- Message editing and emoji reactions, visible live to everyone in the room.
+- Rate limiting, password policy, structured logs, health/readiness endpoints.
+- Responsive, themeable UI (light theme active, dark palette ready).
 
-## Tech Stack
+## Tech stack
 
-### Backend
+| | |
+|---|---|
+| Backend | Go 1.24, Gin, PostgreSQL 16, Redis, Gorilla WebSocket, JWT |
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, React Hook Form + Zod, Axios |
+| Tooling | Docker Compose, Make, `air` (live reload), GitHub Actions CI |
 
-*   **Language:** Go
-*   **Framework:** Gin
-*   **Database:** PostgreSQL
-*   **Cache:** Redis
-*   **Real-time Communication:** Gorilla WebSocket
-*   **Authentication:** JWT (JSON Web Tokens)
-*   **ORM:** pgx
-*   **Environment Variables:** godotenv
-*   **Validation:** go-playground/validator
+## Getting started
 
-### Frontend
+The complete, step-by-step guide (environment variables, database schema, ports, troubleshooting) is in **[docs/LEVANTAR.md](docs/LEVANTAR.md)** (Spanish). The short version:
 
-*   **Framework:** Next.js
-*   **Language:** TypeScript
-*   **Styling:** Tailwind CSS
-*   **State Management:** React Hooks & Context API
-*   **Form Handling:** React Hook Form
-*   **Schema Validation:** Zod
-*   **API Communication:** Axios
+```bash
+# 1. Database and cache
+cd backend && docker compose up -d db redis
 
-## Getting Started
+# 2. Schema (first time only)
+docker exec -i webchat-db psql -U root -d webchat < migrations/schema.sql
 
-### Prerequisites
+# 3. Backend: cp .env.example .env.local, fill in the values, then
+make watch            # http://localhost:8081
 
-*   [Go](https://golang.org/doc/install) (version 1.24.3 or higher)
-*   [Node.js](https://nodejs.org/en/download/) (version 20 or higher)
-*   [Bun](https://bun.sh/docs/installation)
-*   [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
-*   [Make](https://www.gnu.org/software/make/)
+# 4. Frontend: cp .env.example .env.local, then
+cd ../frontend && bun install && bun dev    # http://localhost:3100
+```
 
-### Installation and Setup
+| Service | Port (localhost) |
+|---|---|
+| Frontend | 3100 |
+| Backend | 8081 |
+| PostgreSQL | 5433 |
+| Redis | 6380 |
 
-1.  **Clone the repository:**
+## Project structure
 
-    ```bash
-    git clone https://github.com/your-username/webchat.git
-    cd webchat
-    ```
+```
+backend/    Go API (Clean Architecture, one package per module)
+  cmd/server/        entry point and dependency wiring
+  internal/auth|users|room|message/   domain, application, persistence, presentation
+  internal/websocket/                  hub, clients, single-use tickets
+  internal/shared/                     config, HTTP server/middleware, infra (db, redis, services)
+  migrations/schema.sql                database schema
+frontend/   Next.js app
+  src/app/            routes ((auth) and (private) groups)
+  src/lib/            API client (token refresh) and token storage
+  src/contexts/       AuthContext, SocketContext
+  src/hooks, src/services, src/components
+docs/       setup guide, roadmap, use cases, findings tracker
+```
 
-2.  **Backend Setup:**
+## API (prefix `/api/v1`, except health)
 
-    *   Navigate to the `backend` directory:
-        ```bash
-        cd backend
-        ```
-    *   Create a local environment file from the example:
-        ```bash
-        cp .env.example .env.local
-        ```
-    *   Update the `.env.local` file with your PostgreSQL and Redis connection details.
+- `GET /health`, `GET /ready` (outside the prefix): liveness and readiness.
+- **Auth:** `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh-token`, `POST /auth/send-verify-email/:user_id`, `POST /auth/verify-email/:token`.
+- **Users:** `GET /users/profile`, `DELETE /users/deactivate`.
+- **Rooms:** `POST /rooms`, `GET /rooms`, `POST /rooms/join/:room_id`, `POST /rooms/invite/:room_id`, `POST /rooms/accept-invite/:code`.
+- **Messages:** `GET /messages/:roomId/messages`, `POST /messages`, `PATCH /messages/:id`, `POST|DELETE /messages/:id/reactions`.
+- **WebSocket:** `POST /ws-ticket` (authenticated) returns a 30-second single-use ticket; connect to `GET /ws?ticket=...`.
 
-3.  **Frontend Setup:**
+Everything except register, login, refresh and email verification requires `Authorization: Bearer <access token>`.
 
-    *   Navigate to the `frontend` directory:
-        ```bash
-        cd ../frontend
-        ```
-    *   Install the dependencies using Bun:
-        ```bash
-        bun install
-        ```
+## Development
 
-## Usage
+```bash
+# backend (from backend/)
+make test             # go test -v ./...
+make watch            # live reload with air
+# frontend (from frontend/)
+bunx tsc --noEmit && bun run lint && bun run build
+```
 
-You can run the application using Docker (recommended for a production-like environment) or locally for development.
+CI (`.github/workflows/ci.yml`) runs formatting, vet, build and tests for the backend, and type check, lint and build for the frontend.
 
-### Running with Docker
+## Project planning
 
-This is the simplest way to get the entire application stack (backend, frontend, database, and cache) up and running.
-
-1.  From the root of the project, run:
-
-    ```bash
-    docker-compose up --build
-    ```
-
-2.  The application will be available at the following URLs:
-    *   **Frontend:** `http://localhost:3100`
-    *   **Backend:** `http://localhost:8081`
-
-### Running Locally
-
-This method is ideal for development, as it provides hot-reloading for both the backend and frontend.
-
-1.  **Start the database and cache:**
-
-    From the `backend` directory, start the PostgreSQL and Redis containers:
-
-    ```bash
-    docker-compose up -d db redis
-    ```
-
-2.  **Run the backend:**
-
-    In the `backend` directory, run the following command to start the Go server with hot-reloading:
-
-    ```bash
-    make watch
-    ```
-
-    The backend will be running on `http://localhost:8081`.
-
-3.  **Run the frontend:**
-
-    In the `frontend` directory, run the following command to start the Next.js development server:
-
-    ```bash
-    bun dev
-    ```
-
-    The frontend will be running on `http://localhost:3100`.
-
-## Project Structure
-
-The project is organized into two main parts: `backend` and `frontend`.
-
-### Backend
-
-The backend follows the principles of **Clean Architecture**, with a modular structure. Each module (`auth`, `message`, etc.) is self-contained and has the following layers:
-
-*   `domain`: Core business logic and entities.
-*   `application`: Use cases and repository interfaces.
-*   `persistence`: Implementation of repositories (e.g., PostgreSQL, Redis).
-*   `presentation`: API controllers and routes (Gin).
-
-The main entry point for the backend is `cmd/server/main.go`.
-
-### Frontend
-
-The frontend is a standard Next.js application with the following structure:
-
-*   `src/app`: The main application routes and pages.
-*   `src/components`: Reusable React components.
-*   `src/lib`: Utility functions and shared logic.
-*   `src/context`: React context providers.
-
-## API Endpoints
-
-The API is versioned under the `/api/v1` prefix. Here are some of the main endpoints:
-
-*   `GET /health`: Health check endpoint.
-*   **Auth:**
-    *   `POST /auth/register`: Register a new user.
-    *   `POST /auth/login`: Log in a user.
-    *   `POST /auth/refresh`: Refresh an access token.
-*   **Messages:**
-    *   `POST /messages`: Create a new message.
-    *   `GET /messages/{roomId}`: Get all messages for a room.
-*   **WebSocket:**
-    *   `GET /ws`: Upgrade the connection to a WebSocket.
-
-## Contributing
-
-Contributions are welcome! Please feel free to open an issue or submit a pull request.
+- [docs/ROADMAP.md](docs/ROADMAP.md): phases to a production-grade product.
+- [docs/CASOS_DE_USO.md](docs/CASOS_DE_USO.md): use cases, existing and new.
+- [docs/HALLAZGOS.md](docs/HALLAZGOS.md): tracked findings and their status.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+See [LICENSE](LICENSE).

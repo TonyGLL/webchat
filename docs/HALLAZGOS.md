@@ -34,22 +34,12 @@ Plantilla para añadir uno nuevo:
 - **Descripción:** cualquiera puede disparar correos a un usuario por su id.
 - **Propuesta:** rate limiting y evitar que el id sea enumerable; revisar si debe exigir autenticación.
 
-### H-010 Imagen Docker sobre `scratch` y como root
-- **Severidad:** 🟢 · **Fase:** 5 · **Área:** backend · **Verificación:** Confirmado
-- **Descripción:** sin certificados CA (problemas con SMTP/TLS saliente) ni usuario no root; copia el binario dos veces.
-- **Ubicación:** `backend/Dockerfile`
-- **Propuesta:** `distroless/static` o alpine con certificados y `USER` no root.
-
 ### Calidad y pruebas
 
 ### H-020 No hay tests
 - **Severidad:** 🔴 · **Fase:** 0 · **Área:** front + back · **Verificación:** Confirmado
 - **Descripción:** no existen archivos `_test.go` ni tests en el frontend.
 - **Propuesta:** empezar por use cases de auth y mensajes; Vitest en frontend.
-
-### H-021 No hay CI
-- **Severidad:** 🟠 · **Fase:** 0 · **Área:** repo · **Verificación:** Confirmado (no existe `.github/`)
-- **Propuesta:** workflow con vet, test, lint y build.
 
 ### Datos y rendimiento
 
@@ -85,19 +75,6 @@ Plantilla para añadir uno nuevo:
 - **Ubicación:** `backend/docker-compose.yml`
 - **Propuesta:** leerlas de variables de entorno (`${POSTGRES_PASSWORD}`) definidas en un archivo ignorado por git, y rotar las actuales porque ya están en el historial.
 
-### H-040 README raíz y de backend desactualizados
-- **Severidad:** 🟡 · **Fase:** 0 · **Área:** docs · **Verificación:** Confirmado
-- **Descripción:** el README raíz menciona un `docker-compose.yml` en la raíz que no existe (está en `backend/`); el del backend describe `POST /messages` con `authorId`/`channelId` y el puerto 3000, mientras la app usa 8080 por defecto.
-- **Propuesta:** reescribir ambos y mantener la lista de endpoints en OpenAPI.
-
-### H-042 Sin health check ni métricas
-- **Severidad:** 🟡 · **Fase:** 0 y 5 · **Área:** backend · **Verificación:** Confirmado (no hay ruta `/health` registrada en `main.go`)
-- **Propuesta:** `/health` y `/ready`, luego métricas Prometheus.
-
-### H-043 Logs sin estructura
-- **Severidad:** 🟢 · **Fase:** 0 · **Área:** backend · **Verificación:** Confirmado (`log.Printf` y `gin.Default()`)
-- **Propuesta:** `slog` con JSON y request id.
-
 ### H-044 Tablas sin uso (attachments, bans, reports)
 - **Severidad:** 🟢 · **Fase:** 3 y 4 · **Área:** backend · **Verificación:** Por confirmar
 - **Descripción:** existen en el esquema pero no encontré módulos que las usen. Implementarlas o retirarlas.
@@ -116,6 +93,11 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
+| H-010 | Imagen Docker: ahora distroless con certificados CA, usuario no root, binario compilado sin CGO (42 MB) | 2026-10-23 | _(este commit)_ |
+| H-021 | CI en GitHub Actions: formato, vet, build y tests (backend); tipos, lint y build (frontend) | 2026-10-23 | _(este commit)_ |
+| H-040 | README raíz y de backend reescritos con puertos, rutas y comandos reales | 2026-10-23 | _(este commit)_ |
+| H-042 | `GET /health` y `GET /ready` (comprueba PostgreSQL y Redis) | 2026-10-23 | _(este commit)_ |
+| H-043 | Logs estructurados con `slog` (JSON en producción) y un `X-Request-ID` por petición | 2026-10-23 | _(este commit)_ |
 | H-061 | Login devolvía un "access token" de 7 días (en realidad un refresh token) y un refresh token que era solo un UUID: la renovación nunca funcionó. Ahora access 1 h + refresh JWT de un solo uso, guardado en Redis; los refresh tokens ya no sirven como access tokens | 2026-10-23 | 4a81494 |
 | H-023 | Estado de auth duplicado por hook: ahora un único `AuthContext` (un solo pedido de perfil para toda la app) | 2026-10-23 | 4a81494 |
 | H-024 | Renovación automática del token: cliente axios único con interceptor que renueva una vez y reintenta | 2026-10-23 | 4a81494 |

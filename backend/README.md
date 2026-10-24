@@ -1,70 +1,57 @@
-# Backend de Go
+# Backend (Go)
 
-Este es el backend de la aplicación, desarrollado en Go utilizando el framework Gin. Sigue los principios de la Arquitectura Limpia para una mejor mantenibilidad y separación de responsabilidades.
+API de WebChat: Go + Gin, PostgreSQL, Redis y WebSockets, con Arquitectura Limpia (un paquete por módulo bajo `internal/`: `auth`, `users`, `room`, `message`, además de `websocket` y `shared`).
 
-## Requisitos previos
+La guía completa para levantarlo (variables de entorno, esquema, puertos y solución de problemas) está en [`../docs/LEVANTAR.md`](../docs/LEVANTAR.md).
 
-- [Go](https://golang.org/doc/install) (versión 1.24.3 o superior)
-- [Docker](https://docs.docker.com/get-docker/) y [Docker Compose](https://docs.docker.com/compose/install/)
-- [Make](https://www.gnu.org/software/make/)
+## Comandos
+
+```bash
+make watch        # recarga automática con air (usa .env.local)
+make run          # sin recarga (usa .env.local)
+make test         # go test -v ./...
+make build
+make database-up  # solo PostgreSQL
+make up-dev       # stack completo en Docker (usa .env.dev)
+make up-prod      # idem con .env.prod
+make down
+```
 
 ## Configuración
 
-1.  Crea un archivo de entorno para el desarrollo local. Puedes copiar el de ejemplo:
-    ```bash
-    cp .env.example .env.local
-    ```
-2.  Abre el archivo `.env.local` y ajusta las variables de entorno según sea necesario. Como mínimo, deberás configurar las credenciales de la base de datos PostgreSQL. También puedes configurar la variable `PORT` para cambiar el puerto en el que se ejecuta la aplicación (el valor predeterminado es `8081`).
+Copia la plantilla y rellena los valores (`.env.example` documenta cada variable):
 
-## Cómo ejecutar la aplicación
+```bash
+cp .env.example .env.local
+```
 
-Hay dos formas de ejecutar la aplicación: localmente para el desarrollo o a través de Docker.
+Obligatoria: `JWT_SECRET` (mínimo 32 caracteres) y la conexión a PostgreSQL y a Redis. Puertos en tu máquina: API `8081`, PostgreSQL `5433`, Redis `6380`.
 
-### Ejecución local (con live reload)
+## Endpoints
 
-Este es el método recomendado para el desarrollo, ya que utiliza `air` para recargar la aplicación automáticamente cuando se detectan cambios en el código.
+Prefijo `/api/v1`, excepto `/health` y `/ready`. Salvo registro, login, refresh y verificación de email, todas requieren `Authorization: Bearer <access token>`.
 
-1.  Asegúrate de que la base de datos PostgreSQL esté en funcionamiento. Puedes iniciarla con Docker Compose:
-    ```bash
-    docker-compose up -d db
-    ```
-2.  Ejecuta la aplicación:
-    ```bash
-    make watch
-    ```
+| Método y ruta | Descripción |
+|---|---|
+| `GET /health` · `GET /ready` | Estado del proceso · estado de PostgreSQL y Redis |
+| `POST /auth/register` | Crea el usuario (contraseña de 8 a 72 caracteres, no común) |
+| `POST /auth/login` | Devuelve `token` (1 h) y `refreshToken` (7 días, un solo uso) |
+| `POST /auth/refresh-token` | Cambia un refresh token por un par nuevo |
+| `GET /users/profile` · `DELETE /users/deactivate` | Perfil propio · desactivar cuenta |
+| `POST /rooms` · `GET /rooms` | Crear sala (`is_private`) · salas del usuario |
+| `POST /rooms/join/:room_id` | Unirse a una sala pública |
+| `POST /rooms/invite/:room_id` | Crear invitación (solo dueño o admin) |
+| `POST /rooms/accept-invite/:code` | Aceptar una invitación |
+| `GET /messages/:roomId/messages` | Historial (`page`, `pageSize`); solo miembros |
+| `POST /messages` · `PATCH /messages/:id` | Enviar · editar (solo el autor) |
+| `POST/DELETE /messages/:id/reactions` | Añadir · quitar reacción |
+| `POST /ws-ticket` → `GET /ws?ticket=` | Ticket de un solo uso (30 s) y conexión WebSocket |
 
-La aplicación estará disponible en `http://localhost:8081`.
+Eventos que el servidor emite por WebSocket a la sala: `new_message`, `update_message`, `reaction_added`, `reaction_removed`.
 
-### Ejecución con Docker
+## Seguridad y operación
 
-Este método ejecuta la aplicación en un contenedor de Docker, lo que es ideal para un entorno de producción o para simularlo.
-
-1.  Construye y levanta los contenedores (la aplicación y la base de datos):
-    ```bash
-    docker-compose up --build
-    ```
-
-La aplicación estará disponible en `http://localhost:8081`.
-
-## Endpoints de la API
-
-La API está versionada bajo el prefijo `/api/v1`.
-
-- `GET /health`: Endpoint de comprobación de estado. Devuelve un `200 OK` si el servidor está en funcionamiento.
-- `POST /messages`: Crea un nuevo mensaje. El cuerpo de la petición debe ser un JSON con el siguiente formato:
-  ```json
-  {
-    "text": "Hola, mundo!",
-    "authorId": "un-id-de-autor",
-    "channelId": "un-id-de-canal"
-  }
-  ```
-
-## Estructura del proyecto
-
-El proyecto sigue la Arquitectura Limpia y está organizado en las siguientes capas:
-
-- `domain`: Contiene las entidades y la lógica de negocio principal.
-- `application`: Contiene los casos de uso de la aplicación y las interfaces de los repositorios.
-- `infrastructure`: Contiene las implementaciones de las interfaces, como la conexión a la base de datos y los repositorios.
-- `presentation`: Contiene los controladores de la API y la configuración del servidor HTTP (Gin).
+- Límite de peticiones por IP en login, registro, refresh, tickets y envío de mensajes (respuesta `429` con `Retry-After`).
+- El WebSocket solo acepta orígenes de `CORS_ALLOWED_ORIGINS`.
+- Logs estructurados: JSON si `APP_ENV=prod`, texto en los demás casos; cada petición lleva `X-Request-ID`.
+- Imagen Docker mínima (distroless, usuario no root).

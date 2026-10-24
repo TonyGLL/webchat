@@ -24,7 +24,11 @@ type Server struct {
 
 // NewServer creates a new HTTP server and sets up shared middleware.
 func NewServer(config *config.Config) *Server {
-	router := gin.Default()
+	if config.IsProduction() {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	router := gin.New()
+	router.Use(RequestLogger(), gin.Recovery())
 	server := &Server{
 		config: config,
 		Router: router,

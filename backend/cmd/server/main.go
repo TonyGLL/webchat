@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -29,7 +30,6 @@ import (
 )
 
 func main() {
-	log.Println("Starting server...")
 	ctx := context.Background()
 
 	// --- Configuration ---
@@ -37,6 +37,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
+
+	setupLogging(cfg)
+	slog.Info("starting server")
 
 	// --- Shared Dependencies ---
 	validate := validator.New()
@@ -109,6 +112,11 @@ func main() {
 		websocket.ServeWs(wsHub, wsUpgrader, wsTickets, roomListerAdapter, c)
 	})
 
+	http.RegisterHealthRoutes(server.Router, map[string]http.Pinger{
+		"database": http.PingFunc(database.PingContext),
+		"redis":    http.PingFunc(func(ctx context.Context) error { return redisClient.Ping(ctx).Err() }),
+	})
+
 	// --- Module Registration ---
 	// Each module is responsible for setting up its own dependencies and routes.
 	auth.RegisterModule(authRepository, tokenRepository, apiV1, validate, jwtService, mailerService, store, cfg.FrontendURL)
@@ -118,4 +126,14 @@ func main() {
 
 	// --- Start Server ---
 	server.Run()
+}
+
+// setupLogging sends every log line (including the standard `log` package) through
+// slog: JSON in production for log collectors, readable text otherwise.
+func setupLogging(cfg *config.Config) {
+	var handler slog.Handler = slog.NewTextHandler(os.Stdout, nil)
+	if cfg.IsProduction() {
+		handler = slog.NewJSONHandler(os.Stdout, nil)
+	}
+	slog.SetDefault(slog.New(handler))
 }
