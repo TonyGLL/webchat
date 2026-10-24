@@ -38,6 +38,8 @@ Prefijo `/api/v1`, excepto `/health` y `/ready`. Salvo registro, login, refresh 
 | `POST /auth/login` | Devuelve `token` (1 h) y `refreshToken` (7 días, un solo uso) |
 | `POST /auth/refresh-token` | Cambia un refresh token por un par nuevo |
 | `GET /users/profile` · `DELETE /users/deactivate` | Perfil propio · desactivar cuenta |
+| `GET /users/export` | Descarga JSON con tus datos (perfil, salas, mensajes, reacciones, reportes) |
+| `DELETE /users/me` | Borra la cuenta para siempre (`{"password"}`): tus salas pasan al admin/miembro más antiguo o se eliminan si estás solo; tus mensajes quedan anónimos |
 | `POST /rooms` · `GET /rooms` | Crear sala (`is_private`) · salas del usuario |
 | `POST /rooms/join/:room_id` | Unirse a una sala pública |
 | `POST /rooms/read/:room_id` | Marcar la sala como leída (el contador `unread_count` viene en `GET /rooms`) |
