@@ -205,6 +205,19 @@ Abre `http://localhost:3100` e inicia sesión. Después:
 4. Comprobar que los mensajes llegan a ambas ventanas **sin recargar** (esto prueba el WebSocket).
 5. Editar un mensaje y poner una reacción.
 
+## Roles y administración
+
+Dentro de cada sala los roles son dueño > admin > moderador > miembro (se cambian desde la lista de miembros). Los roles **globales** (moderador/admin de toda la aplicación) solo se otorgan desde el servidor:
+
+```bash
+cd backend
+make admin-grant EMAIL=tu@correo.com ROLE=admin     # admin | moderator
+make admin-list
+make admin-revoke EMAIL=tu@correo.com
+```
+
+Detalle de la matriz de permisos en `backend/README.md` (sección Roles y permisos).
+
 ## Apagar todo
 
 ```bash

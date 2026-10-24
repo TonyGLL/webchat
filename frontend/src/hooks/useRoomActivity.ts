@@ -109,10 +109,16 @@ export const useRoomActivity = (roomId: string | null) => {
     setMembers((prev) => prev.filter((m) => m.user_id !== userId));
   };
 
+  const banMember = async (userId: number, reason: string, duration: string) => {
+    if (!roomId) return;
+    await moderationService.ban(roomId, userId, reason, duration.trim() || undefined);
+    setMembers((prev) => prev.filter((m) => m.user_id !== userId));
+  };
+
   const typingNames = typingIds
     .map((id) => members.find((m) => m.user_id === id))
     .filter((m): m is RoomMember => Boolean(m))
     .map((m) => m.name);
 
-  return { members, typingNames, notifyTyping, changeRole, kickMember };
+  return { members, typingNames, notifyTyping, changeRole, kickMember, banMember };
 };

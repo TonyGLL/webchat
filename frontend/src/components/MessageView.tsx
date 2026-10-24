@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, LogOut, Users, MessageSquare, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
+import { ArrowLeft, LogOut, Shield, Users, Flag, MessageSquare, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
 import { IGetRoomMessages } from '@/services/messageService';
 import { useMessages } from '@/hooks/useMessages';
 import { useRoomActivity } from '@/hooks/useRoomActivity';
 import { typingLabel } from '@/lib/typing';
-import { assignableRoles, canDeleteAnyMessage, canModerate, canPin as rankCanPin, rankOf, RoomRole } from '@/lib/permissions';
+import ModerationPanel from './ModerationPanel';
+import { moderationService } from '@/services/moderationService';
+import { RANK, assignableRoles, canDeleteAnyMessage, canModerate, canPin as rankCanPin, rankOf, RoomRole } from '@/lib/permissions';
 import Spinner from './Spinner';
 import { useUser } from '@/hooks/useUser';
 import dayjs from 'dayjs';
@@ -63,9 +65,11 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   const [content, setContent] = useState('');
   const [replyingTo, setReplyingTo] = useState<IGetRoomMessages | null>(null);
   const [showMembers, setShowMembers] = useState(false);
-  const { members, typingNames, notifyTyping, changeRole, kickMember } = useRoomActivity(roomId);
+  const { members, typingNames, notifyTyping, changeRole, kickMember, banMember } = useRoomActivity(roomId);
   const myRank = rankOf(myRole, profile?.role);
   const canPin = rankCanPin(myRank);
+  const [showModeration, setShowModeration] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
   const manage = async (action: () => Promise<void>) => {
     setMemberError(null);
@@ -73,6 +77,16 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
       await action();
     } catch {
       setMemberError('That action is not allowed.');
+    }
+  };
+  const reportMessage = async (messageId: string) => {
+    const reason = window.prompt('Why are you reporting this message?');
+    if (!reason?.trim()) return;
+    try {
+      await moderationService.report(messageId, reason.trim());
+      setNotice('Report sent. Thank you.');
+    } catch {
+      setNotice('Could not send the report (maybe you already reported it).');
     }
   };
   const onlineCount = members.filter((m) => m.online).length;
@@ -152,6 +166,18 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
             {leaveError}
           </p>
         )}
+        {!isDirect && myRank >= RANK.moderator && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowModeration((v) => !v)}
+            aria-label="Moderation"
+            aria-expanded={showModeration}
+            title="Moderation"
+          >
+            <Shield className="h-4 w-4" />
+          </Button>
+        )}
         {!isDirect && (
           <Button
             variant="ghost"
@@ -168,6 +194,14 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
           <LogOut className="h-4 w-4" />
         </Button>
       </header>
+
+      {showModeration && !isDirect && roomId && <ModerationPanel roomId={roomId} rank={myRank} members={members} />}
+
+      {notice && (
+        <p className="shrink-0 border-b bg-muted/40 px-4 py-1 text-xs" role="status">
+          {notice} <button type="button" className="underline" onClick={() => setNotice(null)}>OK</button>
+        </p>
+      )}
 
       {showMembers && !isDirect && (
         <ul className="max-h-40 shrink-0 space-y-1 overflow-y-auto border-b bg-muted/40 px-4 py-2 text-xs">
@@ -213,6 +247,20 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                     onClick={() => window.confirm(`Remove ${m.name} from the room?`) && manage(() => kickMember(m.user_id))}
                   >
                     Remove
+                  </button>
+                )}
+                {m.user_id !== profile?.id && canModerate(myRank, rankOf(m.role, null)) && (
+                  <button
+                    type="button"
+                    className="underline hover:text-destructive"
+                    onClick={() => {
+                      const reason = window.prompt(`Ban ${m.name}. Reason?`);
+                      if (reason === null) return;
+                      const duration = window.prompt('For how long? Examples: 24h, 168h. Leave empty for permanent.') ?? '';
+                      manage(() => banMember(m.user_id, reason, duration));
+                    }}
+                  >
+                    Ban
                   </button>
                 )}
               </span>
@@ -287,6 +335,11 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                       >
                         {msg.pinned_at ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
                         {msg.pinned_at ? 'Unpin' : 'Pin'}
+                      </button>
+                    )}
+                    {!isCurrentUser && !isDirect && (
+                      <button type="button" className="flex items-center gap-1 hover:text-foreground" onClick={() => reportMessage(msg.id)}>
+                        <Flag className="h-3 w-3" /> Report
                       </button>
                     )}
                     {(isCurrentUser || canDeleteAnyMessage(myRank)) && (
