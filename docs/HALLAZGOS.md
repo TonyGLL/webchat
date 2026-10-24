@@ -154,7 +154,7 @@ _(nada por ahora)_
 |----|--------|-------|-------------|
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
-| H-007 | Salas y acceso: unirse a salas públicas fallaba con 500; las salas "privadas" del frontend quedaban públicas (`is_public` vs `is_private`); cualquiera podía crear invitaciones de salas ajenas (ahora solo dueño/admin); invitaciones repetidas/inexistentes dan 409/404 | 2026-10-23 | _(este commit)_ |
+| H-007 | Salas y acceso: unirse a salas públicas fallaba con 500; las salas "privadas" del frontend quedaban públicas (`is_public` vs `is_private`); cualquiera podía crear invitaciones de salas ajenas (ahora solo dueño/admin); invitaciones repetidas/inexistentes dan 409/404 | 2026-10-23 | 7cada01 |
 | H-006 | Autorización por sala: enviar, leer, editar y reaccionar exigen ser miembro; editar exige ser el autor (403 si no). Verificado en vivo y con tests | 2026-10-23 | 8d991fd |
 | H-003 | Token JWT en la URL del WebSocket; ahora se canjea por un ticket de un solo uso (30 s) vía `POST /ws-ticket` | 2026-10-23 | b1ca39e |
 | H-002 | WebSocket aceptaba cualquier origen; ahora solo los de `CORS_ALLOWED_ORIGINS` (y respuesta 401 clara sin token) | 2026-10-23 | b2791fd |
