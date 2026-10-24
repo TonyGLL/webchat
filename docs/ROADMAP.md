@@ -6,6 +6,21 @@ Documentos relacionados:
 - [CASOS_DE_USO.md](CASOS_DE_USO.md): qué debe hacer el sistema (existente a mejorar + nuevo).
 - [HALLAZGOS.md](HALLAZGOS.md): problemas detectados, con estado (pendiente / en progreso / completado).
 
+## Objetivo y prioridad (actualizado 2026-10-23)
+
+El objetivo es dejar WebChat a nivel producción para desplegarlo y usarlo como banco de práctica de cloud engineering. Por eso la **Fase P (producción y cloud)** pasa por delante del resto de la Fase 3 (adjuntos, mensajes directos, búsqueda, notificaciones) y de la Fase 4: esas funciones se pueden añadir después sobre una base ya desplegable. Hallazgos H-070 a H-077 y H-051.
+
+## Fase P: Producción y cloud
+- Imágenes Docker de front y back, y compose completo en la raíz (H-070).
+- CI/CD: construir, etiquetar, escanear y publicar imágenes (H-071).
+- Configuración y secretos aptos para la nube; rotar los de `docker-compose.yml` (H-075, H-051).
+- Funcionar detrás de un balanceador: `TRUSTED_PROXIES`, HTTPS, cookies `Secure` (H-072, H-074).
+- Observabilidad: métricas Prometheus y trazas OpenTelemetry (H-073).
+- Backups probados y estrategia de migraciones en el despliegue (H-076).
+- Pruebas de carga y e2e (H-077).
+
+**Salida:** `docker compose up` desde la raíz levanta todo; cada commit en `main` publica imágenes versionadas y escaneadas; métricas visibles; una restauración de backup probada.
+
 Cada fase tiene un criterio de salida. No se pasa a la siguiente sin cumplirlo (salvo trabajo en paralelo explícito).
 
 ## Fase 0: Línea base (1 semana)
