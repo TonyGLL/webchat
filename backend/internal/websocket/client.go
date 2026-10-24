@@ -259,9 +259,16 @@ func (c *Client) writePump() {
 	}
 }
 
+// SessionGuard tells whether a user may still hold a session (account active, sessions not
+// revoked). The auth module's guard satisfies it; it is an interface so this package does not
+// import the auth module.
+type SessionGuard interface {
+	Valid(ctx context.Context, userID int, issuedAt time.Time) bool
+}
+
 // ServeWs handles websocket requests from the peer. The user authenticates with a
 // single-use ticket (see IssueTicket) so the JWT never travels in the URL.
-func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLister RoomLister, presence PresenceStore, ctx *gin.Context) {
+func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLister RoomLister, presence PresenceStore, guard SessionGuard, ctx *gin.Context) {
 	if hub.isDone() {
 		ctx.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "Server is restarting"})
 		return
@@ -280,6 +287,14 @@ func ServeWs(hub *Hub, upgrader *websocket.Upgrader, tickets TicketStore, roomLi
 			ctx.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "Service unavailable, try again"})
 			return
 		}
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired ticket"})
+		return
+	}
+
+	// A ticket outlives the account state it was issued under by up to its TTL: deactivated or
+	// revoked users must not get a socket with it. (The ticket carries no issue time, so only the
+	// active-account check can bite here; password-reset revocation also cuts live sockets.)
+	if guard != nil && !guard.Valid(ctx.Request.Context(), id, time.Now()) {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired ticket"})
 		return
 	}
