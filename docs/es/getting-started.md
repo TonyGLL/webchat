@@ -41,6 +41,18 @@ cd ../frontend && cp .env.example .env.local
 pnpm install && pnpm dev             # http://localhost:3100
 ```
 
+### O con el Makefile de la raíz
+
+Cuando existan los dos `.env.local`, todo se puede ejecutar desde la raíz del repositorio:
+
+```bash
+make setup     # dependencias del frontend + módulos de Go (una vez)
+make dev       # Postgres + Redis en Docker, backend con recarga automática y el frontend
+make help      # lista todos los objetivos
+```
+
+Otros objetivos: `make check` (lo que revisa el CI: vet, gofmt, tsc, lint, tests y builds), `make test-integration` (tests del backend contra Postgres y Redis desechables), `make infra-up` / `infra-down`, `make up-dev` / `make down`, `make admin-grant EMAIL=… ROLE=admin`. Delegan en `backend/Makefile` y en pnpm, así que los comandos anteriores siguen funcionando.
+
 Las contraseñas de la base de datos están definidas en `backend/docker-compose.yml`; cópialas a `.env.local`. **Nunca subas archivos de entorno reales**: solo las plantillas `.env.example` se versionan.
 
 ## 4. Variables de entorno (backend)
@@ -106,6 +118,7 @@ make admin-revoke EMAIL=tu@correo.com
 
 | Dónde | Comando | Qué hace |
 |---|---|---|
+| raíz | `make dev` · `make check` · `make test-integration` · `make help` | todo desde un solo sitio |
 | `backend/` | `make watch` / `make run` | ejecutar con / sin recarga automática |
 | `backend/` | `make test` | `go test -v ./...` |
 | `backend/` | `make up-dev` / `make down` | todo el stack en Docker / detenerlo |

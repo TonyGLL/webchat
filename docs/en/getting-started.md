@@ -41,6 +41,18 @@ cd ../frontend && cp .env.example .env.local
 pnpm install && pnpm dev             # http://localhost:3100
 ```
 
+### Or with the root Makefile
+
+Once the two `.env.local` files exist, everything can be run from the repository root:
+
+```bash
+make setup     # frontend dependencies + Go modules (once)
+make dev       # Postgres + Redis in Docker, backend with live reload, and the frontend
+make help      # list every target
+```
+
+Other targets: `make check` (what CI checks: vet, gofmt, tsc, lint, tests, builds), `make test-integration` (backend tests against throwaway Postgres and Redis), `make infra-up` / `infra-down`, `make up-dev` / `make down`, `make admin-grant EMAIL=… ROLE=admin`. They delegate to `backend/Makefile` and pnpm, so the old commands keep working.
+
 The database passwords are defined in `backend/docker-compose.yml`; copy them into `.env.local`. **Never commit real env files**: only the `.env.example` templates are versioned.
 
 ## 4. Environment variables (backend)
@@ -106,6 +118,7 @@ make admin-revoke EMAIL=you@example.com
 
 | Where | Command | What it does |
 |---|---|---|
+| root | `make dev` · `make check` · `make test-integration` · `make help` | everything from one place |
 | `backend/` | `make watch` / `make run` | run with / without live reload |
 | `backend/` | `make test` | `go test -v ./...` |
 | `backend/` | `make up-dev` / `make down` | whole stack in Docker / stop it |

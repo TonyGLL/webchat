@@ -56,6 +56,8 @@ cd ../frontend && cp .env.example .env.local
 pnpm install && pnpm dev            # http://localhost:3100
 ```
 
+Cuando existan los dos `.env.local`, `make setup` y luego `make dev` desde la raíz del repositorio hacen todo esto de una vez (`make help` lista todos los objetivos).
+
 | Servicio | Puerto (localhost) |
 |---|---|
 | Frontend | 3100 |

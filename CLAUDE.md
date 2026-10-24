@@ -14,6 +14,8 @@ Monorepo with two independent apps: `backend/` (Go + Gin, PostgreSQL, Redis, Gor
 
 ## Commands
 
+Root `Makefile` (run from the repo root; `make help` lists targets): `make setup`, `make dev` (Postgres+Redis in Docker, backend with `air`, frontend), `make check` (vet, gofmt, tsc, lint, tests, builds), `make test-integration` (throwaway Postgres/Redis on ports 55432/56379), `make admin-grant`; it delegates to `backend/Makefile` and pnpm.
+
 Backend (run from `backend/`):
 - `make watch` — run with `air` live reload (loads `CONFIG_FILE=.env.local`)
 - `make run` — `go run cmd/server/main.go` with `CONFIG_FILE=.env.local`
