@@ -18,8 +18,10 @@ export default function EmojiPicker({ onSelect, onClose }: { onSelect: (emoji: s
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4 sm:items-center" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()}>
+      {/* dynamicWidth: the picker fills this box instead of its fixed 352px, so its emoji grid never overflows sideways. */}
+      <div className="w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
         <Picker
+          dynamicWidth
           data={data}
           onEmojiSelect={(emoji: { native: string }) => onSelect(emoji.native)}
           theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'}

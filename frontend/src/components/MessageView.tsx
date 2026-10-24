@@ -367,7 +367,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5 md:px-6">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 md:px-6">
           {loading ? (
             <div className="py-8">
               <Spinner />
@@ -462,6 +462,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                             onAddReaction={addReaction}
                             onRemoveReaction={removeReaction}
                             currentUserId={profile.id}
+                            alignRight={isCurrentUser}
                           />
                         </div>
                       )}

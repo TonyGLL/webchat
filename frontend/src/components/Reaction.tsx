@@ -12,9 +12,11 @@ interface ReactionProps {
   onAddReaction: (messageId: string, emoji: string) => void;
   onRemoveReaction: (messageId: string, emoji: string) => void;
   currentUserId: number;
+  /** Own messages sit on the right: open the quick menu towards the left so it stays on screen. */
+  alignRight?: boolean;
 }
 
-export default function Reaction({ messageId, reactions, onAddReaction, onRemoveReaction, currentUserId }: ReactionProps) {
+export default function Reaction({ messageId, reactions, onAddReaction, onRemoveReaction, currentUserId, alignRight }: ReactionProps) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState(false);
@@ -42,7 +44,7 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
   );
 
   return (
-    <div className="relative flex flex-wrap items-center gap-1">
+    <div className={cn('relative flex flex-wrap items-center gap-1', alignRight && 'justify-end')}>
       {grouped.map((reaction) => {
         const mine = reaction.users.includes(currentUserId);
         return (
@@ -77,7 +79,12 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
-          <div className="absolute bottom-full left-0 z-20 mb-1 flex items-center gap-0.5 rounded-full border bg-card p-1 shadow-lg">
+          <div
+            className={cn(
+              'absolute bottom-full z-20 mb-1 flex items-center gap-0.5 rounded-full border bg-card p-1 shadow-lg',
+              alignRight ? 'right-0' : 'left-0'
+            )}
+          >
             {QUICK_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
