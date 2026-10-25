@@ -21,4 +21,4 @@ strictDepBuilds: true
 
 overrides:
   # postcss-selector-parser < 7.1.6 has a moderate advisory (build time, via tailwindcss).
-  postcss-selector-parser: ">=7.1.6"
+  postcss-selector-parser: "^7.1.6"

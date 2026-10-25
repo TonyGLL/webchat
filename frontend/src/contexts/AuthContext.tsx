@@ -26,8 +26,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const logout = useCallback(() => {
-    // Revoke the refresh cookie on the server, then end the local session either way.
-    authService.logout().catch(() => undefined).finally(() => tokenStorage.clear());
+    // End the local session first (it must not wait on the network), then revoke the refresh
+    // cookie on the server without waiting for the answer.
+    tokenStorage.clear();
+    authService.logout().catch(() => undefined);
   }, []);
 
   // Keep React state in sync with the token store (login, silent refresh, logout, expired session).
@@ -36,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTokens(next);
       if (!next) setUser(null);
     });
+    const stopWatching = tokenStorage.watchRemoteSignOut();
 
     // Restore the session after a reload: the access token is memory-only, so ask for a new
     // one with the httpOnly refresh cookie.
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
       unsubscribe();
+      stopWatching();
     };
   }, []);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiConnectSources, buildCsp, securityHeaders } from './security-headers.mjs';
+import { apiConnectSources, assertProductionApiUrl, buildCsp, securityHeaders } from './security-headers.mjs';
 
 describe('apiConnectSources', () => {
   it('derives the API origin and its ws counterpart', () => {
@@ -24,6 +24,7 @@ describe('buildCsp', () => {
   it('locks framing, base and form targets', () => {
     const csp = buildCsp({ isProduction: true });
     expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'self'");
     expect(csp).toContain("form-action 'self'");
     expect(csp).toContain("connect-src 'self' http://localhost:8081 ws://localhost:8081");
@@ -40,7 +41,22 @@ describe('securityHeaders', () => {
 
   it('includes the baseline headers', () => {
     expect(names(false)).toEqual(
-      expect.arrayContaining(['Content-Security-Policy', 'X-Frame-Options', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy'])
+      expect.arrayContaining(['Content-Security-Policy', 'X-Frame-Options', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy', 'Cross-Origin-Opener-Policy'])
     );
+  });
+});
+
+describe('assertProductionApiUrl', () => {
+  it('accepts https, localhost over http and an unset value', () => {
+    expect(() => assertProductionApiUrl(undefined)).not.toThrow();
+    expect(() => assertProductionApiUrl('https://api.example.com/api/v1')).not.toThrow();
+    expect(() => assertProductionApiUrl('http://localhost:8081/api/v1')).not.toThrow();
+    expect(() => assertProductionApiUrl('http://127.0.0.1:8081/api/v1')).not.toThrow();
+  });
+
+  it('rejects clear-text remote hosts, relative and invalid values', () => {
+    expect(() => assertProductionApiUrl('http://api.example.com/api/v1')).toThrow(/https/);
+    expect(() => assertProductionApiUrl('/api/v1')).toThrow(/valid/);
+    expect(() => assertProductionApiUrl('ftp://localhost/x')).toThrow(/https/);
   });
 });

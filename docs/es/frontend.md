@@ -8,7 +8,7 @@ Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 3. Todo se ejecuta d
 
 ```
 src/
-  app/              rutas: (auth) login, register, verify · (private) dashboard, profile
+  app/              rutas: (auth) login, register, forgot/reset password · (private) dashboard, profile
   components/       componentes de funcionalidad + ui/ primitivas (estilo shadcn, Radix + cva)
   contexts/         AuthContext, SocketContext
   hooks/            useMessages, useRoom, useRoomActivity, useUser, useAuth, useSocket
@@ -109,7 +109,7 @@ flowchart LR
 | `lib/i18n/useT.ts` | `useT()`, `setLocale`, `useHtmlLang` (store sobre `useSyncExternalStore`) |
 | `LanguageToggle` | Selector EN / ES en el panel de usuario y en las pantallas de auth |
 
-**Para añadir un texto:** añade la clave a `en.ts` y a `es.ts`, y usa `t('tu.clave', { param })`. Un test comprueba que ambos idiomas usan los mismos placeholders. Los esquemas que llevan mensajes (zod) son fábricas que reciben `t`, por ejemplo `makeRegisterSchema(t)`. Las fechas y horas usan `intlLocale(locale)`.
+**Para añadir un texto:** añade la clave a `en.ts` y a `es.ts`, y usa `t('tu.clave', { param })`. Un test comprueba que ambos idiomas usan los mismos placeholders. Los esquemas que llevan mensajes (zod) son fábricas que reciben `t`, por ejemplo `makeRegisterSchema(t)`; viven en `lib/validation/auth.ts` para que solo las páginas de autenticación incluyan zod. Las fechas y horas usan `intlLocale(locale)`.
 
 ## 7. Controles de calidad
 

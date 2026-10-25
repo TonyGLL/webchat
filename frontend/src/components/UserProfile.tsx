@@ -28,7 +28,7 @@ export default function UserProfile({ onHelp }: { onHelp?: () => void }) {
 
   return (
     <div className="flex h-14 items-center justify-between border-b px-4 pr-3">
-      <Link href="/profile" className="flex min-w-0 items-center gap-2.5 rounded-md hover:opacity-80">
+      <Link href="/profile" prefetch={false} className="flex min-w-0 items-center gap-2.5 rounded-md hover:opacity-80">
         <Avatar name={profile?.username} tone="me" size="sm" />
         <div className="min-w-0 leading-tight">
           <p className="truncate text-[13px] font-semibold">{profile?.username}</p>

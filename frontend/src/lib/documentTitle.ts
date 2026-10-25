@@ -9,8 +9,6 @@ export function titleKeyForPath(pathname: string): MessageKey | null {
     case 'register': return 'title.register';
     case 'forgot-password': return 'title.forgot';
     case 'reset-password': return 'title.reset';
-    case 'verify-email': return 'title.verifyEmail';
-    case 'verify': return 'title.verify';
     case 'dashboard': return 'title.dashboard';
     case 'profile': return 'title.profile';
     default: return null;
