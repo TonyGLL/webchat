@@ -35,11 +35,17 @@ services:
   redis:
     image: redis:8-alpine
     container_name: webchat-redis
+    # The official image ignores Bitnami-style variables (REDIS_USERNAME, ALLOW_EMPTY_PASSWORD...):
+    # the password is only enforced because it is passed to redis-server here. Override it with
+    # REDIS_PASSWORD (shell or backend/.env) and keep REDIS_URL in the backend env file in sync.
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\""]
     environment:
-      - REDIS_PASSWORD=s3cr3tP@ss
-      - REDIS_USERNAME=default
-      - ALLOW_EMPTY_PASSWORD=no
-      - REDIS_PORT_NUMBER=6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-s3cr3tP@ss}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     ports:
       - "127.0.0.1:6380:6379"
     volumes:
