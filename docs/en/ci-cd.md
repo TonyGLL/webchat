@@ -28,11 +28,11 @@ flowchart LR
 
 | Workflow | Runs on | What it guarantees |
 |---|---|---|
-| `ci.yml` · backend | every push and pull request | formatting, `go vet`, compilation, all tests with the race detector, and that **every migration applies to an empty PostgreSQL** (the test is skipped locally unless `TEST_DATABASE_URL` points at an empty database) |
+| `ci.yml` · backend | every push and pull request | formatting, `go vet`, compilation, all tests with the race detector, that **every migration applies to an empty PostgreSQL** and the Redis presence tests (both skipped locally unless `TEST_DATABASE_URL` / `TEST_REDIS_ADDR` are set) |
 | `ci.yml` · frontend | same | type check, lint, tests, production build |
 | `ci.yml` · images | every push and pull request | both Dockerfiles build (nothing is published) |
 | `security.yml` | weekly, and when dependency files change | no reachable Go vulnerability (`govulncheck`) and no high-severity JavaScript advisory (`pnpm audit`) |
-| Dependabot | weekly | pull requests for Go, JavaScript, Docker base images and the workflow actions themselves |
+| Dependabot | weekly, grouped, 7-day cooldown | pull requests for Go, JavaScript, Dockerfile base images, `docker-compose.yml` and the workflow actions (one grouped PR per ecosystem for minor/patch) |
 
 ## 2. The images
 
@@ -58,6 +58,12 @@ See **D19** in [Design decisions](decisions.md). In short:
 - **CI builds, it does not publish.** Building on every run catches a broken Dockerfile before merge; where and how images are stored and deployed is left to whoever deploys.
 - **One web image per environment.** Next.js inlines `NEXT_PUBLIC_*` values into the browser bundle at build time, so the API URL is a build argument (set the repository variable `NEXT_PUBLIC_API_URL`). The alternative, reading the URL at runtime, would need a config endpoint or a startup script; it is simple to add if more environments appear.
 - **Security checks are separate and non-blocking for unrelated PRs.** A new advisory in a dependency appears without anyone touching the code; it should raise a visible alarm, not stop an unrelated fix.
+
+### Pinning and upgrades (D28)
+
+- Actions are pinned to a full commit SHA with the release in a comment; Dependabot updates both.
+- Dockerfile bases (`golang`, `distroless/static-debian13`) are pinned by tag **and digest**; Dependabot refreshes the digest. The Postgres (16) and Redis (8) images in compose, CI and `make test-integration` are major-tag only and Dependabot never proposes their majors (a major is a data migration).
+- Moving to a new Go minor is manual and touches four places together: the `go` directive in `backend/go.mod` (patch level included), the `golang` tag and digest in `backend/Dockerfile`, the version in the docs, and a read of the release notes. `govulncheck` in `security.yml` is pinned by hand (Dependabot cannot see it).
 
 ## 4. Getting ready for AWS
 
@@ -99,8 +105,9 @@ These cannot live in code, so they are easy to forget:
 ```bash
 # backend/ (the migration test needs an EMPTY database; this one is thrown away)
 docker run -d --rm --name ci-db -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=ci -p 127.0.0.1:55432:5432 postgres:16-alpine
-TEST_DATABASE_URL='postgres://postgres:ci@127.0.0.1:55432/ci?sslmode=disable' go test -race ./...
-go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+docker run -d --rm --name ci-redis -p 127.0.0.1:56379:6379 redis:8-alpine
+TEST_REDIS_ADDR=127.0.0.1:56379 TEST_DATABASE_URL='postgres://postgres:ci@127.0.0.1:55432/ci?sslmode=disable' go test -race ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
 # frontend/
 pnpm run lint && pnpm run test && pnpm audit --audit-level=high

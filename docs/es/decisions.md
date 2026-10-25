@@ -33,6 +33,7 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D25 | Cabeceras de seguridad y CSP en la aplicación web | Aceptada |
 | D26 | Patrones de accesibilidad: anuncios en vivo, diálogos propios, manejo del foco | Aceptada |
 | D27 | Límites del servidor y apagado ordenado | Aceptada |
+| D28 | Acciones de CI e imágenes base fijadas; go-redis v9 | Aceptada |
 
 ---
 
@@ -236,3 +237,10 @@ sequenceDiagram
 - **Decisión:** el servidor HTTP tiene timeouts de cabeceras, lectura, escritura e inactividad y un tope de 64 KiB en las cabeceras; los cuerpos se limitan a 1 MiB (413 si la longitud declarada lo supera, 400 con cuerpo fragmentado). Las rutas que modifican estado tienen límites de tasa por IP. `TRUSTED_PROXIES` (IPs/CIDRs separados por comas, vacío por defecto) activa `X-Forwarded-For` detrás de un balanceador; si no, todos los usuarios comparten un cupo. El apagado sigue un orden: señal, cierre de sockets con 1012, vaciado de HTTP y por último cierre de BD y Redis, con tope de 15 s y sin `log.Fatal`. El envío SMTP tiene plazos de conexión y de conversación.
 - **Por qué:** sin timeouts un cliente lento retiene una conexión para siempre; sin proxies de confianza, el límite de tasa tras un balanceador es global.
 - **Consecuencias:** las conexiones WebSocket no se ven afectadas por el timeout de escritura (la actualización del protocolo limpia los plazos).
+
+## D28. Acciones de CI e imágenes base fijadas; go-redis v9
+
+- **Contexto:** las acciones y las imágenes base se referenciaban con etiquetas móviles, la etiqueta del builder de Go flotaba mientras `go.mod` indicaba otro parche, Redis era `7` en CI y sin fijar (`alpine`, 8.x) en compose, y `go-redis/v8` no tenía mantenimiento desde 2022.
+- **Decisión:** las acciones se fijan por SHA de commit y las bases de los Dockerfile por etiqueta y digest (Dependabot mantiene ambos al día, agrupado por semana y con 7 días de espera); Postgres 16 y Redis 8 llevan solo la etiqueta mayor en todas partes y Dependabot ignora sus mayores. La directiva `go` lleva el parche (1.27.3) para que el entorno local, el CI y la imagen compartan toolchain, y un builder desactualizado rompe la construcción (`GOTOOLCHAIN=local`). Redis usa `github.com/redis/go-redis/v9` con `ContextTimeoutEnabled` activado (v9, si no, ignora los plazos del contexto en la E/S del socket, lo que anularía el límite de 2 s de D24; un test lo protege) y las notificaciones de mantenimiento desactivadas.
+- **Alternativas:** imágenes solo con etiqueta (construcciones no reproducibles, cachés locales viejas sin aviso); digest también en Postgres/Redis (ruido semanal por servicios de desarrollo); quedarse en v8 (sin correcciones ni versiones de seguridad).
+- **Consecuencias:** subir el minor de Go es un cambio manual en cuatro sitios (ver [CI/CD](ci-cd.md)); `govulncheck` se fija a mano; el CI ahora también ejecuta los tests de presencia con Redis; go-redis v9 usa RESP3 y un timeout de lectura por defecto de 5 s (v8: 3 s).

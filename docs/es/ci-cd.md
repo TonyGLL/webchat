@@ -28,11 +28,11 @@ flowchart LR
 
 | Workflow | Cuándo corre | Qué garantiza |
 |---|---|---|
-| `ci.yml` · backend | cada push y pull request | formato, `go vet`, compilación, todos los tests con detector de carreras, y que **todas las migraciones se aplican sobre un PostgreSQL vacío** (en local el test se omite salvo que `TEST_DATABASE_URL` apunte a una base vacía) |
+| `ci.yml` · backend | cada push y pull request | formato, `go vet`, compilación, todos los tests con detector de carreras, que **todas las migraciones se aplican sobre un PostgreSQL vacío** y los tests de presencia con Redis (en local ambos se omiten salvo que `TEST_DATABASE_URL` / `TEST_REDIS_ADDR` estén definidas) |
 | `ci.yml` · frontend | igual | tipos, lint, tests, build de producción |
 | `ci.yml` · imágenes | cada push y pull request | ambos Dockerfile construyen (no se publica nada) |
 | `security.yml` | semanal, y cuando cambian los archivos de dependencias | ninguna vulnerabilidad de Go alcanzable (`govulncheck`) y ningún aviso grave de JavaScript (`pnpm audit`) |
-| Dependabot | semanal | pull requests para Go, JavaScript, imágenes base de Docker y las propias acciones de los workflows |
+| Dependabot | semanal, agrupado, 7 días de espera | pull requests para Go, JavaScript, imágenes base de los Dockerfile, `docker-compose.yml` y las propias acciones de los workflows (un PR agrupado por ecosistema para minor/patch) |
 
 ## 2. Las imágenes
 
@@ -58,6 +58,12 @@ Ver **D19** en [Decisiones de diseño](decisions.md). En resumen:
 - **El CI construye, no publica.** Construir en cada ejecución detecta un Dockerfile roto antes de fusionar; dónde y cómo se guardan y despliegan las imágenes lo decide quien despliega.
 - **Una imagen web por entorno.** Next.js incrusta los valores `NEXT_PUBLIC_*` en el paquete del navegador al construir, así que la URL de la API es un argumento de build (define la variable del repositorio `NEXT_PUBLIC_API_URL`). La alternativa, leerla en tiempo de ejecución, exigiría un endpoint de configuración o un script de arranque; es fácil de añadir si aparecen más entornos.
 - **Las comprobaciones de seguridad van aparte y no bloquean PRs ajenos.** Un aviso nuevo en una dependencia aparece sin que nadie toque el código; debe dar una alarma visible, no frenar un arreglo que no tiene que ver.
+
+### Fijado de versiones y actualizaciones (D28)
+
+- Las acciones se fijan con el SHA completo del commit y la versión en un comentario; Dependabot actualiza ambos.
+- Las bases de los Dockerfile (`golang`, `distroless/static-debian13`) se fijan por etiqueta **y digest**; Dependabot renueva el digest. Las imágenes de Postgres (16) y Redis (8) en compose, CI y `make test-integration` llevan solo la etiqueta de la versión mayor, y Dependabot nunca propone sus mayores (un cambio mayor es una migración de datos).
+- Pasar a un nuevo minor de Go es manual y toca cuatro sitios a la vez: la directiva `go` de `backend/go.mod` (con el parche), la etiqueta y el digest de `golang` en `backend/Dockerfile`, la versión en la documentación, y leer las notas de la versión. `govulncheck` en `security.yml` se fija a mano (Dependabot no lo ve).
 
 ## 4. Preparándose para AWS
 
@@ -99,8 +105,9 @@ No pueden vivir en el código, así que es fácil olvidarlos:
 ```bash
 # backend/ (el test de migraciones necesita una base VACÍA; esta es desechable)
 docker run -d --rm --name ci-db -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=ci -p 127.0.0.1:55432:5432 postgres:16-alpine
-TEST_DATABASE_URL='postgres://postgres:ci@127.0.0.1:55432/ci?sslmode=disable' go test -race ./...
-go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+docker run -d --rm --name ci-redis -p 127.0.0.1:56379:6379 redis:8-alpine
+TEST_REDIS_ADDR=127.0.0.1:56379 TEST_DATABASE_URL='postgres://postgres:ci@127.0.0.1:55432/ci?sslmode=disable' go test -race ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
 # frontend/
 pnpm run lint && pnpm run test && pnpm audit --audit-level=high

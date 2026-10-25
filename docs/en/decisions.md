@@ -33,6 +33,7 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D25 | Security headers and CSP on the web app | Accepted |
 | D26 | Accessibility patterns: live announcements, in-app dialogs, focus handling | Accepted |
 | D27 | Server limits and ordered shutdown | Accepted |
+| D28 | Pinned CI actions and image bases; go-redis v9 | Accepted |
 
 ---
 
@@ -236,3 +237,10 @@ sequenceDiagram
 - **Decision:** the HTTP server has read-header, read, write and idle timeouts and a 64 KiB header cap; request bodies are limited to 1 MiB (413 when the declared length is over, 400 for a chunked body). Routes that mutate state have per-IP rate limits. `TRUSTED_PROXIES` (comma-separated IPs/CIDRs, empty by default) enables `X-Forwarded-For` behind a load balancer, otherwise all users share one bucket. Shutdown runs in order: signal, close sockets with 1012, drain HTTP, then close DB and Redis, with a 15 s cap and no `log.Fatal`. SMTP sends have dial and conversation deadlines.
 - **Why:** without timeouts a slow client holds a connection forever; without trusted proxies, rate limiting behind a load balancer is global.
 - **Consequences:** WebSocket connections are unaffected by the write timeout (the upgrade clears deadlines).
+
+## D28. Pinned CI actions and image bases; go-redis v9
+
+- **Context:** actions and base images were referenced by moving tags, the Go builder tag floated while `go.mod` said another patch, Redis was `7` in CI and unpinned (`alpine`, 8.x) in compose, and `go-redis/v8` had been unmaintained since 2022.
+- **Decision:** actions are pinned by commit SHA, Dockerfile bases by tag and digest (Dependabot keeps both fresh, grouped weekly, with a 7-day cooldown); Postgres 16 and Redis 8 are major-tag only everywhere and their majors are ignored by Dependabot. The `go` directive carries the patch (1.27.3) so local, CI and the image share one toolchain, and a stale builder fails the build (`GOTOOLCHAIN=local`). Redis uses `github.com/redis/go-redis/v9` with `ContextTimeoutEnabled` on (v9 ignores context deadlines for socket I/O otherwise, which would defeat the 2 s bound of D24; a test guards it) and maintenance notifications off.
+- **Alternatives:** tag-only images (builds not reproducible, stale local caches go unnoticed); digest pins for Postgres/Redis (weekly noise for dev services); staying on v8 (no fixes, no security releases).
+- **Consequences:** a Go minor bump is a manual, four-place change (see [CI/CD](ci-cd.md)); `govulncheck` is pinned by hand; CI now also runs the Redis presence tests; go-redis v9 speaks RESP3 and has a 5 s default read timeout (v8: 3 s).
