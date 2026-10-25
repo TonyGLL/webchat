@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from './api';
+import { api, refreshAccessToken } from './api';
 import { tokenStorage } from './tokenStorage';
 
 const unauthorized = (config: InternalAxiosRequestConfig) =>
@@ -83,5 +83,31 @@ describe('api client token refresh', () => {
 
     expect(post).not.toHaveBeenCalled();
     expect(tokenStorage.get()).not.toBeNull();
+  });
+});
+
+describe('api client sign-out safety', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    tokenStorage.clear();
+  });
+
+  it('has a global request timeout', () => {
+    expect(api.defaults.timeout).toBeGreaterThan(0);
+    expect(api.defaults.timeout).toBeLessThanOrEqual(30_000);
+  });
+
+  it('does not recreate the session when a refresh resolves after sign-out', async () => {
+    tokenStorage.set({ accessToken: 'old' });
+    let resolvePost!: (v: unknown) => void;
+    vi.spyOn(axios, 'post').mockReturnValue(new Promise((resolve) => (resolvePost = resolve)));
+
+    const pending = refreshAccessToken();
+    tokenStorage.clear(); // the user signs out while the refresh is in flight
+    resolvePost({ data: { token: 'fresh' } });
+
+    await expect(pending).rejects.toThrow();
+    expect(tokenStorage.get()).toBeNull();
+    expect(tokenStorage.mayHaveSession()).toBe(false);
   });
 });

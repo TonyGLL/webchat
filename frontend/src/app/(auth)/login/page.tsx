@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/lib/i18n/useT';
-import { LoginData, makeLoginSchema } from '@/services/authService';
+import { LoginData, makeLoginSchema } from '@/lib/validation/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';

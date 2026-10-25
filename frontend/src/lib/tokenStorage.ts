@@ -11,6 +11,9 @@ const listeners = new Set<Listener>();
 // reload gets a new one through the httpOnly refresh cookie (see AuthContext).
 let current: AuthTokens | null = null;
 
+// Bumped on every clear(): an operation that started before a sign-out can tell it is stale.
+let epoch = 0;
+
 function notify(tokens: AuthTokens | null) {
   listeners.forEach((listener) => listener(tokens));
 }
@@ -40,9 +43,28 @@ export const tokenStorage = {
   },
 
   clear() {
+    epoch++;
     current = null;
     writeHint(false);
     notify(null);
+  },
+
+  /** Changes whenever the session is cleared; compare before and after an async step. */
+  epoch(): number {
+    return epoch;
+  },
+
+  /**
+   * Signs this tab out when another tab removes the session hint (logout or rejected refresh
+   * there). Returns the function that stops listening.
+   */
+  watchRemoteSignOut(): () => void {
+    const onStorage = (event: StorageEvent) => {
+      const removed = event.key === SESSION_HINT_KEY ? event.newValue === null : event.key === null; // null key: storage cleared
+      if (removed && current) tokenStorage.clear();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   },
 
   /**

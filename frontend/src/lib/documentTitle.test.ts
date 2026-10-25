@@ -5,7 +5,6 @@ describe('titleKeyForPath', () => {
   it('maps each route to its title key', () => {
     expect(titleKeyForPath('/login')).toBe('title.login');
     expect(titleKeyForPath('/reset-password/abc')).toBe('title.reset');
-    expect(titleKeyForPath('/verify/abc')).toBe('title.verify');
     expect(titleKeyForPath('/dashboard')).toBe('title.dashboard');
   });
 

@@ -38,7 +38,7 @@ make watch                         # http://localhost:8081
 
 # 3. Frontend
 cd ../frontend && cp .env.example .env.local
-pnpm install && pnpm dev             # http://localhost:3100
+pnpm install && pnpm dev             # http://localhost:3100 (bound to 127.0.0.1; DEV_HOST=0.0.0.0 pnpm dev to test from a phone)
 ```
 
 ### Or with the root Makefile

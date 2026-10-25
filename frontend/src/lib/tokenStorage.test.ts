@@ -35,4 +35,28 @@ describe('tokenStorage', () => {
     tokenStorage.set({ accessToken: 'b' });
     expect(listener).toHaveBeenCalledTimes(2);
   });
+
+  it('signs this tab out when another tab removes the session hint', () => {
+    const stop = tokenStorage.watchRemoteSignOut();
+    tokenStorage.set({ accessToken: 'a' });
+    const listener = vi.fn();
+    const unsubscribe = tokenStorage.subscribe(listener);
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'hasSession', newValue: '1' }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: null }));
+    expect(tokenStorage.get()).not.toBeNull();
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'hasSession', newValue: null }));
+    expect(tokenStorage.get()).toBeNull();
+    expect(listener).toHaveBeenLastCalledWith(null);
+
+    stop();
+    unsubscribe();
+  });
+
+  it('bumps the epoch on every clear', () => {
+    const before = tokenStorage.epoch();
+    tokenStorage.clear();
+    expect(tokenStorage.epoch()).toBe(before + 1);
+  });
 });

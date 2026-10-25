@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useAuth';
-import { makeRegisterSchema, RegisterData } from '@/services/authService';
+import { makeRegisterSchema, RegisterData } from '@/lib/validation/auth';
 import { useT } from '@/lib/i18n/useT';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
