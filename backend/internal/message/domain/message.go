@@ -9,6 +9,12 @@ import (
 
 var ErrMessageNotFound = errors.New("message not found")
 
+// ErrSearchBusy: this instance already runs the maximum number of concurrent searches.
+var ErrSearchBusy = errors.New("search is busy")
+
+// ErrSearchTooBroad: the search did not finish within its time budget.
+var ErrSearchTooBroad = errors.New("search took too long")
+
 type Message struct {
 	ID               uuid.UUID  `json:"id"`
 	Content          string     `json:"content"`
