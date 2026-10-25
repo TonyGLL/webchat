@@ -49,6 +49,9 @@ func main() {
 
 	setupLogging(cfg)
 	slog.Info("starting server")
+	if w := cfg.EnvWarning(); w != "" {
+		slog.Warn(w)
+	}
 
 	// --- Shared Dependencies ---
 	validate := validator.New()
@@ -145,6 +148,9 @@ func main() {
 		{Method: "PUT", Path: "/api/v1/messages/:id/pin", Limit: 60, Window: time.Minute},
 		{Method: "DELETE", Path: "/api/v1/messages/:id/pin", Limit: 60, Window: time.Minute},
 		{Method: "POST", Path: "/api/v1/rooms", Limit: 10, Window: 10 * time.Minute},
+		// Sent by the browser once per incoming message in the open room (the frontend throttles it),
+		// so the limit is far above normal use.
+		{Method: "POST", Path: "/api/v1/rooms/read/:room_id", Limit: 240, Window: time.Minute},
 		{Method: "POST", Path: "/api/v1/rooms/direct/:user_id", Limit: 30, Window: 10 * time.Minute},
 		{Method: "POST", Path: "/api/v1/rooms/join/:room_id", Limit: 30, Window: 10 * time.Minute},
 		{Method: "POST", Path: "/api/v1/rooms/invite-user/:room_id", Limit: 30, Window: 10 * time.Minute},

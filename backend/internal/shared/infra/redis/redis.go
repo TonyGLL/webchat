@@ -3,10 +3,31 @@ package redis
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
 )
+
+// Redis sits on the per-request path (session guard, rate limiter, tickets). The go-redis
+// defaults (3 s reads, 3 retries, 4 s pool wait) would let a hung Redis hold every request for
+// ~12 s before the fail-open paths kick in, so the socket and retry budget is much tighter.
+const (
+	dialTimeout  = time.Second
+	ioTimeout    = 500 * time.Millisecond
+	poolTimeout  = time.Second
+	maxRetries   = 1
+	minRetryWait = 8 * time.Millisecond
+)
+
+func tune(opts *redis.Options) {
+	opts.DialTimeout = dialTimeout
+	opts.ReadTimeout = ioTimeout
+	opts.WriteTimeout = ioTimeout
+	opts.PoolTimeout = poolTimeout
+	opts.MaxRetries = maxRetries
+	opts.MinRetryBackoff = minRetryWait
+}
 
 // NewClient establishes a connection to a Redis server using the provided URL.
 // It pings the server to verify the connection is active before returning the client.
@@ -22,6 +43,7 @@ func NewClient(ctx context.Context, redisURL string) (*redis.Client, error) {
 	// cancelled when the client goes away: without the option those bounds would silently stop
 	// working.
 	opts.ContextTimeoutEnabled = true
+	tune(opts)
 	// One standalone Redis, no failover or cluster handoffs to follow: skip the extra
 	// CLIENT MAINT_NOTIFICATIONS handshake and the background workers that "auto" mode adds.
 	opts.MaintNotificationsConfig = &maintnotifications.Config{Mode: maintnotifications.ModeDisabled}

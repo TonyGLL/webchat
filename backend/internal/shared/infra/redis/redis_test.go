@@ -5,6 +5,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 // A server that accepts connections and never answers stands in for a stalled Redis. NewClient
@@ -44,5 +46,23 @@ func TestNewClientHonoursContextDeadline(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 2*time.Second {
 		t.Fatalf("NewClient took %v: the context deadline was ignored", elapsed)
+	}
+}
+
+// The per-request path must not wait seconds on a stalled Redis.
+func TestTuneBoundsRequestPathWaits(t *testing.T) {
+	opts, err := redis.ParseURL("redis://localhost:6379/0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tune(opts)
+	if opts.ReadTimeout > 500*time.Millisecond || opts.WriteTimeout > 500*time.Millisecond {
+		t.Fatalf("I/O timeouts too long: %v / %v", opts.ReadTimeout, opts.WriteTimeout)
+	}
+	if opts.DialTimeout > time.Second || opts.PoolTimeout > time.Second {
+		t.Fatalf("dial/pool timeouts too long: %v / %v", opts.DialTimeout, opts.PoolTimeout)
+	}
+	if opts.MaxRetries != 1 {
+		t.Fatalf("MaxRetries = %d, want 1", opts.MaxRetries)
 	}
 }
