@@ -166,11 +166,24 @@ func (r *PgRepository) SetReportStatus(ctx context.Context, reportID int, status
 
 func (r *PgRepository) UpsertBan(ctx context.Context, ban domain.Ban) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO bans (user_id, room_id, banned_by_id, reason, expires_at) VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO bans (user_id, room_id, banned_by_id, reason, expires_at, banned_by_rank) VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (user_id, room_id) DO UPDATE
-		SET banned_by_id = EXCLUDED.banned_by_id, reason = EXCLUDED.reason, expires_at = EXCLUDED.expires_at, created_at = NOW()`,
-		ban.UserID, ban.RoomID, ban.BannedBy, ban.Reason, ban.ExpiresAt)
+		SET banned_by_id = EXCLUDED.banned_by_id, reason = EXCLUDED.reason, expires_at = EXCLUDED.expires_at, banned_by_rank = EXCLUDED.banned_by_rank, created_at = NOW()`,
+		ban.UserID, ban.RoomID, ban.BannedBy, ban.Reason, ban.ExpiresAt, int(ban.BannerRank))
 	return err
+}
+
+func (r *PgRepository) FindBan(ctx context.Context, roomID uuid.UUID, userID int) (*domain.Ban, error) {
+	b := &domain.Ban{}
+	var rank int
+	err := r.db.QueryRowContext(ctx, `SELECT user_id, room_id, banned_by_id, COALESCE(reason, ''), expires_at, created_at, banned_by_rank
+		FROM bans WHERE room_id = $1 AND user_id = $2 AND (expires_at IS NULL OR expires_at > NOW())`, roomID, userID).
+		Scan(&b.UserID, &b.RoomID, &b.BannedBy, &b.Reason, &b.ExpiresAt, &b.CreatedAt, &rank)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	b.BannerRank = permissions.Rank(rank)
+	return b, err
 }
 
 func (r *PgRepository) DeleteBan(ctx context.Context, roomID uuid.UUID, userID int) (bool, error) {

@@ -76,6 +76,58 @@ func (uc *ListInvitationsUseCase) Execute(ctx context.Context, userID int) ([]*d
 	return uc.invitations.ListPending(ctx, userID)
 }
 
+// ListRoomInvitationsUseCase shows a room's pending invitations to those who can invite.
+type ListRoomInvitationsUseCase struct {
+	invitations domain.InvitationRepository
+	memberRepo  domain.RoomMemberRepository
+}
+
+func NewListRoomInvitationsUseCase(invitations domain.InvitationRepository, memberRepo domain.RoomMemberRepository) *ListRoomInvitationsUseCase {
+	return &ListRoomInvitationsUseCase{invitations: invitations, memberRepo: memberRepo}
+}
+
+func canInviteIn(ctx context.Context, memberRepo domain.RoomMemberRepository, roomID uuid.UUID, userID int) error {
+	m, err := memberRepo.FindMember(ctx, roomID, userID)
+	if err != nil {
+		return err
+	}
+	if m == nil || !(permissions.Actor{Room: permissions.RoomRole(m.Role), IsMember: true}).CanInvite() {
+		return shared_domain.ErrForbidden
+	}
+	return nil
+}
+
+func (uc *ListRoomInvitationsUseCase) Execute(ctx context.Context, roomID uuid.UUID, userID int) ([]*domain.Invitation, error) {
+	if err := canInviteIn(ctx, uc.memberRepo, roomID, userID); err != nil {
+		return nil, err
+	}
+	return uc.invitations.ListByRoom(ctx, roomID)
+}
+
+// CancelInvitationUseCase lets admins and above withdraw a pending invitation of their room.
+type CancelInvitationUseCase struct {
+	invitations domain.InvitationRepository
+	memberRepo  domain.RoomMemberRepository
+}
+
+func NewCancelInvitationUseCase(invitations domain.InvitationRepository, memberRepo domain.RoomMemberRepository) *CancelInvitationUseCase {
+	return &CancelInvitationUseCase{invitations: invitations, memberRepo: memberRepo}
+}
+
+func (uc *CancelInvitationUseCase) Execute(ctx context.Context, roomID, id uuid.UUID, userID int) error {
+	if err := canInviteIn(ctx, uc.memberRepo, roomID, userID); err != nil {
+		return err
+	}
+	ok, err := uc.invitations.Cancel(ctx, roomID, id)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return shared_domain.ErrNotFound
+	}
+	return nil
+}
+
 // RespondInvitationUseCase lets the invited user accept (becoming a member, with access to the
 // history and the right to write) or decline.
 type RespondInvitationUseCase struct {
@@ -98,6 +150,15 @@ func (uc *RespondInvitationUseCase) Execute(ctx context.Context, id uuid.UUID, u
 		return shared_domain.ErrNotFound // do not reveal other people's invitations
 	}
 	if accept {
+		// The invitation dies with the inviter's power to invite (left the room, or was demoted),
+		// like invite codes do. Not-found hides the reason.
+		inviter, err := uc.memberRepo.FindMember(ctx, inv.RoomID, inv.InviterID)
+		if err != nil {
+			return err
+		}
+		if inviter == nil || !(permissions.Actor{Room: permissions.RoomRole(inviter.Role), IsMember: true}).CanInvite() {
+			return shared_domain.ErrNotFound
+		}
 		if uc.bans != nil {
 			banned, err := uc.bans.IsBanned(ctx, inv.RoomID, userID)
 			if err != nil {

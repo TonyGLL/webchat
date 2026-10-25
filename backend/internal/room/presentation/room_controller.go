@@ -32,6 +32,8 @@ type RoomController struct {
 	inviteUserUseCase        *application.InviteUserUseCase
 	listInvitationsUseCase   *application.ListInvitationsUseCase
 	respondInvitationUseCase *application.RespondInvitationUseCase
+	listRoomInvitationsUC    *application.ListRoomInvitationsUseCase
+	cancelInvitationUC       *application.CancelInvitationUseCase
 	validate                 *validator.Validate
 }
 
@@ -50,6 +52,8 @@ func NewRoomController(
 	inviteUserUseCase *application.InviteUserUseCase,
 	listInvitationsUseCase *application.ListInvitationsUseCase,
 	respondInvitationUseCase *application.RespondInvitationUseCase,
+	listRoomInvitationsUC *application.ListRoomInvitationsUseCase,
+	cancelInvitationUC *application.CancelInvitationUseCase,
 	validate *validator.Validate,
 ) *RoomController {
 	return &RoomController{
@@ -66,6 +70,8 @@ func NewRoomController(
 		inviteUserUseCase:        inviteUserUseCase,
 		listInvitationsUseCase:   listInvitationsUseCase,
 		respondInvitationUseCase: respondInvitationUseCase,
+		listRoomInvitationsUC:    listRoomInvitationsUC,
+		cancelInvitationUC:       cancelInvitationUC,
 		validate:                 validate,
 	}
 }
@@ -452,3 +458,58 @@ func (c *RoomController) AcceptInvitation(ctx *gin.Context) { c.respondInvitatio
 
 // DeclineInvitation handles POST /api/v1/rooms/invitations/:id/decline
 func (c *RoomController) DeclineInvitation(ctx *gin.Context) { c.respondInvitation(ctx, false) }
+
+// ListRoomInvitations handles GET /api/v1/rooms/invitations/room/:room_id (admins and above)
+func (c *RoomController) ListRoomInvitations(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	roomID, err := uuid.Parse(ctx.Param("room_id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
+		return
+	}
+	invitations, err := c.listRoomInvitationsUC.Execute(ctx, roomID, userID)
+	switch {
+	case err == nil:
+		response.JSON(ctx, http.StatusOK, invitations)
+	case errors.Is(err, shared_domain.ErrForbidden):
+		response.Error(ctx, http.StatusForbidden, "You cannot manage invitations of this room")
+	default:
+		log.Printf("failed to list room invitations: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to list invitations")
+	}
+}
+
+// CancelInvitation handles DELETE /api/v1/rooms/invitations/room/:room_id/:id (admins and above)
+func (c *RoomController) CancelInvitation(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	roomID, err := uuid.Parse(ctx.Param("room_id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
+		return
+	}
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid invitation ID format")
+		return
+	}
+	err = c.cancelInvitationUC.Execute(ctx, roomID, id, userID)
+	switch {
+	case err == nil:
+		ctx.Status(http.StatusNoContent)
+	case errors.Is(err, shared_domain.ErrForbidden):
+		response.Error(ctx, http.StatusForbidden, "You cannot manage invitations of this room")
+	case errors.Is(err, shared_domain.ErrNotFound):
+		response.Error(ctx, http.StatusNotFound, "Invitation not found")
+	default:
+		log.Printf("failed to cancel invitation: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to cancel invitation")
+	}
+}

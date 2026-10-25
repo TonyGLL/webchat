@@ -7,6 +7,7 @@ import (
 
 	"backend/internal/moderation/domain"
 	shared_domain "backend/internal/shared/domain"
+	"backend/internal/shared/permissions"
 
 	"github.com/google/uuid"
 )
@@ -57,7 +58,16 @@ func (uc *BansUseCase) Ban(ctx context.Context, roomID uuid.UUID, actorID, targe
 		return shared_domain.ErrForbidden
 	}
 
-	if err := uc.repo.UpsertBan(ctx, domain.Ban{UserID: targetID, RoomID: roomID, BannedBy: &actorID, Reason: reason, ExpiresAt: expires}); err != nil {
+	// An active ban can only be replaced (e.g. shortened) by its issuer or someone who outranks them.
+	existing, err := uc.repo.FindBan(ctx, roomID, targetID)
+	if err != nil {
+		return err
+	}
+	if !canLiftBan(actor, actorID, existing) {
+		return shared_domain.ErrForbidden
+	}
+
+	if err := uc.repo.UpsertBan(ctx, domain.Ban{UserID: targetID, RoomID: roomID, BannedBy: &actorID, BannerRank: actor.Rank(), Reason: reason, ExpiresAt: expires}); err != nil {
 		return err
 	}
 	if target.IsMember {
@@ -82,13 +92,36 @@ func (uc *BansUseCase) Ban(ctx context.Context, roomID uuid.UUID, actorID, targe
 	return nil
 }
 
-// Unban lifts a ban. Moderators and above may do it.
+// canLiftBan: no ban, or the actor issued it, or the actor strictly outranks the rank the
+// issuer had when banning (legacy rows with rank 0 can be lifted by any moderator).
+func canLiftBan(actor permissions.Actor, actorID int, ban *domain.Ban) bool {
+	if ban == nil {
+		return true
+	}
+	if ban.BannedBy != nil && *ban.BannedBy == actorID {
+		return true
+	}
+	return actor.Rank() > ban.BannerRank
+}
+
+// Unban lifts a ban. Moderators and above may do it, but only on bans issued by themselves or by
+// someone they outrank.
 func (uc *BansUseCase) Unban(ctx context.Context, roomID uuid.UUID, actorID, targetID int) error {
 	actor, err := uc.repo.ActorIn(ctx, roomID, actorID)
 	if err != nil {
 		return err
 	}
 	if !actor.CanResolveReports() { // same bar as handling reports: moderator and above
+		return shared_domain.ErrForbidden
+	}
+	existing, err := uc.repo.FindBan(ctx, roomID, targetID)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return shared_domain.ErrNotFound
+	}
+	if !canLiftBan(actor, actorID, existing) {
 		return shared_domain.ErrForbidden
 	}
 	removed, err := uc.repo.DeleteBan(ctx, roomID, targetID)
