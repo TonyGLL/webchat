@@ -83,6 +83,7 @@ const en = {
   'rooms.name': 'Room name',
   'rooms.public': 'Public',
   'rooms.create': 'Create',
+  'rooms.createError': 'Could not create the room. Check the name and try again.',
   'rooms.fallbackName': 'Room',
 
   'search.noMatch': 'No messages match “{query}”.',

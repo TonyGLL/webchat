@@ -40,7 +40,7 @@ export const useMessageAlerts = (rooms: Room[], activeRoomId: string | null, onO
     });
     const room = current.rooms.find((r) => r.id === room_id);
 
-    if (decision.sound) playMessageSound(room?.is_direct ? 'direct' : 'room');
+    if (decision.sound) playMessageSound(room?.is_direct ? 'direct' : 'room', room_id);
     if (decision.desktop) {
       try {
         const notification = new Notification(room?.name ?? t('common.appName'), {

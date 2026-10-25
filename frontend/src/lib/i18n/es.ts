@@ -85,6 +85,7 @@ const es: Record<MessageKey, string> = {
   'rooms.name': 'Nombre de la sala',
   'rooms.public': 'Pública',
   'rooms.create': 'Crear',
+  'rooms.createError': 'No se pudo crear la sala. Revisa el nombre e inténtalo de nuevo.',
   'rooms.fallbackName': 'Sala',
 
   'search.noMatch': 'Ningún mensaje coincide con “{query}”.',

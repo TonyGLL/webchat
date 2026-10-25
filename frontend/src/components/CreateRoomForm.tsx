@@ -19,11 +19,13 @@ export default function CreateRoomForm({
   const [topic, setTopic] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || submitting) return;
     setSubmitting(true);
+    setFailed(false);
     try {
       await createRoom({ name: name.trim(), is_private: !isPublic, topic: topic.trim() || null });
       setName('');
@@ -31,6 +33,7 @@ export default function CreateRoomForm({
       setOpen(false);
     } catch (err) {
       logError('Failed to create room', err);
+      setFailed(true);
     } finally {
       setSubmitting(false);
     }
@@ -57,7 +60,10 @@ export default function CreateRoomForm({
           <Input
             autoFocus
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setFailed(false);
+            }}
             placeholder={t('rooms.name')}
             aria-label={t('rooms.name')}
             required
@@ -69,6 +75,11 @@ export default function CreateRoomForm({
             placeholder={t('rooms.topic')}
             aria-label={t('rooms.topic')}
           />
+          {failed && (
+            <p role="alert" className="text-xs text-destructive">
+              {t('rooms.createError')}
+            </p>
+          )}
           <div className="flex items-center justify-between">
             <label htmlFor="public-room" className="flex items-center gap-2 text-sm">
               <Checkbox id="public-room" checked={isPublic} onCheckedChange={() => setIsPublic(!isPublic)} />

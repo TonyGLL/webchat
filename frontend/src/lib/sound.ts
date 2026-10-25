@@ -32,7 +32,13 @@ function beep(ctx: AudioContext, frequency: number, start: number, duration: num
  * messages a rising pair so they are recognisable without looking. Silently does nothing if the
  * browser has not allowed audio yet (it needs a prior click or key press on the page).
  */
-export function playMessageSound(kind: 'room' | 'direct') {
+const SOUND_GAP_MS = 2000;
+const lastPlayed = new Map<string, number>();
+
+export function playMessageSound(kind: 'room' | 'direct', roomId = '') {
+  const at = Date.now();
+  if (at - (lastPlayed.get(roomId) ?? 0) < SOUND_GAP_MS) return; // a burst in one room chimes once
+  lastPlayed.set(roomId, at);
   const ctx = audio();
   if (!ctx || ctx.state !== 'running') return;
   const now = ctx.currentTime;

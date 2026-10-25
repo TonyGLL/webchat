@@ -1,6 +1,7 @@
 'use client';
 
 import { Lock, MessageSquare } from 'lucide-react';
+import { memo } from 'react';
 import Avatar from '@/components/Avatar';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/useT';
@@ -22,7 +23,7 @@ function SectionHeader({ label, action }: { label: string; action?: React.ReactN
   );
 }
 
-export default function RoomList({
+function RoomList({
   rooms,
   onSelectRoom,
   selectedRoom,
@@ -100,3 +101,5 @@ export default function RoomList({
     </nav>
   );
 }
+
+export default memo(RoomList);
