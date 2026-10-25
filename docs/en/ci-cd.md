@@ -39,7 +39,7 @@ flowchart LR
 | Image | Base | Size | Notes |
 |---|---|---|---|
 | `webchat-api` | `distroless/static`, non-root | ≈ 40 MB | static Go binary; no shell, no package manager |
-| `webchat-web` | `node:22-alpine`, non-root | ≈ 315 MB | Next.js `standalone` output; listens on 3100 |
+| `webchat-web` | `node:24-alpine`, non-root | ≈ 315 MB | Next.js `standalone` output; listens on 3100 |
 
 The frontend lockfile (`frontend/pnpm-lock.yaml`) is committed: CI and the image install exactly the versions you tested (`--frozen-lockfile`).
 

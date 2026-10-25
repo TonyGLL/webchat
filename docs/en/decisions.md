@@ -33,6 +33,7 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D25 | Security headers and CSP on the web app | Accepted |
 | D26 | Accessibility patterns: live announcements, in-app dialogs, focus handling | Accepted |
 | D27 | Server limits and ordered shutdown | Accepted |
+| D28 | Supply-chain policy for the frontend install | Accepted |
 
 ---
 
@@ -201,7 +202,7 @@ sequenceDiagram
 ## D22. pnpm as the frontend package manager
 
 - **Context:** the frontend's package manager was a separate runtime used only to install and run scripts, while the app itself runs on Node (Next.js, the container, Vitest): one more thing to install locally, in CI and in the image.
-- **Decision:** pnpm, pinned through `packageManager` in `package.json` (so Corepack, `pnpm/action-setup` and the Dockerfile all use the same version). Lockfile `pnpm-lock.yaml`; the install script of `unrs-resolver` is explicitly not allowed (`pnpm-workspace.yaml`), since it ships prebuilt binaries. CI, the security scan and the image build all install with `--frozen-lockfile` on Node 22; Dependabot uses the `npm` ecosystem, which reads pnpm lockfiles.
+- **Decision:** pnpm, pinned through `packageManager` in `package.json` (so Corepack, `pnpm/action-setup` and the Dockerfile all use the same version). Lockfile `pnpm-lock.yaml`; the install script of `unrs-resolver` is explicitly not allowed (`pnpm-workspace.yaml`), since it ships prebuilt binaries. CI, the security scan and the image build all install with `--frozen-lockfile` on Node 24 (`engines` requires 24.15 or newer); Dependabot uses the `npm` ecosystem, which reads pnpm lockfiles.
 - **Why:** one runtime (Node) everywhere, strict `node_modules` that surfaces undeclared dependencies, a content-addressed store, and `pnpm audit` for the security scan.
 - **Consequences:** the image needs only Node. Everyone needs pnpm locally (`corepack enable` on Node below 25, otherwise `npm i -g pnpm`).
 
@@ -236,3 +237,9 @@ sequenceDiagram
 - **Decision:** the HTTP server has read-header, read, write and idle timeouts and a 64 KiB header cap; request bodies are limited to 1 MiB (413 when the declared length is over, 400 for a chunked body). Routes that mutate state have per-IP rate limits. `TRUSTED_PROXIES` (comma-separated IPs/CIDRs, empty by default) enables `X-Forwarded-For` behind a load balancer, otherwise all users share one bucket. Shutdown runs in order: signal, close sockets with 1012, drain HTTP, then close DB and Redis, with a 15 s cap and no `log.Fatal`. SMTP sends have dial and conversation deadlines.
 - **Why:** without timeouts a slow client holds a connection forever; without trusted proxies, rate limiting behind a load balancer is global.
 - **Consequences:** WebSocket connections are unaffected by the write timeout (the upgrade clears deadlines).
+
+## D28. Supply-chain policy for the frontend install
+
+- **Decision:** `frontend/pnpm-workspace.yaml` sets `minimumReleaseAge: 1440` (a version must be a day old), `trustPolicy: no-downgrade` (a release may not lose provenance compared with an earlier one), `blockExoticSubdeps` (git/tarball sources only for direct dependencies) and `strictDepBuilds` (an unreviewed build script fails the install; `allowBuilds` records the decisions). Three backport releases that trip the trust check are excluded by exact version in `trustPolicyExclude`.
+- **Why:** pnpm re-checks every lockfile entry against these policies on each install, so they also guard `--frozen-lockfile` in CI and in the image, not only the moment someone adds a package.
+- **Consequences:** a lockfile that contains a version younger than a day fails to install until it ages (or is listed in `minimumReleaseAgeExclude` for an urgent security fix). `tailwind-merge` stays on 2.x because it is the line for Tailwind 3; Dependabot will keep proposing 3.x until Tailwind 4 is adopted.
