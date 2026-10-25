@@ -7,6 +7,7 @@ import (
 	shared_domain "backend/internal/shared/domain"
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +32,13 @@ type LoginUseCase struct {
 	tokenRepo       domain.TokenRepository
 	passwordService domain.PasswordService
 	jwtService      shared_app.JwtService
+	throttle        domain.LoginThrottle // optional
+}
+
+// WithThrottle enables per-account progressive delays after failed attempts.
+func (uc *LoginUseCase) WithThrottle(t domain.LoginThrottle) *LoginUseCase {
+	uc.throttle = t
+	return uc
 }
 
 func NewLoginUseCase(
@@ -48,10 +56,20 @@ func NewLoginUseCase(
 
 // Execute handles user login. It returns the authenticated user or an error.
 func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (*dtos.AuthResponseDTO, error) {
-	user, err := uc.authRepo.GetUserByEmailOrUsername(ctx, strings.TrimSpace(input.User))
+	identifier := strings.TrimSpace(input.User)
+	if uc.throttle != nil {
+		wait, err := uc.throttle.Check(ctx, identifier, input.IP)
+		if err != nil {
+			log.Printf("login throttle check failed (continuing): %v", err) // fail open: Redis down must not block logins
+		} else if wait > 0 {
+			return nil, &domain.ThrottledError{RetryAfter: wait}
+		}
+	}
+	user, err := uc.authRepo.GetUserByEmailOrUsername(ctx, identifier)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
 			uc.spendHashTime(input.Password)
+			uc.recordFailure(ctx, identifier, input.IP)
 			return nil, shared_domain.ErrInvalidCredentials // User not found
 		}
 		return nil, err
@@ -61,13 +79,20 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
 			uc.spendHashTime(input.Password)
+			uc.recordFailure(ctx, identifier, input.IP)
 			return nil, shared_domain.ErrInvalidCredentials // Password not found for user
 		}
 		return nil, err
 	}
 
 	if !uc.passwordService.CheckPasswordHash(input.Password, hashedPassword) {
+		uc.recordFailure(ctx, identifier, input.IP)
 		return nil, shared_domain.ErrInvalidCredentials // Passwords do not match
+	}
+	if uc.throttle != nil {
+		if err := uc.throttle.RecordSuccess(ctx, identifier, input.IP); err != nil {
+			log.Printf("login throttle reset failed: %v", err)
+		}
 	}
 
 	if err := uc.authRepo.SetLastAccess(ctx, user.ID); err != nil {
@@ -96,6 +121,15 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input dtos.LoginInputDTO) (
 	response := uc.buildLoginResponse(user, accessToken, refreshToken)
 
 	return &response, nil
+}
+
+func (uc *LoginUseCase) recordFailure(ctx context.Context, identifier, ip string) {
+	if uc.throttle == nil {
+		return
+	}
+	if err := uc.throttle.RecordFailure(ctx, identifier, ip); err != nil {
+		log.Printf("login throttle record failed: %v", err)
+	}
 }
 
 // spendHashTime runs one bcrypt comparison whose result is ignored.

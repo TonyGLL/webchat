@@ -49,7 +49,11 @@ func (uc *OpenDirectUseCase) Execute(ctx context.Context, userID, otherID int) (
 	if uc.subscriber != nil {
 		roomID := room.ID.String()
 		uc.subscriber.SubscribeUser(userID, roomID)
-		uc.subscriber.SubscribeUser(otherID, roomID) // so the other person receives it live too
+		// The other person receives it live only while they are still a member: if they left the
+		// conversation they stay out until they reopen it themselves.
+		if other, err := uc.memberRepo.FindMember(ctx, room.ID, otherID); err == nil && other != nil {
+			uc.subscriber.SubscribeUser(otherID, roomID)
+		}
 	}
 	return room, nil
 }

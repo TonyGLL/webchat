@@ -97,7 +97,7 @@ Notas sobre cada variable:
 
 | Variable | Obligatoria | Detalle |
 |---|---|---|
-| `JWT_SECRET` | **Sí** | Mínimo 32 caracteres. Si falta o es corta, el servidor no arranca (H-001). Genera uno con `openssl rand -hex 32`. |
+| `JWT_SECRET` | **Sí** | Mínimo 32 caracteres aleatorios. Si falta, es corta, es un texto de ejemplo (`change-me`...), un patrón repetido o usa menos de 8 caracteres distintos, el servidor no arranca (H-001). Genera uno con `openssl rand -base64 48`. |
 | `DATABASE_URL` | Alternativa | Si la defines, se ignoran las `DB_*`. Formato: `postgres://usuario:clave@localhost:5433/webchat?sslmode=disable` |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME` | Sí (si no hay `DATABASE_URL`) | `DB_PASSWORD` según la contraseña del contenedor. |
 | `REDIS_URL` | Alternativa | Si la defines, se ignoran las `REDIS_*`. Formato: `redis://:clave@localhost:6380/0` |
@@ -234,7 +234,7 @@ Para el backend y el frontend locales: `Ctrl+C` en cada terminal.
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| `JWT_SECRET must be set and at least 32 characters long` | Falta el secreto o es corto | Ponlo en `.env.local` (`openssl rand -hex 32`). |
+| `JWT_SECRET must be set...` / `looks like a placeholder` / `not random enough` | Falta el secreto, es corto o adivinable | Ponlo en `.env.local` (`openssl rand -base64 48`). |
 | `DATABASE_URL is not set and individual DB_...` | `.env.local` no existe o no se cargó | Ejecuta `make watch` desde `backend/` y revisa el nombre del archivo. |
 | `unable to connect to database` | Contenedor apagado, puerto o contraseña errónea | `docker compose ps`; usa el puerto **5433** en local. |
 | Error de Redis al arrancar | Puerto o contraseña erróneos | Usa el puerto **6380** en local y `REDIS_PASS` igual al del compose. |

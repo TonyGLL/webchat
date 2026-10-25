@@ -59,7 +59,9 @@ flowchart LR
 | GET | `/rooms/discover` | Todas las salas no directas; las privadas se listan pero requieren invitación |
 | POST | `/rooms/invite-user/:room_id` | Invitar a un usuario concreto (admin o superior) |
 | GET | `/rooms/invitations` | Mis invitaciones pendientes |
-| POST | `/rooms/invitations/:id/accept` · `/decline` | Responder una invitación; al aceptar paso a ser miembro |
+| POST | `/rooms/invitations/:id/accept` · `/decline` | Responder una invitación; al aceptar paso a ser miembro (404 si caducó o quien la envió ya no puede invitar) |
+| GET | `/rooms/invitations/room/:room_id` | Invitaciones pendientes de una sala (admin o superior) |
+| DELETE | `/rooms/invitations/room/:room_id/:id` | Cancelar una invitación pendiente (admin o superior) |
 | POST | `/rooms/join/:room_id` | Unirse a una sala pública (falla si está vetado) |
 | POST | `/rooms/direct/:user_id` | Abre (o reutiliza) la sala 1 a 1 con ese usuario |
 | GET | `/rooms/members/:room_id` | Miembros con rol y estado en línea |

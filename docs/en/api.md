@@ -59,7 +59,9 @@ flowchart LR
 | GET | `/rooms/discover` | Every non-direct room; private ones are listed but need an invitation |
 | POST | `/rooms/invite-user/:room_id` | Invite a specific user (admin or above) |
 | GET | `/rooms/invitations` | My pending invitations |
-| POST | `/rooms/invitations/:id/accept` · `/decline` | Answer an invitation; accepting makes me a member |
+| POST | `/rooms/invitations/:id/accept` · `/decline` | Answer an invitation; accepting makes me a member (404 if it expired or its sender can no longer invite) |
+| GET | `/rooms/invitations/room/:room_id` | Pending invitations of a room (admin or above) |
+| DELETE | `/rooms/invitations/room/:room_id/:id` | Cancel a pending invitation (admin or above) |
 | POST | `/rooms/join/:room_id` | Join a public room (fails if banned) |
 | POST | `/rooms/direct/:user_id` | Open (or reuse) the one-to-one room with that user |
 | GET | `/rooms/members/:room_id` | Members with role and online status |

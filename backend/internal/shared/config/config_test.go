@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// testJWTSecret passes the entropy check.
+const testJWTSecret = "k3Vq9ZtB7mXw2LsPd8RnC5yHf1JgU4aE"
+
 func TestNewConfigJWTSecret(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
 	t.Setenv("REDIS_URL", "redis://localhost:6379/0")
@@ -18,7 +21,13 @@ func TestNewConfigJWTSecret(t *testing.T) {
 		{"missing", "", true},
 		{"too short", "short", true},
 		{"old default", "default-secret", true},
-		{"long enough", strings.Repeat("a", 32), false},
+		{"one repeated character", strings.Repeat("a", 32), true},
+		{"repeating pattern", strings.Repeat("abcd1234", 6), true},
+		{"few distinct characters", "ab12ba21ab12ba21ab12ba21ab12ba21", true},
+		{"placeholder", "change-me-to-a-long-random-value-9Xk2", true},
+		{"template text", "your-secret-key-at-least-32-chars-long", true},
+		{"hex from openssl rand -hex 32", "3f9a1c7e5b2d84a06c1e9f37d5b8a24c70e3b96f1a5d8c42e7b0f3a96d1c5e8b", false},
+		{"base64 from openssl rand -base64 48", "q8R2vX9mZp4LdT7yKc1WbN6hJf3SgA0eUo5iVxMtYrBzPnQkCwHlDsEaFjGu", false},
 	}
 
 	for _, tt := range tests {
@@ -36,7 +45,7 @@ func TestNewConfigPool(t *testing.T) {
 	base := func(t *testing.T) {
 		t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
 		t.Setenv("REDIS_URL", "redis://localhost:6379/0")
-		t.Setenv("JWT_SECRET", strings.Repeat("a", 32))
+		t.Setenv("JWT_SECRET", testJWTSecret)
 	}
 
 	t.Run("defaults", func(t *testing.T) {

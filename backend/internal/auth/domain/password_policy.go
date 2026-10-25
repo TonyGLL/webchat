@@ -1,6 +1,7 @@
 package domain
 
 import (
+	_ "embed"
 	"errors"
 	"strings"
 )
@@ -18,12 +19,21 @@ var (
 	ErrPasswordPersonal = errors.New("password must not contain your username or email")
 )
 
-var commonPasswords = map[string]struct{}{
-	"12345678": {}, "123456789": {}, "1234567890": {}, "password": {}, "password1": {},
-	"password123": {}, "qwertyui": {}, "qwerty123": {}, "11111111": {}, "00000000": {},
-	"abc12345": {}, "iloveyou": {}, "letmein1": {}, "admin123": {}, "welcome1": {},
-	"contraseña": {}, "contrasena": {}, "12341234": {}, "87654321": {}, "asdfghjk": {},
-}
+// common_passwords.txt: lowercase passwords of 8+ characters taken from public breach corpora
+// (SecLists 10k-most-common) plus Spanish and project-specific ones, one per line (~20 KB).
+//
+//go:embed common_passwords.txt
+var commonPasswordsFile string
+
+var commonPasswords = func() map[string]struct{} {
+	set := map[string]struct{}{}
+	for _, line := range strings.Split(commonPasswordsFile, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			set[line] = struct{}{}
+		}
+	}
+	return set
+}()
 
 // ValidatePassword checks the password policy. username and email are the account's
 // own identifiers, which must not appear inside the password.

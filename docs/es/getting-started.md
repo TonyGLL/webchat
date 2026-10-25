@@ -61,7 +61,7 @@ La plantilla `backend/.env.example` es la fuente de verdad. Las importantes:
 
 | Variable | Obligatoria | Notas |
 |---|---|---|
-| `JWT_SECRET` | **Sí** | Al menos 32 caracteres (`openssl rand -hex 32`). El servidor no arranca sin ella |
+| `JWT_SECRET` | **Sí** | Al menos 32 caracteres aleatorios: `openssl rand -base64 48`. El servidor no arranca sin ella, ni con un texto de ejemplo, un patrón repetido o menos de 8 caracteres distintos |
 | `DATABASE_URL` | Una de las dos | Tiene prioridad sobre `DB_*` |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_PASSWORD` | Si no hay `DATABASE_URL` | El Postgres local está en el puerto 5433 |
 | `REDIS_URL` | Una de las dos | Tiene prioridad sobre `REDIS_*`. **Redis 6.2 o superior** (el limitador usa un script Lua, `GETDEL` requiere 6.2); probado en 6.2 y 8 |
@@ -129,7 +129,7 @@ make admin-revoke EMAIL=tu@correo.com
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| `JWT_SECRET must be set and at least 32 characters long` | Falta el secreto o es corto | Defínelo en `.env.local` |
+| `JWT_SECRET must be set...`, `looks like a placeholder`, `not random enough` | Secreto ausente, corto o adivinable | Define uno aleatorio en `.env.local` (`openssl rand -base64 48`) |
 | `DATABASE_URL is not set…` | `.env.local` no se cargó | Ejecuta `make watch` desde `backend/` |
 | `unable to connect to database` | Contenedor apagado, puerto o contraseña erróneos | `docker compose ps`; usa el puerto **5433** en local |
 | Error de Redis al arrancar | Puerto o contraseña erróneos | Usa el puerto **6380** en local |

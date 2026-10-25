@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -416,14 +415,14 @@ func TestAddReactionCaps(t *testing.T) {
 	add := NewAddReactionUseCase(repo, repo, nil)
 
 	for i := 0; i < maxReactionsPerUser; i++ {
-		if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: fmt.Sprintf("e%d", i)}); err != nil {
+		if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: string(rune(0x1F600 + i))}); err != nil {
 			t.Fatalf("reaction %d: %v", i, err)
 		}
 	}
-	if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: "extra"}); !errors.Is(err, shared_domain.ErrInvalidInput) {
+	if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: "🦄"}); !errors.Is(err, shared_domain.ErrInvalidInput) {
 		t.Fatalf("per-user cap: err = %v, want ErrInvalidInput", err)
 	}
-	if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: "e0"}); err != nil {
+	if err := add.Execute(ctx, msg.ID, memberID, AddReactionDTO{Emoji: string(rune(0x1F600))}); err != nil {
 		t.Fatalf("re-adding an existing reaction must stay allowed: %v", err)
 	}
 
@@ -431,7 +430,7 @@ func TestAddReactionCaps(t *testing.T) {
 	for u := 10; u < 10+2; u++ {
 		repo.addMember(room, u)
 		for i := 0; i < maxReactionsPerUser; i++ {
-			emoji := fmt.Sprintf("u%d-%d", u, i)
+			emoji := string(rune(0x1F300 + (u-10)*maxReactionsPerUser + i))
 			if err := add.Execute(ctx, msg.ID, u, AddReactionDTO{Emoji: emoji}); err != nil {
 				t.Fatalf("user %d reaction %d: %v", u, i, err)
 			}
@@ -439,10 +438,10 @@ func TestAddReactionCaps(t *testing.T) {
 	}
 	// 30 kinds now exist
 	repo.addMember(room, 99)
-	if err := add.Execute(ctx, msg.ID, 99, AddReactionDTO{Emoji: "new-kind"}); !errors.Is(err, shared_domain.ErrInvalidInput) {
+	if err := add.Execute(ctx, msg.ID, 99, AddReactionDTO{Emoji: "🦄"}); !errors.Is(err, shared_domain.ErrInvalidInput) {
 		t.Fatalf("kind cap: err = %v, want ErrInvalidInput", err)
 	}
-	if err := add.Execute(ctx, msg.ID, 99, AddReactionDTO{Emoji: "e0"}); err != nil {
+	if err := add.Execute(ctx, msg.ID, 99, AddReactionDTO{Emoji: string(rune(0x1F600))}); err != nil {
 		t.Fatalf("joining an existing kind must stay allowed: %v", err)
 	}
 }
