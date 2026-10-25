@@ -130,7 +130,10 @@ paths:
       summary: Create an account
       description: |
         The password must be 8–72 characters, must not be among the most common passwords and
-        must not contain the username or the email's local part.
+        must not contain the username or the email's local part (the blocklist holds about 2000
+        entries). Usernames cannot be reserved names (`admin`, `support`, `system`, ...). `name`
+        and `last_name` are trimmed and normalised (NFC); control, bidi and zero-width
+        characters are rejected with 400.
       security: []
       requestBody:
         required: true
@@ -156,7 +159,11 @@ paths:
       tags: [Auth]
       operationId: login
       summary: Sign in
-      description: Returns the access token and sets the `refresh_token` cookie.
+      description: |
+        Returns the access token and sets the `refresh_token` cookie. Failed attempts also slow
+        down the account itself: after 5 failures from one address (or 20 from anywhere) for the
+        same username or email, further attempts answer `429` with `Retry-After` for a delay that
+        doubles up to 5 minutes (it never locks the account for good, and a success clears it).
       security: []
       requestBody:
         required: true
@@ -502,7 +509,7 @@ paths:
       tags: [Rooms]
       operationId: inviteUser
       summary: Invite a specific user
-      description: Requires admin rank or above in the room. The invited user sees it in `GET /rooms/invitations` and joins only by accepting.
+      description: Requires admin rank or above in the room. The invited user sees it in `GET /rooms/invitations` and joins only by accepting. It expires after 30 days and can be cancelled by room admins (`DELETE /rooms/invitations/room/{room_id}/{id}`).
       parameters:
         - $ref: "#/components/parameters/RoomId"
       requestBody:
@@ -545,12 +552,54 @@ paths:
                 items: { $ref: "#/components/schemas/Invitation" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /rooms/invitations/room/{room_id}:
+    get:
+      tags: [Rooms]
+      operationId: listRoomInvitations
+      summary: Pending invitations of a room
+      description: Admin rank or above in the room. Unexpired, unanswered invitations, newest first (at most 200).
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: The room's pending invitations (with `invitee_name`).
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invitation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /rooms/invitations/room/{room_id}/{id}:
+    delete:
+      tags: [Rooms]
+      operationId: cancelInvitation
+      summary: Cancel a pending invitation
+      description: Admin rank or above in the room. The invitation can no longer be accepted.
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Invitation cancelled. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /rooms/invitations/{id}/accept:
     post:
       tags: [Rooms]
       operationId: acceptInvitation
       summary: Accept an invitation
-      description: Makes the caller a member, with access to the history and the right to write.
+      description: |
+        Makes the caller a member, with access to the history and the right to write. The
+        invitation must not have expired (30 days), and the person who sent it must still be an
+        admin or owner of the room; otherwise it answers 404 like an unknown invitation.
       parameters:
         - name: id
           in: path
@@ -921,7 +970,7 @@ paths:
       tags: [Messages]
       operationId: addReaction
       summary: Add a reaction
-      description: One reaction per emoji and user. The emoji must not be blank (max 8 characters and 32 bytes); each user can add at most 10 distinct emoji to a message and a message carries at most 30 distinct emoji (400 beyond that). Deleted messages answer 404. Pushed as `reaction_added`.
+      description: One reaction per emoji and user. The emoji must be exactly one emoji grapheme cluster (a pictograph with optional skin tone or ZWJ parts, a flag or a keycap; at most 32 characters and 32 bytes), otherwise 400; each user can add at most 10 distinct emoji to a message and a message carries at most 30 distinct emoji (400 beyond that). Deleted messages answer 404. Pushed as `reaction_added`.
       parameters:
         - $ref: "#/components/parameters/MessageId"
       requestBody:
@@ -1057,7 +1106,9 @@ paths:
       summary: Ban a user from a room
       description: |
         Moderator or above, and strictly above the target. The user is removed from the room and
-        cannot return by id or invitation until the ban expires or is lifted. Audited.
+        cannot return by id or invitation until the ban expires or is lifted. Replacing an active
+        ban (for example to shorten it) needs to be its issuer or to outrank the issuer's rank at
+        that time (403 otherwise). Audited.
       parameters:
         - $ref: "#/components/parameters/RoomId"
         - $ref: "#/components/parameters/UserId"
@@ -1075,7 +1126,10 @@ paths:
       tags: [Moderation]
       operationId: unbanUser
       summary: Lift a ban
-      description: Moderator or above. Audited.
+      description: |
+        Moderator or above, and only for bans the actor issued or whose issuer they outrank
+        (rank at the time of banning); otherwise 403. Bans created before this rule count as
+        issued by their issuer's current rank. Audited.
       parameters:
         - $ref: "#/components/parameters/RoomId"
         - $ref: "#/components/parameters/UserId"
@@ -1413,7 +1467,9 @@ components:
         inviter_id: { type: integer }
         inviter_name: { type: string }
         invitee_id: { type: integer }
+        invitee_name: { type: string, description: Only in the room-admin listing. }
         created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
 
     DirectoryEntry:
       type: object

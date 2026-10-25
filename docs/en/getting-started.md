@@ -61,7 +61,7 @@ The template `backend/.env.example` is the source of truth. The important ones:
 
 | Variable | Required | Notes |
 |---|---|---|
-| `JWT_SECRET` | **Yes** | At least 32 characters (`openssl rand -hex 32`). The server refuses to start without it |
+| `JWT_SECRET` | **Yes** | At least 32 random characters: `openssl rand -base64 48`. The server refuses to start without it, or with a placeholder, a repeating pattern or fewer than 8 different characters |
 | `DATABASE_URL` | One of the two | Takes precedence over `DB_*` |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_PASSWORD` | If no `DATABASE_URL` | Local Postgres is on port 5433 |
 | `REDIS_URL` | One of the two | Takes precedence over `REDIS_*` |
@@ -129,7 +129,7 @@ make admin-revoke EMAIL=you@example.com
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `JWT_SECRET must be set and at least 32 characters long` | Missing or short secret | Set it in `.env.local` |
+| `JWT_SECRET must be set...`, `looks like a placeholder`, `not random enough` | Missing, short or guessable secret | Set a random one in `.env.local` (`openssl rand -base64 48`) |
 | `DATABASE_URL is not set…` | `.env.local` not loaded | Run `make watch` from `backend/` |
 | `unable to connect to database` | Container down, wrong port or password | `docker compose ps`; use port **5433** locally |
 | Redis error at startup | Wrong port or password | Use port **6380** locally |

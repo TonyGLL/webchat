@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"backend/internal/auth/application/dtos"
 	"backend/internal/auth/application/usecases"
@@ -89,8 +90,15 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
+	input.IP = ctx.ClientIP()
 	response, err := ctrl.LoginUseCase.Execute(ctx.Request.Context(), input)
 	if err != nil {
+		var throttled *domain.ThrottledError
+		if errors.As(err, &throttled) {
+			ctx.Header("Retry-After", strconv.Itoa(int(throttled.RetryAfter.Seconds())+1))
+			ctx.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many failed attempts, try again shortly"})
+			return
+		}
 		if errors.Is(err, shared_domain.ErrInvalidCredentials) {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
@@ -159,7 +167,7 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "User with this email or username already exists"})
 			return
 		}
-		if errors.Is(err, domain.ErrInvalidUsername) {
+		if errors.Is(err, domain.ErrInvalidUsername) || errors.Is(err, domain.ErrReservedUsername) || errors.Is(err, domain.ErrInvalidDisplayName) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}

@@ -14,6 +14,55 @@ import (
 // minJWTSecretLength is the shortest JWT signing secret we accept.
 const minJWTSecretLength = 32
 
+// minJWTSecretDistinct is the fewest different characters a secret may use: random 32-char hex
+// strings have about 14, "aaaa..." or "abcabc..." have a handful.
+const minJWTSecretDistinct = 8
+
+// jwtSecretPlaceholders are fragments of values people copy from docs and templates.
+var jwtSecretPlaceholders = []string{
+	"changeme", "change-me", "change_me", "secret", "your-", "your_", "yoursecret", "example",
+	"placeholder", "replace", "default", "password", "jwt_secret", "jwt-secret", "insert", "todo",
+	"xxxxxxxx", "12345678", "qwerty", "test-", "testing",
+}
+
+// validateJWTSecret rejects empty, short, placeholder-looking and low-entropy HS256 secrets: a
+// guessable one lets anyone forge any user's token. Generate one with: openssl rand -base64 48
+func validateJWTSecret(secret string) error {
+	const hint = "generate one with: openssl rand -base64 48"
+	if len(secret) < minJWTSecretLength {
+		return fmt.Errorf("JWT_SECRET must be set and at least %d characters long (%s)", minJWTSecretLength, hint)
+	}
+	lower := strings.ToLower(secret)
+	for _, p := range jwtSecretPlaceholders {
+		if strings.Contains(lower, p) {
+			return fmt.Errorf("JWT_SECRET looks like a placeholder (contains %q): %s", p, hint)
+		}
+	}
+	distinct := map[rune]struct{}{}
+	for _, r := range secret {
+		distinct[r] = struct{}{}
+	}
+	if len(distinct) < minJWTSecretDistinct {
+		return fmt.Errorf("JWT_SECRET is not random enough (only %d different characters, need %d): %s", len(distinct), minJWTSecretDistinct, hint)
+	}
+	for period := 1; period <= 8; period++ {
+		if isRepetition(secret, period) {
+			return fmt.Errorf("JWT_SECRET is a repeating pattern, not a random value: %s", hint)
+		}
+	}
+	return nil
+}
+
+// isRepetition reports whether s is its first `period` bytes repeated (the last copy may be cut).
+func isRepetition(s string, period int) bool {
+	for i := period; i < len(s); i++ {
+		if s[i] != s[i-period] {
+			return false
+		}
+	}
+	return true
+}
+
 // NewConfig creates a new Config struct and loads values from environment variables.
 // It also loads from a .env file if the path is provided.
 func NewConfig(envFile string) (*Config, error) {
@@ -36,8 +85,8 @@ func NewConfig(envFile string) (*Config, error) {
 		TrustedProxies:     parseList(Getenv("TRUSTED_PROXIES", "")),
 	}
 
-	if len(cfg.JWTSecret) < minJWTSecretLength {
-		return nil, fmt.Errorf("JWT_SECRET must be set and at least %d characters long", minJWTSecretLength)
+	if err := validateJWTSecret(cfg.JWTSecret); err != nil {
+		return nil, err
 	}
 
 	if err := loadPoolConfig(cfg); err != nil {

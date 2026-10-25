@@ -3,6 +3,8 @@ package dtos
 type LoginInputDTO struct {
 	User     string `json:"user" validate:"required,max=255"`
 	Password string `json:"password" validate:"required,max=72"`
+	// IP is the client address, filled by the controller for per-account throttling.
+	IP string `json:"-"`
 }
 
 type RegisterInputDTO struct {
