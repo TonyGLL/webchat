@@ -34,6 +34,7 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D26 | Accessibility patterns: live announcements, in-app dialogs, focus handling | Accepted |
 | D27 | Server limits and ordered shutdown | Accepted |
 | D28 | Pinned CI actions and image bases; go-redis v9 | Accepted |
+| D29 | Supply-chain policy for the frontend install | Accepted |
 
 ---
 
@@ -202,7 +203,7 @@ sequenceDiagram
 ## D22. pnpm as the frontend package manager
 
 - **Context:** the frontend's package manager was a separate runtime used only to install and run scripts, while the app itself runs on Node (Next.js, the container, Vitest): one more thing to install locally, in CI and in the image.
-- **Decision:** pnpm, pinned through `packageManager` in `package.json` (so Corepack, `pnpm/action-setup` and the Dockerfile all use the same version). Lockfile `pnpm-lock.yaml`; the install script of `unrs-resolver` is explicitly not allowed (`pnpm-workspace.yaml`), since it ships prebuilt binaries. CI, the security scan and the image build all install with `--frozen-lockfile` on Node 22; Dependabot uses the `npm` ecosystem, which reads pnpm lockfiles.
+- **Decision:** pnpm, pinned through `packageManager` in `package.json` (so Corepack, `pnpm/action-setup` and the Dockerfile all use the same version). Lockfile `pnpm-lock.yaml`; the install script of `unrs-resolver` is explicitly not allowed (`pnpm-workspace.yaml`), since it ships prebuilt binaries. CI, the security scan and the image build all install with `--frozen-lockfile` on Node 24 (`engines` requires 24.15 or newer); Dependabot uses the `npm` ecosystem, which reads pnpm lockfiles.
 - **Why:** one runtime (Node) everywhere, strict `node_modules` that surfaces undeclared dependencies, a content-addressed store, and `pnpm audit` for the security scan.
 - **Consequences:** the image needs only Node. Everyone needs pnpm locally (`corepack enable` on Node below 25, otherwise `npm i -g pnpm`).
 
@@ -244,3 +245,9 @@ sequenceDiagram
 - **Decision:** actions are pinned by commit SHA, Dockerfile bases by tag and digest (Dependabot keeps both fresh, grouped weekly, with a 7-day cooldown); Postgres 16 and Redis 8 are major-tag only everywhere and their majors are ignored by Dependabot. The `go` directive carries the patch (1.27.3) so local, CI and the image share one toolchain, and a stale builder fails the build (`GOTOOLCHAIN=local`). Redis uses `github.com/redis/go-redis/v9` with `ContextTimeoutEnabled` on (v9 ignores context deadlines for socket I/O otherwise, which would defeat the 2 s bound of D24; a test guards it) and maintenance notifications off.
 - **Alternatives:** tag-only images (builds not reproducible, stale local caches go unnoticed); digest pins for Postgres/Redis (weekly noise for dev services); staying on v8 (no fixes, no security releases).
 - **Consequences:** a Go minor bump is a manual, four-place change (see [CI/CD](ci-cd.md)); `govulncheck` is pinned by hand; CI now also runs the Redis presence tests; go-redis v9 speaks RESP3 and has a 5 s default read timeout (v8: 3 s).
+
+## D29. Supply-chain policy for the frontend install
+
+- **Decision:** `frontend/pnpm-workspace.yaml` sets `minimumReleaseAge: 1440` (a version must be a day old), `trustPolicy: no-downgrade` (a release may not lose provenance compared with an earlier one), `blockExoticSubdeps` (git/tarball sources only for direct dependencies) and `strictDepBuilds` (an unreviewed build script fails the install; `allowBuilds` records the decisions). Three backport releases that trip the trust check are excluded by exact version in `trustPolicyExclude`.
+- **Why:** pnpm re-checks every lockfile entry against these policies on each install, so they also guard `--frozen-lockfile` in CI and in the image, not only the moment someone adds a package.
+- **Consequences:** a lockfile that contains a version younger than a day fails to install until it ages (or is listed in `minimumReleaseAgeExclude` for an urgent security fix). `tailwind-merge` stays on 2.x because it is the line for Tailwind 3; Dependabot will keep proposing 3.x until Tailwind 4 is adopted.

@@ -34,6 +34,7 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D26 | Patrones de accesibilidad: anuncios en vivo, diálogos propios, manejo del foco | Aceptada |
 | D27 | Límites del servidor y apagado ordenado | Aceptada |
 | D28 | Acciones de CI e imágenes base fijadas; go-redis v9 | Aceptada |
+| D29 | Política de cadena de suministro para la instalación del frontend | Aceptada |
 
 ---
 
@@ -202,7 +203,7 @@ sequenceDiagram
 ## D22. pnpm como gestor de paquetes del frontend
 
 - **Contexto:** el gestor de paquetes del frontend era un runtime aparte usado solo para instalar y ejecutar scripts, mientras que la aplicación corre sobre Node (Next.js, el contenedor, Vitest): una cosa más que instalar en local, en el CI y en la imagen.
-- **Decisión:** pnpm, fijado con `packageManager` en `package.json` (así Corepack, `pnpm/action-setup` y el Dockerfile usan la misma versión). Lockfile `pnpm-lock.yaml`; el script de instalación de `unrs-resolver` se rechaza de forma explícita (`pnpm-workspace.yaml`), porque trae binarios precompilados. El CI, el escaneo de seguridad y la construcción de la imagen instalan con `--frozen-lockfile` sobre Node 22; Dependabot usa el ecosistema `npm`, que lee los lockfiles de pnpm.
+- **Decisión:** pnpm, fijado con `packageManager` en `package.json` (así Corepack, `pnpm/action-setup` y el Dockerfile usan la misma versión). Lockfile `pnpm-lock.yaml`; el script de instalación de `unrs-resolver` se rechaza de forma explícita (`pnpm-workspace.yaml`), porque trae binarios precompilados. El CI, el escaneo de seguridad y la construcción de la imagen instalan con `--frozen-lockfile` sobre Node 24 (`engines` exige 24.15 o superior); Dependabot usa el ecosistema `npm`, que lee los lockfiles de pnpm.
 - **Por qué:** un solo runtime (Node) en todas partes, un `node_modules` estricto que revela dependencias no declaradas, un almacén por contenido y `pnpm audit` para el escaneo de seguridad.
 - **Consecuencias:** la imagen solo necesita Node. Todos necesitan pnpm en local (`corepack enable` en Node anterior a 25, si no `npm i -g pnpm`).
 
@@ -244,3 +245,9 @@ sequenceDiagram
 - **Decisión:** las acciones se fijan por SHA de commit y las bases de los Dockerfile por etiqueta y digest (Dependabot mantiene ambos al día, agrupado por semana y con 7 días de espera); Postgres 16 y Redis 8 llevan solo la etiqueta mayor en todas partes y Dependabot ignora sus mayores. La directiva `go` lleva el parche (1.27.3) para que el entorno local, el CI y la imagen compartan toolchain, y un builder desactualizado rompe la construcción (`GOTOOLCHAIN=local`). Redis usa `github.com/redis/go-redis/v9` con `ContextTimeoutEnabled` activado (v9, si no, ignora los plazos del contexto en la E/S del socket, lo que anularía el límite de 2 s de D24; un test lo protege) y las notificaciones de mantenimiento desactivadas.
 - **Alternativas:** imágenes solo con etiqueta (construcciones no reproducibles, cachés locales viejas sin aviso); digest también en Postgres/Redis (ruido semanal por servicios de desarrollo); quedarse en v8 (sin correcciones ni versiones de seguridad).
 - **Consecuencias:** subir el minor de Go es un cambio manual en cuatro sitios (ver [CI/CD](ci-cd.md)); `govulncheck` se fija a mano; el CI ahora también ejecuta los tests de presencia con Redis; go-redis v9 usa RESP3 y un timeout de lectura por defecto de 5 s (v8: 3 s).
+
+## D29. Política de cadena de suministro para la instalación del frontend
+
+- **Decisión:** `frontend/pnpm-workspace.yaml` fija `minimumReleaseAge: 1440` (una versión debe tener un día), `trustPolicy: no-downgrade` (una versión no puede perder la procedencia respecto a una anterior), `blockExoticSubdeps` (fuentes git/tarball solo para dependencias directas) y `strictDepBuilds` (un script de build sin revisar rompe la instalación; `allowBuilds` guarda las decisiones). Tres versiones de ramas antiguas que no pasan la comprobación de confianza se excluyen por versión exacta en `trustPolicyExclude`.
+- **Por qué:** pnpm vuelve a comprobar cada entrada del lockfile contra estas políticas en cada instalación, así que también protegen `--frozen-lockfile` en el CI y en la imagen, no solo cuando alguien añade un paquete.
+- **Consecuencias:** un lockfile con una versión de menos de un día no se instala hasta que envejezca (o se lista en `minimumReleaseAgeExclude` para un arreglo de seguridad urgente). `tailwind-merge` se queda en 2.x porque es la rama para Tailwind 3; Dependabot seguirá proponiendo la 3.x hasta adoptar Tailwind 4.

@@ -27,7 +27,7 @@ Convención de nombres: `<proyecto>-<servicio>` en minúsculas con guiones; vol�
 ## Requisitos
 
 - Go 1.27.3 o superior
-- Node 22+ y pnpm (la versión está fijada en `package.json`; `corepack enable` o `npm i -g pnpm`) para el frontend
+- Node 24+ y pnpm (la versión está fijada en `package.json`; `corepack enable` o `npm i -g pnpm`) para el frontend
 - Docker y Docker Compose
 - Make
 - `air` (recarga automática del backend). `make watch` ofrece instalarlo; también: `go install github.com/air-verse/air@latest` (asegúrate de tener `~/go/bin` en el `PATH`).
