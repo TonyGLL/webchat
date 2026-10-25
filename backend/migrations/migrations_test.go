@@ -45,6 +45,13 @@ func TestUpOnEmptyDatabase(t *testing.T) {
 		}
 	}
 
+	for _, index := range []string{"idx_users_directory_order", "idx_room_members_room_joined"} {
+		var exists bool
+		if err := db.QueryRow(`SELECT to_regclass('public.' || $1) IS NOT NULL`, index).Scan(&exists); err != nil || !exists {
+			t.Errorf("index %s missing after migrations (err=%v)", index, err)
+		}
+	}
+
 	checkIdentityMigrationRefusesDuplicates(t, db)
 }
 

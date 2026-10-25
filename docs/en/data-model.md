@@ -108,6 +108,8 @@ erDiagram
 | `messages USING GIN (to_tsvector('simple', content))` | search |
 | `invites (room_id, expires_at)` | active invitations |
 | `audit_log (room_id, created_at DESC)` | per-room audit view |
+| `users (name, username) WHERE deleted = FALSE` | directory default listing (empty query), migration 16 |
+| `room_members (room_id, joined_at, user_id)` | member list order, migration 16 |
 
 ## Migration history
 
@@ -123,5 +125,6 @@ erDiagram
 | 9 | One report per person per message |
 | 10 | Account deletion support |
 | 11 | Invitations addressed to a user (`room_invitations`) |
+| 16 | Performance indexes: directory ordering and member list order |
 
 Rule: never edit an applied migration. Add a new numbered pair of `.up.sql` and `.down.sql` files.
