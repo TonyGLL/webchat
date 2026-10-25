@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
 
 	auth_domain "backend/internal/auth/domain"
@@ -24,8 +25,8 @@ func (f *fakeUsers) ListDirectory(context.Context, int, string, int) ([]*domain.
 func (f *fakeUsers) ListDirectoryByIDs(context.Context, int, string, []int, int) ([]*domain.DirectoryEntry, error) {
 	return nil, nil
 }
-func (f *fakeUsers) ExportAccount(context.Context, int) (*domain.AccountExport, error) {
-	return &domain.AccountExport{}, nil
+func (f *fakeUsers) ExportAccount(context.Context, int, io.Writer) error {
+	return nil
 }
 func (f *fakeUsers) DeleteAccount(_ context.Context, id int) error {
 	f.deleted = append(f.deleted, id)

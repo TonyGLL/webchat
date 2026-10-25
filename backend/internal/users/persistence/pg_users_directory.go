@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/lib/pq"
@@ -17,7 +18,9 @@ var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 const directorySelect = `
 	SELECT id, username, name, last_name, avatar_url
 	FROM users
-	WHERE deleted = FALSE AND id <> $1
+	WHERE deleted = FALSE AND id <> $1`
+
+const directoryLike = `
 	  AND lower(username || ' ' || name || ' ' || COALESCE(last_name, '')) LIKE lower($2)`
 
 const directoryOrder = ` ORDER BY name, username`
@@ -26,8 +29,19 @@ func directoryPattern(q string) string {
 	return "%" + likeEscaper.Replace(strings.TrimSpace(q)) + "%"
 }
 
+// directoryFilter returns the LIKE clause and its argument; an empty q matches everybody, so the
+// clause is dropped and the ordered partial index (migration 000016) serves the default listing.
+func directoryFilter(q string) (clause string, args []any) {
+	if strings.TrimSpace(q) == "" {
+		return "", nil
+	}
+	return directoryLike, []any{directoryPattern(q)}
+}
+
 func (r *PgUsersRepository) ListDirectory(ctx context.Context, selfID int, q string, limit int) ([]*domain.DirectoryEntry, error) {
-	return r.queryDirectory(ctx, directorySelect+directoryOrder+` LIMIT $3`, selfID, directoryPattern(q), limit)
+	clause, args := directoryFilter(q)
+	args = append([]any{selfID}, append(args, limit)...)
+	return r.queryDirectory(ctx, directorySelect+clause+directoryOrder+fmt.Sprintf(` LIMIT $%d`, len(args)), args...)
 }
 
 func (r *PgUsersRepository) ListDirectoryByIDs(ctx context.Context, selfID int, q string, ids []int, limit int) ([]*domain.DirectoryEntry, error) {
@@ -38,8 +52,10 @@ func (r *PgUsersRepository) ListDirectoryByIDs(ctx context.Context, selfID int, 
 	for i, id := range ids {
 		arr[i] = int64(id)
 	}
-	return r.queryDirectory(ctx, directorySelect+` AND id = ANY($3)`+directoryOrder+` LIMIT $4`,
-		selfID, directoryPattern(q), pq.Array(arr), limit)
+	clause, args := directoryFilter(q)
+	args = append([]any{selfID}, append(args, pq.Array(arr), limit)...)
+	n := len(args)
+	return r.queryDirectory(ctx, directorySelect+clause+fmt.Sprintf(` AND id = ANY($%d)`, n-1)+directoryOrder+fmt.Sprintf(` LIMIT $%d`, n), args...)
 }
 
 func (r *PgUsersRepository) queryDirectory(ctx context.Context, query string, args ...any) ([]*domain.DirectoryEntry, error) {

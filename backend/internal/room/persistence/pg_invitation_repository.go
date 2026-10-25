@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 
 	"backend/internal/room/domain"
 	"backend/internal/shared/infra/db"
@@ -18,6 +19,9 @@ type PgInvitationRepository struct {
 func NewPgInvitationRepository(dbtx db.DBTX) domain.InvitationRepository {
 	return &PgInvitationRepository{db: dbtx}
 }
+
+// maxPendingInvitations bounds the pending list so a flood of invitations cannot make it unbounded.
+const maxPendingInvitations = 100
 
 const invitationSelect = `
 	SELECT i.id, i.room_id, r.name, i.inviter_id, u.name || COALESCE(' ' || u.last_name, ''), i.invitee_id, i.created_at
@@ -48,7 +52,7 @@ func (r *PgInvitationRepository) Create(ctx context.Context, roomID uuid.UUID, i
 }
 
 func (r *PgInvitationRepository) ListPending(ctx context.Context, userID int) ([]*domain.Invitation, error) {
-	rows, err := r.db.QueryContext(ctx, invitationSelect+` WHERE i.invitee_id = $1 AND i.status = 'pending' ORDER BY i.created_at DESC`, userID)
+	rows, err := r.db.QueryContext(ctx, invitationSelect+` WHERE i.invitee_id = $1 AND i.status = 'pending' ORDER BY i.created_at DESC LIMIT `+strconv.Itoa(maxPendingInvitations), userID)
 	if err != nil {
 		return nil, err
 	}

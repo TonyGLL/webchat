@@ -38,13 +38,19 @@ func (r *PgRoomMemberRepository) FindMember(ctx context.Context, roomID uuid.UUI
 	return member, nil
 }
 
+// MarkRead stamps last_read_at, but skips the write when it was stamped less than 2 s ago (BP-5):
+// every viewer of a busy room sends one mark per incoming message and each write is a new row
+// version. The member check is separate from the UPDATE so a throttled call still reports true.
 func (r *PgRoomMemberRepository) MarkRead(ctx context.Context, roomID uuid.UUID, userID int) (bool, error) {
-	res, err := r.db.ExecContext(ctx, `UPDATE room_members SET last_read_at = NOW() WHERE room_id = $1 AND user_id = $2`, roomID, userID)
-	if err != nil {
-		return false, err
-	}
-	n, err := res.RowsAffected()
-	return n > 0, err
+	var isMember bool
+	err := r.db.QueryRowContext(ctx, `
+		WITH touched AS (
+			UPDATE room_members SET last_read_at = NOW()
+			WHERE room_id = $1 AND user_id = $2 AND last_read_at < NOW() - interval '2 seconds'
+			RETURNING 1
+		)
+		SELECT EXISTS (SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2)`, roomID, userID).Scan(&isMember)
+	return isMember, err
 }
 
 func (r *PgRoomMemberRepository) RemoveMember(ctx context.Context, roomID uuid.UUID, userID int) error {

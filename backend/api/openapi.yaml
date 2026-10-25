@@ -114,7 +114,7 @@ paths:
       tags: [Health]
       operationId: getReady
       summary: Readiness
-      description: Pings PostgreSQL and Redis. `503` when any dependency does not answer.
+      description: Pings PostgreSQL and Redis. `503` when any dependency does not answer, and from the moment shutdown starts.
       security: []
       servers:
         - url: http://localhost:8081
@@ -125,7 +125,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Readiness" }
         "503":
-          description: At least one dependency is unavailable.
+          description: At least one dependency is unavailable, or the instance has started shutting down (so load balancers stop routing to it).
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Readiness" }
@@ -403,7 +403,7 @@ paths:
       tags: [Users]
       operationId: exportAccount
       summary: Export my data
-      description: A JSON document with the user's profile, rooms, messages, reactions and reports filed. Limited to 5 per hour.
+      description: A JSON document with the user's profile, rooms, messages, reactions and reports filed, streamed row by row. Limited to 5 per hour.
       responses:
         "200":
           description: The export.
@@ -782,7 +782,7 @@ paths:
       tags: [Messages]
       operationId: searchMessages
       summary: Search messages
-      description: Full-text, accent-insensitive search restricted to rooms the user belongs to. Limited to 60 per minute.
+      description: Full-text, accent-insensitive search restricted to rooms the user belongs to. Limited to 60 per minute. Each search has a 2 s budget and an instance runs at most 4 at once; beyond either the answer is `503` with a `Retry-After` header (narrow the search or retry later).
       parameters:
         - name: q
           in: query
@@ -806,6 +806,15 @@ paths:
                 items: { $ref: "#/components/schemas/Message" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "429": { $ref: "#/components/responses/RateLimited" }
+        "503":
+          description: The search is too broad (over 2 s) or this instance is already running the maximum of concurrent searches. Retry later or narrow the query.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /messages/{roomId}/messages:
     get:

@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"io"
 
 	auth_domain "backend/internal/auth/domain"
 	shared_domain "backend/internal/shared/domain"
@@ -17,8 +18,8 @@ func NewExportAccountUseCase(usersRepo domain.UsersRepository) *ExportAccountUse
 	return &ExportAccountUseCase{usersRepo: usersRepo}
 }
 
-func (uc *ExportAccountUseCase) Execute(ctx context.Context, userID int) (*domain.AccountExport, error) {
-	return uc.usersRepo.ExportAccount(ctx, userID)
+func (uc *ExportAccountUseCase) Execute(ctx context.Context, userID int, w io.Writer) error {
+	return uc.usersRepo.ExportAccount(ctx, userID, w)
 }
 
 // Realtime lets account deletion cut the user's open websocket connections.
