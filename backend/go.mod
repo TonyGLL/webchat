@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	github.com/gin-contrib/cors v1.7.9
+	github.com/gin-contrib/gzip v1.2.8
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/validator/v10 v10.30.5
 	github.com/goccy/go-yaml v1.19.2
