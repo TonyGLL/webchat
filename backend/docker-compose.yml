@@ -20,7 +20,7 @@ services:
       - PORT=8081
 
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine  # keep the major: a new one is a data migration
     container_name: webchat-db
     restart: unless-stopped
     environment:
@@ -33,7 +33,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
-    image: redis:alpine
+    image: redis:8-alpine
     container_name: webchat-redis
     environment:
       - REDIS_PASSWORD=s3cr3tP@ss

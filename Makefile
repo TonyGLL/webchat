@@ -86,7 +86,7 @@ test-integration: ## Backend tests against a throwaway Postgres and Redis (migra
 	@docker rm -f webchat-it-pg webchat-it-redis >/dev/null 2>&1; \
 	docker run -d --rm --name webchat-it-pg -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=ci \
 	  -p 127.0.0.1:$(IT_PG_PORT):5432 postgres:16-alpine >/dev/null && \
-	docker run -d --rm --name webchat-it-redis -p 127.0.0.1:$(IT_REDIS_PORT):6379 redis:7-alpine >/dev/null && \
+	docker run -d --rm --name webchat-it-redis -p 127.0.0.1:$(IT_REDIS_PORT):6379 redis:8-alpine >/dev/null && \
 	until docker exec webchat-it-pg pg_isready -U postgres -d ci >/dev/null 2>&1; do sleep 1; done; \
 	( cd $(BACKEND) && \
 	  TEST_DATABASE_URL='postgres://postgres:ci@127.0.0.1:$(IT_PG_PORT)/ci?sslmode=disable' \
