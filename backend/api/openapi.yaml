@@ -195,7 +195,9 @@ paths:
       summary: Renew the session
       description: |
         Consumes the refresh token (single use) and issues a new access token and a new refresh
-        cookie. Reusing a refresh token fails.
+        cookie. A repeat inside a 30 s grace returns the same successor (concurrent tabs); presenting
+        an already-rotated token after the grace revokes the whole session family. A login lasts
+        at most 30 days however active it is.
       security:
         - refreshCookie: []
       responses:

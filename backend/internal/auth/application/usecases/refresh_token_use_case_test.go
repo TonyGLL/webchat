@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -26,10 +27,63 @@ type fakeTokens struct {
 	expires   map[string]time.Time
 	users     map[string]int
 	revokedAt time.Time
+	// rotation state: family -> current token id, rotated token id -> successor id.
+	family  map[string]string
+	rotated map[string]string
+	// exclusive holds the per-user pointer used by StoreExclusiveToken.
+	exclusive map[int]string
 }
 
 func newFakeTokens() *fakeTokens {
-	return &fakeTokens{now: time.Now(), expires: map[string]time.Time{}, users: map[string]int{}}
+	return &fakeTokens{now: time.Now(), expires: map[string]time.Time{}, users: map[string]int{},
+		family: map[string]string{}, rotated: map[string]string{}, exclusive: map[int]string{}}
+}
+
+func (f *fakeTokens) ConsumeToken(ctx context.Context, key, id string) (int, error) {
+	uid, err := f.GetToken(ctx, key, id)
+	if err != nil {
+		return 0, err
+	}
+	delete(f.expires, id)
+	return uid, nil
+}
+
+func (f *fakeTokens) StoreExclusiveToken(ctx context.Context, userID int, id, key string, ttl time.Duration) error {
+	if old, ok := f.exclusive[userID]; ok {
+		delete(f.expires, old)
+	}
+	f.exclusive[userID] = id
+	return f.StoreToken(ctx, userID, id, key, ttl)
+}
+
+// RotateRefreshToken mirrors the Redis script (see redis_token_repository.go).
+func (f *fakeTokens) RotateRefreshToken(ctx context.Context, r domain.RotateRequest) (domain.RotateOutcome, string, error) {
+	current, hasFamily := f.family[r.Family]
+	if !r.Legacy && !hasFamily {
+		return domain.RotateInvalid, "", nil
+	}
+	uid, err := f.GetToken(ctx, "refresh_token", r.PresentedID)
+	if err != nil {
+		if _, was := f.rotated[r.PresentedID]; was {
+			delete(f.family, r.Family)
+			return domain.RotateReuse, "", nil
+		}
+		return domain.RotateInvalid, "", nil
+	}
+	if uid != r.UserID {
+		return domain.RotateInvalid, "", nil
+	}
+	if succ, ok := f.rotated[r.PresentedID]; ok {
+		return domain.RotateReplay, succ, nil
+	}
+	if hasFamily && current != r.PresentedID {
+		return domain.RotateInvalid, "", nil
+	}
+	f.rotated[r.PresentedID] = r.NewID
+	f.expires[r.PresentedID] = f.now.Add(r.Grace)
+	f.expires[r.NewID], f.users[r.NewID] = f.now.Add(r.TTL), r.UserID
+	f.family[r.Family] = r.NewID
+	return domain.RotateOK, "", nil
 }
 
 func (f *fakeTokens) StoreToken(_ context.Context, userID int, id, _ string, ttl time.Duration) error {
@@ -61,9 +115,15 @@ func (fakeJWT) GenerateToken(int, time.Duration) (string, error) { return "acces
 func (fakeJWT) GenerateRefreshToken(_ int, id string, _ time.Duration) (string, error) {
 	return "refresh:" + id, nil
 }
+func (fakeJWT) GenerateRefreshTokenInFamily(_ int, id, family string, start time.Time, _ time.Duration) (string, error) {
+	return "refresh:" + id + "@" + family + "@" + strconv.FormatInt(start.Unix(), 10), nil
+}
 
-// ParseToken stamps every token as issued at the Unix epoch plus one second, i.e. long before
-// any revocation moment the tests create.
+// tokenIssuedAt is the fake issue time of every refresh token: before any clock the tests use.
+var tokenIssuedAt = time.Now().Add(-time.Hour)
+
+// ParseToken stamps every token as issued an hour before the tests start, i.e. before any
+// revocation moment they create.
 func (fakeJWT) ParseToken(token string) (*domain.CustomClaims, error) {
 	if strings.HasPrefix(token, "access") {
 		return &domain.CustomClaims{UserID: 7, Type: domain.TokenTypeAccess}, nil
@@ -77,19 +137,26 @@ func (fakeJWT) ParseToken(token string) (*domain.CustomClaims, error) {
 	if strings.HasPrefix(token, "legacy:") {
 		return &domain.CustomClaims{UserID: 7, RegisteredClaims: jwt.RegisteredClaims{
 			ID:       token[len("legacy:"):],
-			IssuedAt: jwt.NewNumericDate(time.Unix(1, 0)),
+			IssuedAt: jwt.NewNumericDate(tokenIssuedAt),
 		}}, nil
 	}
-	return &domain.CustomClaims{UserID: 7, Type: domain.TokenTypeRefresh, RegisteredClaims: jwt.RegisteredClaims{
+	claims := &domain.CustomClaims{UserID: 7, Type: domain.TokenTypeRefresh, RegisteredClaims: jwt.RegisteredClaims{
 		ID:       token[len("refresh:"):],
-		IssuedAt: jwt.NewNumericDate(time.Unix(1, 0)),
-	}}, nil
+		IssuedAt: jwt.NewNumericDate(tokenIssuedAt),
+	}}
+	if parts := strings.Split(claims.ID, "@"); len(parts) == 3 {
+		claims.ID, claims.Family = parts[0], parts[1]
+		claims.SessionStart, _ = strconv.ParseInt(parts[2], 10, 64)
+	}
+	return claims, nil
 }
 
 func newRefreshFixture() (*RefreshTokenUseCase, *fakeTokens, string) {
 	tokens := newFakeTokens()
 	_ = tokens.StoreToken(context.Background(), 7, "first", "refresh_token", RefreshTokenDuration)
-	return NewRefreshTokenUseCase(fakeAuthRepo{}, tokens, fakeJWT{}), tokens, "refresh:first"
+	uc := NewRefreshTokenUseCase(fakeAuthRepo{}, tokens, fakeJWT{})
+	uc.now = func() time.Time { return tokens.now }
+	return uc, tokens, "refresh:first"
 }
 
 func TestRefreshRotatesAndSlidesTheWindow(t *testing.T) {
@@ -160,5 +227,106 @@ func TestRefreshStillRejectsUntypedAndVerifyTokensWithoutAStoredJti(t *testing.T
 		if _, err := uc.Execute(context.Background(), dtos.RefreshTokenInputDTO{RefreshToken: token}); err != shared_domain.ErrInvalidToken {
 			t.Fatalf("%s must be rejected, got %v", token, err)
 		}
+	}
+}
+
+func refresh(uc *RefreshTokenUseCase, token string) (*dtos.AuthResponseDTO, error) {
+	return uc.Execute(context.Background(), dtos.RefreshTokenInputDTO{RefreshToken: token})
+}
+
+// Two tabs replaying the same token inside the grace must land on one chain, not fork it.
+func TestRefreshReplayInsideGraceReturnsTheSameSuccessor(t *testing.T) {
+	uc, tokens, first := newRefreshFixture()
+	a, err := refresh(uc, first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokens.now = tokens.now.Add(20 * time.Second)
+	b, err := refresh(uc, first)
+	if err != nil {
+		t.Fatalf("replay inside the grace: %v", err)
+	}
+	idOf := func(tok string) string { return strings.SplitN(strings.TrimPrefix(tok, "refresh:"), "@", 2)[0] }
+	if idOf(a.RefreshToken) != idOf(b.RefreshToken) {
+		t.Fatalf("a replay must hand back the same successor: %q vs %q", a.RefreshToken, b.RefreshToken)
+	}
+	// Replaying every 20 s must not keep the old token alive: the grace is not re-armed.
+	tokens.now = tokens.now.Add(20 * time.Second)
+	if _, err := refresh(uc, first); err != shared_domain.ErrInvalidToken {
+		t.Fatalf("the grace must not slide with replays, got %v", err)
+	}
+}
+
+// A rotated token coming back after the grace means a copy leaked: the family dies, including
+// the token the legitimate client holds now.
+func TestRefreshReuseAfterGraceRevokesTheFamily(t *testing.T) {
+	uc, tokens, first := newRefreshFixture()
+	victim, err := refresh(uc, first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokens.now = tokens.now.Add(RefreshReuseGrace + time.Second)
+	if _, err := refresh(uc, first); err != shared_domain.ErrInvalidToken {
+		t.Fatalf("reuse after the grace must be refused, got %v", err)
+	}
+	if _, err := refresh(uc, victim.RefreshToken); err != shared_domain.ErrInvalidToken {
+		t.Fatalf("the whole family must be revoked, got %v", err)
+	}
+}
+
+func TestRefreshChainKeepsWorkingAcrossRotations(t *testing.T) {
+	uc, tokens, tok := newRefreshFixture()
+	for i := 0; i < 5; i++ {
+		tokens.now = tokens.now.Add(time.Hour)
+		session, err := refresh(uc, tok)
+		if err != nil {
+			t.Fatalf("rotation %d: %v", i, err)
+		}
+		tok = session.RefreshToken
+	}
+}
+
+func TestRefreshSessionHasAnAbsoluteMaximumAge(t *testing.T) {
+	uc, tokens, tok := newRefreshFixture()
+	var lastErr error
+	days := 0
+	// Active every 5 days: the 7-day window would slide forever without the absolute limit.
+	for ; days < 60; days += 5 {
+		tokens.now = tokens.now.Add(5 * 24 * time.Hour)
+		session, err := refresh(uc, tok)
+		if err != nil {
+			lastErr = err
+			break
+		}
+		tok = session.RefreshToken
+	}
+	if lastErr != shared_domain.ErrInvalidToken {
+		t.Fatalf("the session must end at the maximum age, got %v", lastErr)
+	}
+	if days < 25 || days > 35 {
+		t.Fatalf("the session ended after %d days, want about %d", days, int(MaxSessionAge.Hours()/24))
+	}
+}
+
+// Revocation and a token minted in the same second: the token must lose.
+func TestRefreshRejectsTokensIssuedInTheSecondOfTheRevocation(t *testing.T) {
+	uc, tokens, first := newRefreshFixture()
+	tokens.revokedAt = tokenIssuedAt
+	if _, err := refresh(uc, first); err != shared_domain.ErrInvalidToken {
+		t.Fatalf("issued at the revocation instant must be refused, got %v", err)
+	}
+}
+
+func TestLogoutCutsTheUsersSockets(t *testing.T) {
+	_, tokens, first := newRefreshFixture()
+	rt := &fakeRealtime{}
+	if err := NewLogoutUseCase(tokens, fakeJWT{}, rt).Execute(context.Background(), first); err != nil {
+		t.Fatal(err)
+	}
+	if len(rt.disconnected) != 1 || rt.disconnected[0] != 7 {
+		t.Fatalf("logout must cut the user's sockets, got %v", rt.disconnected)
+	}
+	if err := NewLogoutUseCase(tokens, fakeJWT{}, rt).Execute(context.Background(), "garbage-not-parsed"); err != nil {
+		t.Fatal(err)
 	}
 }

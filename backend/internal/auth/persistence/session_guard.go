@@ -53,7 +53,7 @@ func (g *SessionGuard) Valid(ctx context.Context, userID int, issuedAt time.Time
 	cancel()
 	if err != nil {
 		log.Printf("session guard: revocation lookup failed, allowing: %v", err)
-	} else if !revokedAt.IsZero() && issuedAt.Before(revokedAt) {
+	} else if !revokedAt.IsZero() && !issuedAt.After(revokedAt) {
 		return false
 	}
 	return g.isActive(ctx, userID)

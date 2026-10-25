@@ -35,7 +35,7 @@ func RegisterModule(
 	refreshTokenUseCase := usecases.NewRefreshTokenUseCase(authRepository, tokenRepository, jwtService)
 	verifyEmailUseCase := usecases.NewVerifyEmailUseCase(authRepository, tokenRepository, jwtService, mailerService)
 
-	logoutUseCase := usecases.NewLogoutUseCase(tokenRepository, jwtService)
+	logoutUseCase := usecases.NewLogoutUseCase(tokenRepository, jwtService, realtime)
 	requestPasswordResetUseCase := usecases.NewRequestPasswordResetUseCase(authRepository, tokenRepository, mailerService, frontendURL)
 	resetPasswordUseCase := usecases.NewResetPasswordUseCase(authRepository, tokenRepository, passwordService, realtime)
 
