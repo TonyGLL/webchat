@@ -41,6 +41,14 @@ func TestGuardRejectsTokensIssuedBeforeRevocation(t *testing.T) {
 	}
 }
 
+func TestGuardRejectsTokensIssuedInTheSecondOfTheRevocation(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	g := NewSessionGuard(stubTokens{revokedAt: now}, &stubActive{active: true})
+	if g.Valid(context.Background(), 1, now) {
+		t.Fatal("a token issued in the same second as the revocation must be rejected")
+	}
+}
+
 func TestGuardRejectsDeactivatedAccountsAndCaches(t *testing.T) {
 	users := &stubActive{active: false}
 	g := NewSessionGuard(stubTokens{}, users)

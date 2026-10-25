@@ -89,7 +89,7 @@ func (uc *RequestPasswordResetUseCase) Execute(ctx context.Context, email string
 	if err != nil {
 		return err
 	}
-	if err := uc.tokenRepo.StoreToken(ctx, user.ID, hashResetToken(token), passwordResetKey, PasswordResetTTL); err != nil {
+	if err := uc.tokenRepo.StoreExclusiveToken(ctx, user.ID, hashResetToken(token), passwordResetKey, PasswordResetTTL); err != nil {
 		return err
 	}
 
@@ -98,9 +98,9 @@ func (uc *RequestPasswordResetUseCase) Execute(ctx context.Context, email string
 	message := shared_app.Message{
 		To:      []string{user.Email},
 		Subject: "Restablecer contraseña / Reset your password",
-		Body: "Hola " + user.Name + ",\n\nPara elegir una contraseña nueva abre este enlace (válido " + strconv.Itoa(minutes) + " minutos, un solo uso):\n" + link +
+		Body: "Hola,\n\nPara elegir una contraseña nueva abre este enlace (válido " + strconv.Itoa(minutes) + " minutos, un solo uso):\n" + link +
 			"\n\nSi no lo pediste, ignora este mensaje: tu contraseña no cambia.\n\n---\n\n" +
-			"Hi " + user.Name + ",\n\nTo choose a new password open this link (valid for " + strconv.Itoa(minutes) + " minutes, single use):\n" + link +
+			"Hi,\n\nTo choose a new password open this link (valid for " + strconv.Itoa(minutes) + " minutes, single use):\n" + link +
 			"\n\nIf you did not ask for this, ignore this message: your password stays the same.",
 	}
 	uc.dispatch(func() {
@@ -145,6 +145,7 @@ func NewResetPasswordUseCase(authRepo domain.AuthRepository, tokenRepo domain.To
 
 func (uc *ResetPasswordUseCase) Execute(ctx context.Context, token, newPassword string) error {
 	tokenID := hashResetToken(token)
+	// Peek first: a refused password must leave the link usable.
 	userID, err := uc.tokenRepo.GetToken(ctx, passwordResetKey, tokenID)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
@@ -168,11 +169,16 @@ func (uc *ResetPasswordUseCase) Execute(ctx context.Context, token, newPassword 
 	if err != nil {
 		return err
 	}
-	if err := uc.authRepo.UpdatePassword(ctx, userID, hashed); err != nil {
+	// Burn the link atomically before changing anything: of two concurrent redemptions only one
+	// gets past this point. (If the update below then fails, the person asks for a new link.)
+	if _, err := uc.tokenRepo.ConsumeToken(ctx, passwordResetKey, tokenID); err != nil {
+		if errors.Is(err, shared_domain.ErrNotFound) {
+			return shared_domain.ErrInvalidToken
+		}
 		return err
 	}
-	if err := uc.tokenRepo.DeleteToken(ctx, passwordResetKey, tokenID); err != nil {
-		log.Printf("failed to burn password reset token: %v", err)
+	if err := uc.authRepo.UpdatePassword(ctx, userID, hashed); err != nil {
+		return err
 	}
 	// Whoever had the old password (or a stolen session) is signed out everywhere.
 	if err := uc.tokenRepo.RevokeUserSessions(ctx, userID, RefreshTokenDuration); err != nil {

@@ -7,19 +7,26 @@ import (
 	shared_domain "backend/internal/shared/domain"
 	"context"
 	"errors"
-	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-// RefreshReuseGrace is how long a refresh token keeps working after it has been exchanged.
+// RefreshReuseGrace is how long a refresh token keeps working after it has been exchanged. Within
+// it a replay gets the very same successor back, so two tabs (or a response lost on the network)
+// never fork the session into two chains.
 const RefreshReuseGrace = 30 * time.Second
+
+// MaxSessionAge is the absolute lifetime of a login. Renewals slide the 7-day window but never
+// past this limit, so a stolen session cannot be kept alive forever.
+const MaxSessionAge = 30 * 24 * time.Hour
 
 type RefreshTokenUseCase struct {
 	authRepo   domain.AuthRepository
 	tokenRepo  domain.TokenRepository
 	jwtService shared_app.JwtService
+	now        func() time.Time
 }
 
 func NewRefreshTokenUseCase(
@@ -31,6 +38,7 @@ func NewRefreshTokenUseCase(
 		authRepo:   authRepo,
 		tokenRepo:  tokenRepo,
 		jwtService: jwtService,
+		now:        time.Now,
 	}
 }
 
@@ -42,66 +50,82 @@ func (uc *RefreshTokenUseCase) Execute(ctx context.Context, input dtos.RefreshTo
 	}
 
 	// A password reset ends every session that started before it, even though those tokens are
-	// otherwise still valid.
+	// otherwise still valid. Equal seconds count as revoked: tokens only carry whole seconds.
 	revokedAt, err := uc.tokenRepo.SessionsRevokedAt(ctx, claims.UserID)
 	if err != nil {
 		return nil, err
 	}
-	if !revokedAt.IsZero() && claims.IssuedAt != nil && claims.IssuedAt.Time.Before(revokedAt) {
+	if !revokedAt.IsZero() && claims.IssuedAt != nil && !claims.IssuedAt.Time.After(revokedAt) {
 		return nil, shared_domain.ErrInvalidToken
 	}
 
-	// 2. Verify the token exists in our store (Redis)
-	storedUserID, err := uc.tokenRepo.GetToken(ctx, "refresh_token", claims.ID)
-	if err != nil {
-		if errors.Is(err, shared_domain.ErrNotFound) {
-			return nil, shared_domain.ErrInvalidToken // Token not found or already used
+	// 2. Absolute session age. Legacy tokens (no session start) count from their own issue time.
+	sessionStart := time.Unix(claims.SessionStart, 0)
+	if claims.SessionStart == 0 {
+		if claims.IssuedAt == nil {
+			return nil, shared_domain.ErrInvalidToken
 		}
-		return nil, err
+		sessionStart = claims.IssuedAt.Time
 	}
-
-	// 3. Check if the user ID from the token matches the one in the store
-	if claims.UserID != storedUserID {
+	now := uc.now()
+	remaining := sessionStart.Add(MaxSessionAge).Sub(now)
+	if remaining <= 0 {
 		return nil, shared_domain.ErrInvalidToken
 	}
+	ttl := min(RefreshTokenDuration, remaining)
 
-	// 4. Retire the old refresh token. It is not deleted outright but left alive for a few
-	// seconds: two tabs restoring the session together, or a response lost on the network, would
-	// otherwise present an already-used token and sign the user out. After the grace period the
-	// token is dead, so a stolen copy is only useful for a moment.
-	if err := uc.tokenRepo.StoreToken(ctx, claims.UserID, claims.ID, "refresh_token", RefreshReuseGrace); err != nil {
-		// Log the error but continue, as the user should still get a new token
-		fmt.Printf("Warning: failed to retire old refresh token: %v\n", err)
-	}
-
-	// 5. Get user details to build the response
+	// 3. Get user details to build the response (before rotating: a vanished account must not
+	// leave a rotated chain behind).
 	user, err := uc.authRepo.GetUserByID(ctx, claims.UserID)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
-			// This case is unlikely if the token was valid, but handle it for safety.
 			return nil, shared_domain.ErrInvalidToken
 		}
 		return nil, err
 	}
 
-	// 6. Generate a new pair of tokens
+	// 4. Exchange the token for its successor, atomically. Tokens issued before families existed
+	// start theirs now, named after their own id.
+	family := claims.Family
+	legacy := family == ""
+	if legacy {
+		family = claims.ID
+	}
+	newRefreshTokenID := uuid.New().String()
+	outcome, successorID, err := uc.tokenRepo.RotateRefreshToken(ctx, domain.RotateRequest{
+		UserID:      claims.UserID,
+		Family:      family,
+		PresentedID: claims.ID,
+		NewID:       newRefreshTokenID,
+		Legacy:      legacy,
+		Grace:       RefreshReuseGrace,
+		TTL:         ttl,
+	})
+	if err != nil {
+		return nil, err
+	}
+	switch outcome {
+	case domain.RotateOK:
+	case domain.RotateReplay:
+		newRefreshTokenID = successorID // same successor as the first exchange
+	case domain.RotateReuse:
+		log.Printf("refresh token reuse detected for user %d: session family revoked", claims.UserID)
+		return nil, shared_domain.ErrInvalidToken
+	default:
+		return nil, shared_domain.ErrInvalidToken
+	}
+
+	// 5. Generate the new access token and the successor's JWT
 	newAccessToken, err := uc.jwtService.GenerateToken(user.ID, AccessTokenDuration)
 	if err != nil {
 		return nil, err
 	}
-
-	newRefreshTokenID := uuid.New().String()
-	newRefreshToken, err := uc.jwtService.GenerateRefreshToken(user.ID, newRefreshTokenID, RefreshTokenDuration)
+	newRefreshToken, err := uc.jwtService.GenerateRefreshTokenInFamily(user.ID, newRefreshTokenID, family, sessionStart, ttl)
 	if err != nil {
 		return nil, err
 	}
 
-	// 7. Store the new refresh token
-	if err := uc.tokenRepo.StoreToken(ctx, user.ID, newRefreshTokenID, "refresh_token", RefreshTokenDuration); err != nil {
-		return nil, err
-	}
-
-	// 8. Build and return the response
+	// 6. Build and return the response
 	userResponse := dtos.UserResponseDTO{
 		ID:       user.ID,
 		Name:     user.Name,

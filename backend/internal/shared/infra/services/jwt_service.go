@@ -76,6 +76,25 @@ func (s *JWTService) GenerateRefreshToken(userID int, tokenID string, ttl time.D
 	return token.SignedString(s.secret)
 }
 
+// GenerateRefreshTokenInFamily creates a refresh JWT that belongs to a rotation family.
+func (s *JWTService) GenerateRefreshTokenInFamily(userID int, tokenID, family string, sessionStart time.Time, ttl time.Duration) (string, error) {
+	now := time.Now()
+	claims := &domain.CustomClaims{
+		UserID:       userID,
+		Type:         domain.TokenTypeRefresh,
+		Family:       family,
+		SessionStart: sessionStart.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        tokenID,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+			Subject:   strconv.FormatInt(int64(userID), 10),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(s.secret)
+}
+
 // ParseToken validates a token string and returns the custom claims if valid.
 func (s *JWTService) ParseToken(tokenStr string) (*domain.CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &domain.CustomClaims{}, func(t *jwt.Token) (interface{}, error) {

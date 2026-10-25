@@ -82,7 +82,15 @@ type Hub struct {
 
 	// A map where keys are room IDs and values are the clients subscribed to that room.
 	rooms map[string]map[*Client]bool
+
+	// maxConnsPerUser caps open sockets per user; the oldest is closed to make room.
+	maxConnsPerUser int
+	// seq orders registrations so the oldest connection of a user can be found.
+	seq uint64
 }
+
+// DefaultMaxConnsPerUser is how many sockets one account may keep open (several tabs and devices).
+const DefaultMaxConnsPerUser = 8
 
 // NewHub creates a new Hub.
 func NewHub() *Hub {
@@ -93,6 +101,8 @@ func NewHub() *Hub {
 		clients:    make(map[*Client]bool),
 		users:      make(map[int]map[*Client]struct{}),
 		rooms:      make(map[string]map[*Client]bool),
+
+		maxConnsPerUser: DefaultMaxConnsPerUser,
 	}
 }
 
@@ -181,6 +191,18 @@ func (h *Hub) isRegistered(client *Client) bool {
 func (h *Hub) Register(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.seq++
+	client.seq = h.seq
+	// Make room for the new connection by closing the user's oldest ones.
+	for limit := h.maxConnsPerUser; limit > 0 && len(h.users[client.UserID]) >= limit; {
+		var oldest *Client
+		for c := range h.users[client.UserID] {
+			if oldest == nil || c.seq < oldest.seq {
+				oldest = c
+			}
+		}
+		h.removeClientLocked(oldest)
+	}
 	h.clients[client] = true
 	if h.users[client.UserID] == nil {
 		h.users[client.UserID] = make(map[*Client]struct{})
