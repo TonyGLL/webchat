@@ -98,18 +98,38 @@ func (ctrl *UsersController) ExportAccount(ctx *gin.Context) {
 		response.Error(ctx, http.StatusUnauthorized, err.Error())
 		return
 	}
-	export, err := ctrl.ExportAccountUseCase.Execute(ctx.Request.Context(), userID)
-	if err != nil {
+	// The document is streamed row by row; headers go out with the first byte so a failure
+	// before that (unknown user, DB down) can still answer with a proper JSON error.
+	w := &exportWriter{ctx: ctx}
+	if err := ctrl.ExportAccountUseCase.Execute(ctx.Request.Context(), userID, w); err != nil {
+		if w.started {
+			// Too late for a status code: the truncated body is invalid JSON, so the client notices.
+			log.Printf("account export interrupted: %v", err)
+			return
+		}
 		if errors.Is(err, shared_domain.ErrNotFound) {
 			response.Error(ctx, http.StatusNotFound, "User not found")
 			return
 		}
 		log.Printf("failed to export account: %v", err)
 		response.Error(ctx, http.StatusInternalServerError, "Failed to export data")
-		return
 	}
-	ctx.Header("Content-Disposition", `attachment; filename="webchat-my-data.json"`)
-	ctx.JSON(http.StatusOK, export)
+}
+
+// exportWriter sets the download headers right before the first byte is written.
+type exportWriter struct {
+	ctx     *gin.Context
+	started bool
+}
+
+func (w *exportWriter) Write(p []byte) (int, error) {
+	if !w.started {
+		w.started = true
+		w.ctx.Header("Content-Disposition", `attachment; filename="webchat-my-data.json"`)
+		w.ctx.Header("Content-Type", "application/json; charset=utf-8")
+		w.ctx.Status(http.StatusOK)
+	}
+	return w.ctx.Writer.Write(p)
 }
 
 type deleteAccountBody struct {

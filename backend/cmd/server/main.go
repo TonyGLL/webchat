@@ -166,7 +166,7 @@ func main() {
 		websocket.ServeWs(wsHub, wsUpgrader, wsTickets, roomListerAdapter, presence, sessionGuard, c)
 	})
 
-	http.RegisterHealthRoutes(server.Router, map[string]http.Pinger{
+	markDraining := http.RegisterHealthRoutes(server.Router, map[string]http.Pinger{
 		"database": http.PingFunc(database.PingContext),
 		"redis":    http.PingFunc(func(ctx context.Context) error { return redisClient.Ping(ctx).Err() }),
 	})
@@ -185,7 +185,7 @@ func main() {
 
 	// --- Start Server ---
 	// On SIGINT/SIGTERM: tell websocket clients to reconnect (close 1012), then drain HTTP.
-	if err := server.Run(ctx, wsHub.Shutdown); err != nil {
+	if err := server.Run(ctx, markDraining, wsHub.Shutdown); err != nil {
 		slog.Error("server stopped with an error", "error", err)
 		return // deferred closes run; os.Exit/log.Fatal would skip them
 	}

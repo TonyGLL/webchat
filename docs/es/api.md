@@ -25,7 +25,7 @@ flowchart LR
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/health` | Liveness. Siempre `200 {"status":"ok"}` *(público)* |
-| GET | `/ready` | Readiness. Comprueba la base de datos y Redis; `503` si alguna falla *(público)* |
+| GET | `/ready` | Readiness. Comprueba la base de datos y Redis; `503` si alguna falla o si ya empezó el apagado *(público)* |
 
 ## Auth `/auth`
 
@@ -74,7 +74,7 @@ flowchart LR
 |---|---|---|
 | GET | `/messages/:roomId/messages?limit=&before=` | Historial, del más nuevo al más antiguo, paginado por cursor |
 | GET | `/messages/:roomId/pinned` | Mensajes fijados de una sala |
-| GET | `/messages/search?q=&room_id=` | Búsqueda de texto completo, sin distinguir acentos, en las salas del usuario (o en una) |
+| GET | `/messages/search?q=&room_id=` | Búsqueda de texto completo, sin distinguir acentos, en las salas del usuario (o en una). `503` + `Retry-After` si la búsqueda pasa de 2 s o la instancia ya ejecuta 4 |
 | POST | `/messages` | Enviar: `room_id`, `content`, opcional `reply_to_message_id` |
 | PATCH | `/messages/:id` | Editar (solo el autor) |
 | DELETE | `/messages/:id` | Borrar (el autor, o un moderador o superior) |

@@ -90,7 +90,7 @@ When exceeded the API answers `429` with a `Retry-After` header. If Redis is una
 ## 6. Privacy
 
 - **Directory and discovery:** any signed-in user can list other active users (name, username, online status) and every room's name, topic and member count. Reading or writing in a room still needs membership, so a private room is visible but closed. Personal invitations can only be answered by the invited user (anyone else gets "not found"), and accepting re-checks bans.
-- `GET /users/export` downloads a JSON file with the user's profile, rooms, messages and reactions.
+- `GET /users/export` downloads a JSON file with the user's profile, rooms, messages and reactions, streamed row by row so a large account never sits fully in server memory.
 - `DELETE /users/me` (confirmed with the password) deletes the account: see D13 in [Design decisions](decisions.md).
 
 ## 7. Known limits

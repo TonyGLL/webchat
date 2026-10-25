@@ -25,7 +25,7 @@ flowchart LR
 | Method | Path | Description |
 |---|---|---|
 | GET | `/health` | Liveness. Always `200 {"status":"ok"}` *(public)* |
-| GET | `/ready` | Readiness. Pings the database and Redis; `503` if one is down *(public)* |
+| GET | `/ready` | Readiness. Pings the database and Redis; `503` if one is down or shutdown has started *(public)* |
 
 ## Auth `/auth`
 
@@ -74,7 +74,7 @@ flowchart LR
 |---|---|---|
 | GET | `/messages/:roomId/messages?limit=&before=` | History, newest first, cursor-paginated |
 | GET | `/messages/:roomId/pinned` | Pinned messages of a room |
-| GET | `/messages/search?q=&room_id=` | Full-text, accent-insensitive search across the user's rooms (or one room) |
+| GET | `/messages/search?q=&room_id=` | Full-text, accent-insensitive search across the user's rooms (or one room). `503` + `Retry-After` when the search exceeds 2 s or the instance already runs 4 searches |
 | POST | `/messages` | Send: `room_id`, `content`, optional `reply_to_message_id` |
 | PATCH | `/messages/:id` | Edit (author only) |
 | DELETE | `/messages/:id` | Delete (author, or a moderator or above) |

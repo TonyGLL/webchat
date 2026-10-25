@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"errors"
+	"io"
 	"sort"
 	"testing"
 
@@ -16,8 +17,8 @@ type dirRepo struct{ total int }
 func (r *dirRepo) GetUserByID(context.Context, int) (*auth_domain.User, error) { return nil, nil }
 func (r *dirRepo) DeactivateUser(context.Context, int) error                   { return nil }
 func (r *dirRepo) PasswordHash(context.Context, int) (string, error)           { return "", nil }
-func (r *dirRepo) ExportAccount(context.Context, int) (*domain.AccountExport, error) {
-	return nil, nil
+func (r *dirRepo) ExportAccount(context.Context, int, io.Writer) error {
+	return nil
 }
 func (r *dirRepo) DeleteAccount(context.Context, int) error { return nil }
 

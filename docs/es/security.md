@@ -90,7 +90,7 @@ Al superarlos la API responde `429` con la cabecera `Retry-After`. Si Redis no e
 ## 6. Privacidad
 
 - **Directorio y descubrimiento:** cualquier usuario con sesión puede listar a otros usuarios activos (nombre, usuario, estado de conexión) y el nombre, tema y número de miembros de cada sala. Leer o escribir en una sala sigue exigiendo ser miembro, así que una sala privada es visible pero está cerrada. Las invitaciones personales solo las puede responder el usuario invitado (cualquier otro recibe "no encontrada") y al aceptar se vuelven a comprobar los vetos.
-- `GET /users/export` descarga un JSON con el perfil, las salas, los mensajes y las reacciones del usuario.
+- `GET /users/export` descarga un JSON con el perfil, las salas, los mensajes y las reacciones del usuario, enviado fila a fila para que una cuenta grande no ocupe toda la memoria del servidor.
 - `DELETE /users/me` (confirmado con la contraseña) borra la cuenta: ver D13 en [Decisiones de diseño](decisions.md).
 
 ## 7. Límites conocidos
