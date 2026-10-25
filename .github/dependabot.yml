@@ -47,6 +47,8 @@ updates:
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }
     ignore:
+      # webchat/api and webchat/web are the images this compose file builds itself (not on any registry).
+      - dependency-name: "webchat/*"
       - dependency-name: postgres
         update-types: ["version-update:semver-major"]
       - dependency-name: redis
