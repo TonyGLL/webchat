@@ -8,17 +8,25 @@ interface SearchResultsProps {
   query: string;
   results: IGetRoomMessages[] | null;
   loading: boolean;
+  busy?: boolean;
   rooms: Room[];
   onSelectRoom: (roomId: string) => void;
 }
 
-export default function SearchResults({ query, results, loading, rooms, onSelectRoom }: SearchResultsProps) {
+export default function SearchResults({ query, results, loading, busy, rooms, onSelectRoom }: SearchResultsProps) {
   const { t, locale } = useT();
   if (loading && !results) {
     return (
       <div className="py-8">
         <Spinner />
       </div>
+    );
+  }
+  if (busy) {
+    return (
+      <p className="px-6 py-8 text-center text-sm text-muted-foreground" role="status">
+        {t('search.busy')}
+      </p>
     );
   }
   if (!results || results.length === 0) {

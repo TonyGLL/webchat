@@ -90,6 +90,7 @@ const es: Record<MessageKey, string> = {
 
   'search.noMatch': 'Ningún mensaje coincide con “{query}”.',
   'search.results': 'Resultados de búsqueda',
+  'search.busy': 'La búsqueda está ocupada o tardó demasiado. Prueba con una consulta más concreta.',
 
   'chat.selectRoom': 'Elige una sala para empezar a escribir.',
   'chat.backToRooms': 'Volver a las salas',

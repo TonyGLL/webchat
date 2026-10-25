@@ -35,6 +35,11 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D27 | Límites del servidor y apagado ordenado | Aceptada |
 | D28 | Acciones de CI e imágenes base fijadas; go-redis v9 | Aceptada |
 | D29 | Política de cadena de suministro para la instalación del frontend | Aceptada |
+| D30 | Seguro por defecto y Redis acotado en la ruta de petición | Aceptada |
+| D31 | Familias de refresh token, enlaces de restablecimiento atómicos y tope de sockets por usuario | Aceptada |
+| D32 | Forma de las consultas, límites de búsqueda e índices 000016 | Aceptada |
+| D33 | Coherencia de autorización e higiene de cuentas | Aceptada |
+| D34 | Carga del cliente acotada en el propio cliente | Aceptada |
 
 ---
 
@@ -251,3 +256,38 @@ sequenceDiagram
 - **Decisión:** `frontend/pnpm-workspace.yaml` fija `minimumReleaseAge: 1440` (una versión debe tener un día), `trustPolicy: no-downgrade` (una versión no puede perder la procedencia respecto a una anterior), `blockExoticSubdeps` (fuentes git/tarball solo para dependencias directas) y `strictDepBuilds` (un script de build sin revisar rompe la instalación; `allowBuilds` guarda las decisiones). Tres versiones de ramas antiguas que no pasan la comprobación de confianza se excluyen por versión exacta en `trustPolicyExclude`.
 - **Por qué:** pnpm vuelve a comprobar cada entrada del lockfile contra estas políticas en cada instalación, así que también protegen `--frozen-lockfile` en el CI y en la imagen, no solo cuando alguien añade un paquete.
 - **Consecuencias:** un lockfile con una versión de menos de un día no se instala hasta que envejezca (o se lista en `minimumReleaseAgeExclude` para un arreglo de seguridad urgente). `tailwind-merge` se queda en 2.x porque es la rama para Tailwind 3; Dependabot seguirá proponiendo la 3.x hasta adoptar Tailwind 4.
+
+## D30. Seguro por defecto y Redis acotado en la ruta de petición
+
+- **Contexto:** la auditoría encontró que el flag `Secure` de la cookie de refresco y el modo release de Gin dependían de un `APP_ENV` opcional, que el limitador usaba `EXPIRE NX` (solo Redis 7) y fallaba abierto sin avisar en Redis 6.x, que un cliente IPv6 podía rotar dentro de su /64 para esquivar todos los límites, y que un Redis colgado podía retener cada petición ~12 s.
+- **Decisión:** todo salvo un `APP_ENV` explícito de `dev`/`development`/`local`/`test` es producción (cookie Secure, modo release, logs JSON), con aviso al arrancar si no es `prod` explícito; `make run`/`make watch` fijan `APP_ENV=dev`. Los contadores del limitador son un script Lua (Redis 6.2+, probado en 6.2 y 8) con el prefijo /64 como clave en IPv6. Las llamadas a Redis en la ruta de petición están acotadas (0,5 s de E/S, un reintento) y siguen fallando abiertas; las respuestas de la API llevan `nosniff` y `no-store` y van comprimidas.
+- **Alternativas:** mantener el opt-in (una variable olvidada debilita producción en silencio); fallar cerrado cuando Redis va lento (una caída tumbaría toda la API).
+- **Consecuencias:** quien dependiera del valor por defecto anterior en `.env.local` necesita `APP_ENV=dev` si arranca fuera de `make`; Safari no conserva cookies `Secure` en `http://localhost`.
+
+## D31. Familias de refresh token, enlaces de restablecimiento atómicos y tope de sockets por usuario
+
+- **Contexto:** la rotación no detectaba reutilización (una repetición dentro de la gracia de 30 s bifurcaba una sesión inmortal), los enlaces de restablecimiento podían canjearse dos veces en paralelo y una cuenta podía abrir sockets sin límite.
+- **Decisión:** los refresh tokens rotan dentro de una familia (una por inicio de sesión); una repetición dentro de la gracia devuelve el mismo sucesor, un token rotado presentado pasada la gracia revoca la familia y las sesiones terminan 30 días después del inicio sea cual sea la actividad. Las cookies sin claim de familia entran en una en su primera renovación. Los enlaces se canjean con `GETDEL`, uno nuevo sustituye al anterior y la revocación incluye su propio segundo. Máximo 8 sockets por usuario (se cierra el más antiguo) y el cierre de sesión corta los sockets del usuario.
+- **Alternativas:** mantener la ventana deslizante sin límite absoluto (una cadena robada vive mientras se use); bloqueo duro ante reutilización dentro de la gracia (rompe el multipestaña, ver D20).
+- **Consecuencias:** cerrar sesión en una pestaña corta los sockets del usuario en todas, que se reconectan solas; hace falta un inicio de sesión nuevo al menos cada 30 días.
+
+## D32. Forma de las consultas, límites de búsqueda e índices 000016
+
+- **Contexto:** con 2 M de mensajes la consulta de historial costaba O(tamaño de la sala) (≈250 ms por página en la mayor), buscar palabras comunes tardaba segundos y podía agotar el pool de 25 conexiones, y el listado por defecto del directorio recorría todos los usuarios.
+- **Decisión:** el historial elige primero la página y agrega las reacciones por fila de página; la búsqueda tiene 2 s de timeout y como máximo 4 búsquedas simultáneas por instancia (503 + `Retry-After`, mostrado en la UI como «afina la búsqueda»); la migración 000016 añade el índice del directorio y el de miembros; la marca de lectura no se reescribe antes de 2 s; las exportaciones se transmiten en streaming; `/ready` pasa a 503 cuando empieza el apagado.
+- **Alternativas:** un motor de búsqueda externo o un `tsvector` almacenado (la solución a largo plazo, un cambio mayor); cachear el historial (coste de invalidación).
+- **Consecuencias:** el índice de miembros no mostró mejora con 40k miembros porque el plan con OFFSET sigue recorriendo; la paginación por keyset queda abierta (H-110).
+
+## D33. Coherencia de autorización e higiene de cuentas
+
+- **Contexto:** las invitaciones personales no caducaban y sobrevivían a la degradación de quien invitó, cualquier moderador podía levantar o acortar un veto de rango superior, el límite de logins era solo por IP y los nombres admitían caracteres de control y bidi.
+- **Decisión:** aceptar una invitación exige que quien invitó siga pudiendo invitar y caducan a los 30 días (migración 000017); levantar o sobrescribir un veto exige superar en rango a quien lo impuso; los fallos de login también frenan a la cuenta (retardo progresivo, nunca bloqueo duro); nombres de usuario reservados y normalización de nombres; `JWT_SECRET` no puede ser un marcador ni un valor de baja entropía; bcrypt corre tras un semáforo acotado.
+- **Alternativas:** bloqueo duro de cuenta (un DoS por bloqueo); dejar los vetos al primero que llega (rompe «superar estrictamente en rango»).
+- **Consecuencias:** el login puede responder 429 con `Retry-After`; el servidor se niega a arrancar con un `JWT_SECRET` débil.
+
+## D34. Carga del cliente acotada en el propio cliente
+
+- **Contexto:** cada espectador de una sala enviaba una escritura por mensaje entrante, el panel disparaba 19 peticiones en una carga en frío y los eventos que no cambiaban nada re-renderizaban toda la lista de mensajes.
+- **Decisión:** los hooks del panel se montan solo con sesión; los eventos que no cambian nada conservan el estado anterior; `markRead` es un throttle final de 4 s mientras la pestaña es visible; las reconexiones usan jitter completo (0–5 s tras un cierre 1012) y recargan tras un retraso aleatorio.
+- **Alternativas:** solo límites en el servidor (el desperdicio seguiría costando ancho de banda y batería).
+- **Consecuencias:** las insignias de no leídos pueden ir hasta ~4 s por detrás en una sala abierta.

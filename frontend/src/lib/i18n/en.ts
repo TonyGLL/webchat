@@ -88,6 +88,7 @@ const en = {
 
   'search.noMatch': 'No messages match “{query}”.',
   'search.results': 'Search results',
+  'search.busy': 'Search is busy or took too long. Try a more specific query.',
 
   'chat.selectRoom': 'Select a room to start messaging.',
   'chat.backToRooms': 'Back to rooms',

@@ -1,5 +1,6 @@
 'use client';
 
+import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import PrivateRoute from '@/components/PrivateRoute';
@@ -76,15 +77,22 @@ function Dashboard() {
   const searching = search.trim().length >= 2;
   const [results, setResults] = useState<IGetRoomMessages[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchBusy, setSearchBusy] = useState(false);
 
   useEffect(() => {
     if (debouncedSearch.length < 2) return; // results are hidden while the query is too short
     let cancelled = false;
     setSearchLoading(true);
+    setSearchBusy(false);
     messageService
       .search(debouncedSearch)
       .then((found) => !cancelled && setResults(found))
-      .catch(() => !cancelled && setResults([]))
+      .catch((error) => {
+        if (cancelled) return;
+        setResults([]);
+        // 503: the server is limiting concurrent searches (or this one timed out): ask for a narrower query.
+        setSearchBusy(axios.isAxiosError(error) && error.response?.status === 503);
+      })
       .finally(() => !cancelled && setSearchLoading(false));
     return () => {
       cancelled = true;
@@ -137,6 +145,7 @@ function Dashboard() {
                 query={search.trim()}
                 results={results}
                 loading={searchLoading}
+                busy={searchBusy}
                 rooms={rooms}
                 onSelectRoom={openFromSearch}
               />
