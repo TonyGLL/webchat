@@ -237,7 +237,7 @@ Para el backend y el frontend locales: `Ctrl+C` en cada terminal.
 | `JWT_SECRET must be set...` / `looks like a placeholder` / `not random enough` | Falta el secreto, es corto o adivinable | Ponlo en `.env.local` (`openssl rand -base64 48`). |
 | `DATABASE_URL is not set and individual DB_...` | `.env.local` no existe o no se cargó | Ejecuta `make watch` desde `backend/` y revisa el nombre del archivo. |
 | `unable to connect to database` | Contenedor apagado, puerto o contraseña errónea | `docker compose ps`; usa el puerto **5433** en local. |
-| Error de Redis al arrancar | Puerto o contraseña erróneos | Usa el puerto **6380** en local y `REDIS_PASS` igual al del compose. |
+| Error de Redis al arrancar (`WRONGPASS`, `NOAUTH`) | Puerto o contraseña erróneos: Redis exige la contraseña del compose (`--requirepass`) | Usa el puerto **6380** en local y `REDIS_PASS` / la clave de `REDIS_URL` igual a `REDIS_PASSWORD` del compose (en la URL, `@` como `%40`). |
 | `bind: address already in use` | Otro proyecto usa el puerto | `ss -ltnp | grep <puerto>`; cambia el puerto del servicio (y actualiza esta guía). |
 | El frontend carga pero no hay datos o error CORS | `CORS_ALLOWED_ORIGINS` no incluye `http://localhost:3100` | Corrígelo en `.env.local` y reinicia el backend. |
 | Las peticiones del frontend van a `undefined/...` | Falta `frontend/.env.local` | Créalo y reinicia `pnpm dev`. |

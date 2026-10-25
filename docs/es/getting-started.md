@@ -54,7 +54,7 @@ make help      # lista todos los objetivos
 
 Otros objetivos: `make check` (lo que revisa el CI: vet, gofmt, tsc, lint, tests y builds), `make test-integration` (tests del backend contra Postgres y Redis desechables), `make infra-up` / `infra-down`, `make up-dev` / `make down`, `make admin-grant EMAIL=… ROLE=admin`. Delegan en `backend/Makefile` y en pnpm, así que los comandos anteriores siguen funcionando.
 
-Las contraseñas de la base de datos están definidas en `docker-compose.yml`; cópialas a `.env.local`. **Nunca subas archivos de entorno reales**: solo las plantillas `.env.example` se versionan.
+Las contraseñas de la base de datos están definidas en `docker-compose.yml`; cópialas a `.env.local`. Redis aplica de verdad su contraseña (`--requirepass`, por defecto `REDIS_PASSWORD`): `REDIS_URL` / `REDIS_PASS` del env del backend deben llevar el mismo valor (en una URL, escribe `@` como `%40`); si no, el backend falla con `WRONGPASS`. Para cambiarla, define `REDIS_PASSWORD` en tu shell o en un `.env` en la raíz y recrea el contenedor (`docker compose up -d redis`); Compose lee esos, nunca `backend/.env.*`. **Nunca subas archivos de entorno reales**: solo las plantillas `.env.example` se versionan.
 
 ## 4. Variables de entorno (backend)
 

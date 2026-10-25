@@ -54,7 +54,7 @@ make help      # list every target
 
 Other targets: `make check` (what CI checks: vet, gofmt, tsc, lint, tests, builds), `make test-integration` (backend tests against throwaway Postgres and Redis), `make infra-up` / `infra-down`, `make up-dev` / `make down`, `make admin-grant EMAIL=… ROLE=admin`. They delegate to `backend/Makefile` and pnpm, so the old commands keep working.
 
-The database passwords are defined in `docker-compose.yml`; copy them into `.env.local`. **Never commit real env files**: only the `.env.example` templates are versioned.
+The database passwords are defined in `docker-compose.yml`; copy them into `.env.local`. Redis really enforces its password (`--requirepass`, default from `REDIS_PASSWORD`): `REDIS_URL` / `REDIS_PASS` in the backend env must carry the same value (in a URL, write `@` as `%40`), otherwise the backend fails with `WRONGPASS`. To change it, set `REDIS_PASSWORD` in your shell or in a root `.env` and recreate the container (`docker compose up -d redis`); Compose reads those, never `backend/.env.*`. **Never commit real env files**: only the `.env.example` templates are versioned.
 
 ## 4. Environment variables (backend)
 

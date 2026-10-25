@@ -25,9 +25,7 @@ Plantilla para añadir uno nuevo:
 
 ### H-008 Endpoint de envío de verificación sin autenticación
 - **Nota:** la verificación de email está pausada (decisión del 2026-10-23); retomar junto con este hallazgo.
-- **Severidad:** 🟡 · **Fase:** 1 · **Área:** backend · **Verificación:** Confirmado (la ruta `POST /auth/send-verify-email/:user_id` es pública)
-- **Descripción:** cualquiera puede disparar correos a un usuario por su id.
-- **Propuesta:** rate limiting y evitar que el id sea enumerable; revisar si debe exigir autenticación.
+- **Actualización (auditoría de octubre de 2026):** la ruta ya exige autenticación, coincidencia con el dueño y límite de 5 por 10 min (commit 004edb4); lo que queda es reanudar la verificación y, con ella, el oráculo de existencia de email en el registro (H-107).
 
 ### Calidad y pruebas
 
@@ -64,6 +62,7 @@ _(nada por ahora)_
 
 | ID | Título | Fecha | Commit / PR |
 |----|--------|-------|-------------|
+| H-114 | Docker centralizado en la raíz: un solo `docker-compose.yml` (db, redis, api y web nuevo), objetivos `up-dev`/`up-prod`/`down`/`logs`/`images` en el Makefile raíz, Dependabot ignora las imágenes `webchat/*` construidas localmente | 2026-10-24 | 84cfb59 · 7f415c7 |
 | H-104 | Redis de docker-compose sin autenticación: la imagen oficial ignoraba las variables estilo Bitnami; ahora `redis-server --requirepass` con healthcheck autenticado (BS-1). Postgres sigue con `root/root` (H-051) | 2026-10-24 | 8008422 |
 | H-103 | Dependencias al día: Go 1.27.3, go-redis v9, Node 24, TypeScript 6, ESLint 10, lucide-react 1.x, imágenes y acciones fijadas por digest/SHA, política de cadena de suministro de pnpm (D28, D29) | 2026-10-24 | 29d8ff1 · ce0f171 |
 | H-102 | Frontend: zod fuera de las rutas no-auth, redirect de `/` sin JS, sharp fuera de la imagen, CSP `object-src 'none'` + COOP + reglas ESLint, logout local primero, dev ligado a 127.0.0.1 (FP-2/5/7/8/12, FS-2/3/4/8/9/10/13) | 2026-10-24 | 395102c |
