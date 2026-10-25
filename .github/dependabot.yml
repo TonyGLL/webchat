@@ -1,23 +1,61 @@
 version: 2
+
+# One grouped pull request per ecosystem and week for minor/patch updates; majors arrive on their
+# own. A 7-day cooldown skips releases younger than a week (a hijacked or broken release is
+# usually pulled by then); security updates ignore it.
 updates:
   - package-ecosystem: gomod
     directory: /backend
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
     groups:
       go-minor-and-patch:
         update-types: [minor, patch]
+
   - package-ecosystem: npm
     directory: /frontend
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
     groups:
       js-minor-and-patch:
         update-types: [minor, patch]
+
+  # Dockerfile bases are pinned by tag and digest: this refreshes the digest. The Go minor is
+  # bumped by hand together with go.mod, CI and the docs (see docs/*/ci-cd.md).
   - package-ecosystem: docker
     directory: /backend
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    ignore:
+      - dependency-name: golang
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+    groups:
+      docker-backend:
+        patterns: ["*"]
   - package-ecosystem: docker
     directory: /frontend
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      docker-frontend:
+        patterns: ["*"]
+
+  # backend/docker-compose.yml (the docker ecosystem does not read compose files). Postgres and
+  # Redis majors are data migrations: never proposed automatically.
+  - package-ecosystem: docker-compose
+    directory: /backend
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    ignore:
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
+      - dependency-name: redis
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      actions:
+        patterns: ["*"]

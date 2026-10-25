@@ -10,6 +10,10 @@ on:
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -22,13 +26,16 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      # govulncheck only reports vulnerabilities in code the program actually calls.
-      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+      # govulncheck only reports vulnerabilities in code the program actually calls. The version
+      # is pinned (Dependabot cannot see it): bump it by hand now and then.
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
   js-vulnerabilities:
     name: JavaScript dependencies (pnpm audit)
@@ -38,11 +45,13 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           package_json_file: frontend/package.json
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm
