@@ -9,7 +9,7 @@ import (
 	"backend/internal/auth/domain"
 	shared_domain "backend/internal/shared/domain"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // RedisTokenRepository is a Redis-based implementation of the TokenRepository.

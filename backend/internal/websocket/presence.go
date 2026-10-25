@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -102,9 +102,9 @@ func (p *RedisPresence) Connect(ctx context.Context, userID int, clientID string
 func (p *RedisPresence) Touch(ctx context.Context, userID int, clientID string) error {
 	key := userKey(userID)
 	_, err := p.client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-		pipe.ZAdd(ctx, key, &redis.Z{Score: p.expiry(), Member: clientID})
+		pipe.ZAdd(ctx, key, redis.Z{Score: p.expiry(), Member: clientID})
 		pipe.Expire(ctx, key, presenceTTL)
-		pipe.ZAdd(ctx, onlineIndexKey, &redis.Z{Score: p.expiry(), Member: userID})
+		pipe.ZAdd(ctx, onlineIndexKey, redis.Z{Score: p.expiry(), Member: userID})
 		return nil
 	})
 	return err
