@@ -33,6 +33,13 @@ Each entry records the **context**, the **decision**, the **alternatives** that 
 | D25 | Security headers and CSP on the web app | Accepted |
 | D26 | Accessibility patterns: live announcements, in-app dialogs, focus handling | Accepted |
 | D27 | Server limits and ordered shutdown | Accepted |
+| D28 | Pinned CI actions and image bases; go-redis v9 | Accepted |
+| D29 | Supply-chain policy for the frontend install | Accepted |
+| D30 | Secure by default and bounded Redis on the request path | Accepted |
+| D31 | Refresh-token families, atomic reset links and a socket cap per user | Accepted |
+| D32 | Query shapes, search limits and the 000016 indexes | Accepted |
+| D33 | Authorization consistency and account hygiene | Accepted |
+| D34 | Client load bounded on the client | Accepted |
 
 ---
 
@@ -201,7 +208,7 @@ sequenceDiagram
 ## D22. pnpm as the frontend package manager
 
 - **Context:** the frontend's package manager was a separate runtime used only to install and run scripts, while the app itself runs on Node (Next.js, the container, Vitest): one more thing to install locally, in CI and in the image.
-- **Decision:** pnpm, pinned through `packageManager` in `package.json` (so Corepack, `pnpm/action-setup` and the Dockerfile all use the same version). Lockfile `pnpm-lock.yaml`; the install script of `unrs-resolver` is explicitly not allowed (`pnpm-workspace.yaml`), since it ships prebuilt binaries. CI, the security scan and the image build all install with `--frozen-lockfile` on Node 22; Dependabot uses the `npm` ecosystem, which reads pnpm lockfiles.
+- **Decision:** pnpm, pinned through `packageManager` in `package.json` (so Corepack, `pnpm/action-setup` and the Dockerfile all use the same version). Lockfile `pnpm-lock.yaml`; the install script of `unrs-resolver` is explicitly not allowed (`pnpm-workspace.yaml`), since it ships prebuilt binaries. CI, the security scan and the image build all install with `--frozen-lockfile` on Node 24 (`engines` requires 24.15 or newer); Dependabot uses the `npm` ecosystem, which reads pnpm lockfiles.
 - **Why:** one runtime (Node) everywhere, strict `node_modules` that surfaces undeclared dependencies, a content-addressed store, and `pnpm audit` for the security scan.
 - **Consequences:** the image needs only Node. Everyone needs pnpm locally (`corepack enable` on Node below 25, otherwise `npm i -g pnpm`).
 
@@ -236,3 +243,51 @@ sequenceDiagram
 - **Decision:** the HTTP server has read-header, read, write and idle timeouts and a 64 KiB header cap; request bodies are limited to 1 MiB (413 when the declared length is over, 400 for a chunked body). Routes that mutate state have per-IP rate limits. `TRUSTED_PROXIES` (comma-separated IPs/CIDRs, empty by default) enables `X-Forwarded-For` behind a load balancer, otherwise all users share one bucket. Shutdown runs in order: signal, close sockets with 1012, drain HTTP, then close DB and Redis, with a 15 s cap and no `log.Fatal`. SMTP sends have dial and conversation deadlines.
 - **Why:** without timeouts a slow client holds a connection forever; without trusted proxies, rate limiting behind a load balancer is global.
 - **Consequences:** WebSocket connections are unaffected by the write timeout (the upgrade clears deadlines).
+
+## D28. Pinned CI actions and image bases; go-redis v9
+
+- **Context:** actions and base images were referenced by moving tags, the Go builder tag floated while `go.mod` said another patch, Redis was `7` in CI and unpinned (`alpine`, 8.x) in compose, and `go-redis/v8` had been unmaintained since 2022.
+- **Decision:** actions are pinned by commit SHA, Dockerfile bases by tag and digest (Dependabot keeps both fresh, grouped weekly, with a 7-day cooldown); Postgres 16 and Redis 8 are major-tag only everywhere and their majors are ignored by Dependabot. The `go` directive carries the patch (1.27.3) so local, CI and the image share one toolchain, and a stale builder fails the build (`GOTOOLCHAIN=local`). Redis uses `github.com/redis/go-redis/v9` with `ContextTimeoutEnabled` on (v9 ignores context deadlines for socket I/O otherwise, which would defeat the 2 s bound of D24; a test guards it) and maintenance notifications off.
+- **Alternatives:** tag-only images (builds not reproducible, stale local caches go unnoticed); digest pins for Postgres/Redis (weekly noise for dev services); staying on v8 (no fixes, no security releases).
+- **Consequences:** a Go minor bump is a manual, four-place change (see [CI/CD](ci-cd.md)); `govulncheck` is pinned by hand; CI now also runs the Redis presence tests; go-redis v9 speaks RESP3 and has a 5 s default read timeout (v8: 3 s).
+
+## D29. Supply-chain policy for the frontend install
+
+- **Decision:** `frontend/pnpm-workspace.yaml` sets `minimumReleaseAge: 1440` (a version must be a day old), `trustPolicy: no-downgrade` (a release may not lose provenance compared with an earlier one), `blockExoticSubdeps` (git/tarball sources only for direct dependencies) and `strictDepBuilds` (an unreviewed build script fails the install; `allowBuilds` records the decisions). Three backport releases that trip the trust check are excluded by exact version in `trustPolicyExclude`.
+- **Why:** pnpm re-checks every lockfile entry against these policies on each install, so they also guard `--frozen-lockfile` in CI and in the image, not only the moment someone adds a package.
+- **Consequences:** a lockfile that contains a version younger than a day fails to install until it ages (or is listed in `minimumReleaseAgeExclude` for an urgent security fix). `tailwind-merge` stays on 2.x because it is the line for Tailwind 3; Dependabot will keep proposing 3.x until Tailwind 4 is adopted.
+
+## D30. Secure by default and bounded Redis on the request path
+
+- **Context:** the audit found that the `Secure` flag of the refresh cookie and Gin's release mode depended on an optional `APP_ENV`, that the rate limiter used `EXPIRE NX` (Redis 7 only) and failed open without a word on Redis 6.x, that IPv6 clients could rotate inside a /64 to dodge every limit, and that a hung Redis could hold each request for ~12 s.
+- **Decision:** everything except an explicit `APP_ENV` of `dev`/`development`/`local`/`test` is production (Secure cookie, release mode, JSON logs), with a startup warning when it is not explicitly `prod`; `make run`/`make watch` set `APP_ENV=dev`. Limiter counters are a Lua script (Redis 6.2+, tested on 6.2 and 8) keyed by the /64 prefix for IPv6. Redis calls on the request path are bounded (0.5 s I/O, one retry) and keep failing open; API responses carry `nosniff` and `no-store` and are gzipped.
+- **Alternatives:** keep the opt-in (a forgotten variable silently weakens production); fail closed when Redis is slow (an outage would take the whole API down).
+- **Consequences:** `.env.local` setups that relied on the old default now need `APP_ENV=dev` when launched outside `make`; Safari does not keep `Secure` cookies on `http://localhost`.
+
+## D31. Refresh-token families, atomic reset links and a socket cap per user
+
+- **Context:** rotation had no reuse detection (a replay inside the 30 s grace forked an immortal session), reset links could be redeemed twice in parallel, and one account could open unlimited sockets.
+- **Decision:** refresh tokens rotate inside a family (one per login); a replay inside the grace returns the same successor, a rotated token presented after the grace revokes the family, and sessions end 30 days after login whatever the activity. Cookies without a family claim join one on their first renewal. Reset links are redeemed with `GETDEL`, a new link replaces the older one, and revocation is inclusive of its own second. At most 8 sockets per user (the oldest is closed) and logout cuts the user's sockets.
+- **Alternatives:** keep the sliding window without an absolute limit (a stolen chain lives as long as it is used); a hard lock on reuse inside the grace (breaks multi-tab, see D20).
+- **Consequences:** logging out in one tab drops that user's sockets in all tabs, which reconnect by themselves; sessions now need a fresh login at least every 30 days.
+
+## D32. Query shapes, search limits and the 000016 indexes
+
+- **Context:** with 2M messages the history query cost O(room size) (≈250 ms per page in the biggest room), common-word search took seconds and could drain the 25-connection pool, and the default directory listing scanned every user.
+- **Decision:** history selects the page first and aggregates reactions per page row; search has a 2 s timeout and at most 4 concurrent searches per instance (503 + `Retry-After`, shown in the UI as "narrow your search"); migration 000016 adds the directory index and the members index; the read marker is not rewritten within 2 s; exports are streamed; `/ready` turns 503 once shutdown starts.
+- **Alternatives:** an external search engine or a stored `tsvector` (the right long-term fix, a bigger change); caching history (invalidation cost).
+- **Consequences:** the members index showed no gain at 40k members because the OFFSET plan still scans; keyset pagination remains an open item (H-110).
+
+## D33. Authorization consistency and account hygiene
+
+- **Context:** personal invitations never expired and survived the inviter's demotion, any moderator could lift or shorten a higher-rank ban, login throttling was per IP only, and names accepted control and bidi characters.
+- **Decision:** accepting an invitation needs the inviter to still be allowed to invite, invitations expire after 30 days (migration 000017); lifting or overwriting a ban needs outranking whoever issued it; failed logins also slow the account (progressive delay, never a hard lock); reserved usernames and name normalisation; `JWT_SECRET` must not be a placeholder or a low-entropy value; bcrypt runs behind a bounded semaphore.
+- **Alternatives:** a hard account lock (a lockout DoS); leaving bans first-come (breaks "strictly outrank").
+- **Consequences:** login can answer 429 with `Retry-After`; the server refuses to start with a weak `JWT_SECRET`.
+
+## D34. Client load bounded on the client
+
+- **Context:** every viewer of a room sent one write per incoming message, the dashboard fired 19 requests on a cold load, and events that changed nothing re-rendered the whole message list.
+- **Decision:** dashboard hooks mount only with a session; events that change nothing keep the previous state; `markRead` is a 4 s trailing throttle while the tab is visible; reconnects use full jitter (0–5 s after a 1012 close) and refetch after a random delay.
+- **Alternatives:** server-side only limits (the waste would still cost bandwidth and battery).
+- **Consequences:** unread badges can lag by up to ~4 s in a room that is open.

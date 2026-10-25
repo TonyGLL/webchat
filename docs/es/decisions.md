@@ -33,6 +33,13 @@ Cada entrada recoge el **contexto**, la **decisión**, las **alternativas** que 
 | D25 | Cabeceras de seguridad y CSP en la aplicación web | Aceptada |
 | D26 | Patrones de accesibilidad: anuncios en vivo, diálogos propios, manejo del foco | Aceptada |
 | D27 | Límites del servidor y apagado ordenado | Aceptada |
+| D28 | Acciones de CI e imágenes base fijadas; go-redis v9 | Aceptada |
+| D29 | Política de cadena de suministro para la instalación del frontend | Aceptada |
+| D30 | Seguro por defecto y Redis acotado en la ruta de petición | Aceptada |
+| D31 | Familias de refresh token, enlaces de restablecimiento atómicos y tope de sockets por usuario | Aceptada |
+| D32 | Forma de las consultas, límites de búsqueda e índices 000016 | Aceptada |
+| D33 | Coherencia de autorización e higiene de cuentas | Aceptada |
+| D34 | Carga del cliente acotada en el propio cliente | Aceptada |
 
 ---
 
@@ -201,7 +208,7 @@ sequenceDiagram
 ## D22. pnpm como gestor de paquetes del frontend
 
 - **Contexto:** el gestor de paquetes del frontend era un runtime aparte usado solo para instalar y ejecutar scripts, mientras que la aplicación corre sobre Node (Next.js, el contenedor, Vitest): una cosa más que instalar en local, en el CI y en la imagen.
-- **Decisión:** pnpm, fijado con `packageManager` en `package.json` (así Corepack, `pnpm/action-setup` y el Dockerfile usan la misma versión). Lockfile `pnpm-lock.yaml`; el script de instalación de `unrs-resolver` se rechaza de forma explícita (`pnpm-workspace.yaml`), porque trae binarios precompilados. El CI, el escaneo de seguridad y la construcción de la imagen instalan con `--frozen-lockfile` sobre Node 22; Dependabot usa el ecosistema `npm`, que lee los lockfiles de pnpm.
+- **Decisión:** pnpm, fijado con `packageManager` en `package.json` (así Corepack, `pnpm/action-setup` y el Dockerfile usan la misma versión). Lockfile `pnpm-lock.yaml`; el script de instalación de `unrs-resolver` se rechaza de forma explícita (`pnpm-workspace.yaml`), porque trae binarios precompilados. El CI, el escaneo de seguridad y la construcción de la imagen instalan con `--frozen-lockfile` sobre Node 24 (`engines` exige 24.15 o superior); Dependabot usa el ecosistema `npm`, que lee los lockfiles de pnpm.
 - **Por qué:** un solo runtime (Node) en todas partes, un `node_modules` estricto que revela dependencias no declaradas, un almacén por contenido y `pnpm audit` para el escaneo de seguridad.
 - **Consecuencias:** la imagen solo necesita Node. Todos necesitan pnpm en local (`corepack enable` en Node anterior a 25, si no `npm i -g pnpm`).
 
@@ -236,3 +243,51 @@ sequenceDiagram
 - **Decisión:** el servidor HTTP tiene timeouts de cabeceras, lectura, escritura e inactividad y un tope de 64 KiB en las cabeceras; los cuerpos se limitan a 1 MiB (413 si la longitud declarada lo supera, 400 con cuerpo fragmentado). Las rutas que modifican estado tienen límites de tasa por IP. `TRUSTED_PROXIES` (IPs/CIDRs separados por comas, vacío por defecto) activa `X-Forwarded-For` detrás de un balanceador; si no, todos los usuarios comparten un cupo. El apagado sigue un orden: señal, cierre de sockets con 1012, vaciado de HTTP y por último cierre de BD y Redis, con tope de 15 s y sin `log.Fatal`. El envío SMTP tiene plazos de conexión y de conversación.
 - **Por qué:** sin timeouts un cliente lento retiene una conexión para siempre; sin proxies de confianza, el límite de tasa tras un balanceador es global.
 - **Consecuencias:** las conexiones WebSocket no se ven afectadas por el timeout de escritura (la actualización del protocolo limpia los plazos).
+
+## D28. Acciones de CI e imágenes base fijadas; go-redis v9
+
+- **Contexto:** las acciones y las imágenes base se referenciaban con etiquetas móviles, la etiqueta del builder de Go flotaba mientras `go.mod` indicaba otro parche, Redis era `7` en CI y sin fijar (`alpine`, 8.x) en compose, y `go-redis/v8` no tenía mantenimiento desde 2022.
+- **Decisión:** las acciones se fijan por SHA de commit y las bases de los Dockerfile por etiqueta y digest (Dependabot mantiene ambos al día, agrupado por semana y con 7 días de espera); Postgres 16 y Redis 8 llevan solo la etiqueta mayor en todas partes y Dependabot ignora sus mayores. La directiva `go` lleva el parche (1.27.3) para que el entorno local, el CI y la imagen compartan toolchain, y un builder desactualizado rompe la construcción (`GOTOOLCHAIN=local`). Redis usa `github.com/redis/go-redis/v9` con `ContextTimeoutEnabled` activado (v9, si no, ignora los plazos del contexto en la E/S del socket, lo que anularía el límite de 2 s de D24; un test lo protege) y las notificaciones de mantenimiento desactivadas.
+- **Alternativas:** imágenes solo con etiqueta (construcciones no reproducibles, cachés locales viejas sin aviso); digest también en Postgres/Redis (ruido semanal por servicios de desarrollo); quedarse en v8 (sin correcciones ni versiones de seguridad).
+- **Consecuencias:** subir el minor de Go es un cambio manual en cuatro sitios (ver [CI/CD](ci-cd.md)); `govulncheck` se fija a mano; el CI ahora también ejecuta los tests de presencia con Redis; go-redis v9 usa RESP3 y un timeout de lectura por defecto de 5 s (v8: 3 s).
+
+## D29. Política de cadena de suministro para la instalación del frontend
+
+- **Decisión:** `frontend/pnpm-workspace.yaml` fija `minimumReleaseAge: 1440` (una versión debe tener un día), `trustPolicy: no-downgrade` (una versión no puede perder la procedencia respecto a una anterior), `blockExoticSubdeps` (fuentes git/tarball solo para dependencias directas) y `strictDepBuilds` (un script de build sin revisar rompe la instalación; `allowBuilds` guarda las decisiones). Tres versiones de ramas antiguas que no pasan la comprobación de confianza se excluyen por versión exacta en `trustPolicyExclude`.
+- **Por qué:** pnpm vuelve a comprobar cada entrada del lockfile contra estas políticas en cada instalación, así que también protegen `--frozen-lockfile` en el CI y en la imagen, no solo cuando alguien añade un paquete.
+- **Consecuencias:** un lockfile con una versión de menos de un día no se instala hasta que envejezca (o se lista en `minimumReleaseAgeExclude` para un arreglo de seguridad urgente). `tailwind-merge` se queda en 2.x porque es la rama para Tailwind 3; Dependabot seguirá proponiendo la 3.x hasta adoptar Tailwind 4.
+
+## D30. Seguro por defecto y Redis acotado en la ruta de petición
+
+- **Contexto:** la auditoría encontró que el flag `Secure` de la cookie de refresco y el modo release de Gin dependían de un `APP_ENV` opcional, que el limitador usaba `EXPIRE NX` (solo Redis 7) y fallaba abierto sin avisar en Redis 6.x, que un cliente IPv6 podía rotar dentro de su /64 para esquivar todos los límites, y que un Redis colgado podía retener cada petición ~12 s.
+- **Decisión:** todo salvo un `APP_ENV` explícito de `dev`/`development`/`local`/`test` es producción (cookie Secure, modo release, logs JSON), con aviso al arrancar si no es `prod` explícito; `make run`/`make watch` fijan `APP_ENV=dev`. Los contadores del limitador son un script Lua (Redis 6.2+, probado en 6.2 y 8) con el prefijo /64 como clave en IPv6. Las llamadas a Redis en la ruta de petición están acotadas (0,5 s de E/S, un reintento) y siguen fallando abiertas; las respuestas de la API llevan `nosniff` y `no-store` y van comprimidas.
+- **Alternativas:** mantener el opt-in (una variable olvidada debilita producción en silencio); fallar cerrado cuando Redis va lento (una caída tumbaría toda la API).
+- **Consecuencias:** quien dependiera del valor por defecto anterior en `.env.local` necesita `APP_ENV=dev` si arranca fuera de `make`; Safari no conserva cookies `Secure` en `http://localhost`.
+
+## D31. Familias de refresh token, enlaces de restablecimiento atómicos y tope de sockets por usuario
+
+- **Contexto:** la rotación no detectaba reutilización (una repetición dentro de la gracia de 30 s bifurcaba una sesión inmortal), los enlaces de restablecimiento podían canjearse dos veces en paralelo y una cuenta podía abrir sockets sin límite.
+- **Decisión:** los refresh tokens rotan dentro de una familia (una por inicio de sesión); una repetición dentro de la gracia devuelve el mismo sucesor, un token rotado presentado pasada la gracia revoca la familia y las sesiones terminan 30 días después del inicio sea cual sea la actividad. Las cookies sin claim de familia entran en una en su primera renovación. Los enlaces se canjean con `GETDEL`, uno nuevo sustituye al anterior y la revocación incluye su propio segundo. Máximo 8 sockets por usuario (se cierra el más antiguo) y el cierre de sesión corta los sockets del usuario.
+- **Alternativas:** mantener la ventana deslizante sin límite absoluto (una cadena robada vive mientras se use); bloqueo duro ante reutilización dentro de la gracia (rompe el multipestaña, ver D20).
+- **Consecuencias:** cerrar sesión en una pestaña corta los sockets del usuario en todas, que se reconectan solas; hace falta un inicio de sesión nuevo al menos cada 30 días.
+
+## D32. Forma de las consultas, límites de búsqueda e índices 000016
+
+- **Contexto:** con 2 M de mensajes la consulta de historial costaba O(tamaño de la sala) (≈250 ms por página en la mayor), buscar palabras comunes tardaba segundos y podía agotar el pool de 25 conexiones, y el listado por defecto del directorio recorría todos los usuarios.
+- **Decisión:** el historial elige primero la página y agrega las reacciones por fila de página; la búsqueda tiene 2 s de timeout y como máximo 4 búsquedas simultáneas por instancia (503 + `Retry-After`, mostrado en la UI como «afina la búsqueda»); la migración 000016 añade el índice del directorio y el de miembros; la marca de lectura no se reescribe antes de 2 s; las exportaciones se transmiten en streaming; `/ready` pasa a 503 cuando empieza el apagado.
+- **Alternativas:** un motor de búsqueda externo o un `tsvector` almacenado (la solución a largo plazo, un cambio mayor); cachear el historial (coste de invalidación).
+- **Consecuencias:** el índice de miembros no mostró mejora con 40k miembros porque el plan con OFFSET sigue recorriendo; la paginación por keyset queda abierta (H-110).
+
+## D33. Coherencia de autorización e higiene de cuentas
+
+- **Contexto:** las invitaciones personales no caducaban y sobrevivían a la degradación de quien invitó, cualquier moderador podía levantar o acortar un veto de rango superior, el límite de logins era solo por IP y los nombres admitían caracteres de control y bidi.
+- **Decisión:** aceptar una invitación exige que quien invitó siga pudiendo invitar y caducan a los 30 días (migración 000017); levantar o sobrescribir un veto exige superar en rango a quien lo impuso; los fallos de login también frenan a la cuenta (retardo progresivo, nunca bloqueo duro); nombres de usuario reservados y normalización de nombres; `JWT_SECRET` no puede ser un marcador ni un valor de baja entropía; bcrypt corre tras un semáforo acotado.
+- **Alternativas:** bloqueo duro de cuenta (un DoS por bloqueo); dejar los vetos al primero que llega (rompe «superar estrictamente en rango»).
+- **Consecuencias:** el login puede responder 429 con `Retry-After`; el servidor se niega a arrancar con un `JWT_SECRET` débil.
+
+## D34. Carga del cliente acotada en el propio cliente
+
+- **Contexto:** cada espectador de una sala enviaba una escritura por mensaje entrante, el panel disparaba 19 peticiones en una carga en frío y los eventos que no cambiaban nada re-renderizaban toda la lista de mensajes.
+- **Decisión:** los hooks del panel se montan solo con sesión; los eventos que no cambian nada conservan el estado anterior; `markRead` es un throttle final de 4 s mientras la pestaña es visible; las reconexiones usan jitter completo (0–5 s tras un cierre 1012) y recargan tras un retraso aleatorio.
+- **Alternativas:** solo límites en el servidor (el desperdicio seguiría costando ancho de banda y batería).
+- **Consecuencias:** las insignias de no leídos pueden ir hasta ~4 s por detrás en una sala abierta.

@@ -71,6 +71,9 @@ type Ban struct {
 	Reason    string     `json:"reason"`
 	ExpiresAt *time.Time `json:"expires_at"`
 	CreatedAt time.Time  `json:"created_at"`
+	// BannerRank is the issuer's rank when the ban was set; lifting or overwriting the ban needs a
+	// higher one (or being the issuer). Zero for legacy rows whose issuer had no power left.
+	BannerRank permissions.Rank `json:"-"`
 }
 
 // AuditEntry is one row of the append-only audit log.
@@ -100,6 +103,8 @@ type Repository interface {
 	ListReports(ctx context.Context, roomID uuid.UUID, status string, limit int) ([]*Report, error)
 	SetReportStatus(ctx context.Context, reportID int, status string, resolvedBy int) error
 	UpsertBan(ctx context.Context, ban Ban) error
+	// FindBan returns the active (unexpired) ban of the user in the room, or nil.
+	FindBan(ctx context.Context, roomID uuid.UUID, userID int) (*Ban, error)
 	DeleteBan(ctx context.Context, roomID uuid.UUID, userID int) (bool, error)
 	ListBans(ctx context.Context, roomID uuid.UUID) ([]*Ban, error)
 	// IsBanned reports whether the user has an active (unexpired) ban in the room.

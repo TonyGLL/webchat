@@ -87,6 +87,13 @@ func (f *fakeRepo) UpsertBan(_ context.Context, b domain.Ban) error {
 	f.bans[b.UserID] = b
 	return nil
 }
+func (f *fakeRepo) FindBan(_ context.Context, _ uuid.UUID, user int) (*domain.Ban, error) {
+	b, ok := f.bans[user]
+	if !ok {
+		return nil, nil
+	}
+	return &b, nil
+}
 func (f *fakeRepo) DeleteBan(_ context.Context, _ uuid.UUID, user int) (bool, error) {
 	_, ok := f.bans[user]
 	delete(f.bans, user)
@@ -340,8 +347,31 @@ func TestBanRules(t *testing.T) {
 	if err := uc.Unban(ctx, room, memberID, strangerID); !errors.Is(err, shared_domain.ErrForbidden) {
 		t.Errorf("member unbanning: err = %v", err)
 	}
+	// an admin's ban cannot be lifted or overwritten by a moderator
+	if err := uc.Unban(ctx, room, modID, strangerID); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Errorf("moderator unbanning an admin's ban: err = %v, want ErrForbidden", err)
+	}
+	if err := uc.Ban(ctx, room, modID, strangerID, "shorter", "1m"); !errors.Is(err, shared_domain.ErrForbidden) {
+		t.Errorf("moderator overwriting an admin's ban: err = %v, want ErrForbidden", err)
+	}
+	if repo.bans[strangerID].ExpiresAt != nil {
+		t.Error("the admin's permanent ban must stay untouched")
+	}
+	if err := uc.Unban(ctx, room, adminID, strangerID); err != nil {
+		t.Errorf("issuer unban: %v", err)
+	}
+	// a moderator's own ban can be lifted by the moderator and by higher ranks
+	if err := uc.Ban(ctx, room, modID, strangerID, "x", ""); err != nil {
+		t.Fatal(err)
+	}
 	if err := uc.Unban(ctx, room, modID, strangerID); err != nil {
-		t.Errorf("moderator unban: %v", err)
+		t.Errorf("moderator unbanning own ban: %v", err)
+	}
+	if err := uc.Ban(ctx, room, modID, strangerID, "x", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := uc.Unban(ctx, room, adminID, strangerID); err != nil {
+		t.Errorf("admin unbanning a moderator's ban: %v", err)
 	}
 	if err := uc.Unban(ctx, room, modID, strangerID); !errors.Is(err, shared_domain.ErrNotFound) {
 		t.Errorf("unban twice: err = %v, want ErrNotFound", err)

@@ -66,19 +66,6 @@ const es: Record<MessageKey, string> = {
   'register.haveAccount': '¿Ya tienes cuenta?',
   'register.signIn': 'Inicia sesión',
 
-  'verifyEmail.title': 'Revisa tu bandeja de entrada',
-  'verifyEmail.sent': 'Enviamos un enlace de verificación a {email}. Caduca en 10 minutos.',
-  'verifyEmail.yourEmail': 'tu correo',
-  'verifyEmail.back': 'Volver a iniciar sesión',
-
-  'verifyToken.verifying': 'Verificando tu correo…',
-  'verifyToken.okTitle': 'Correo verificado',
-  'verifyToken.okBody': 'Tu cuenta está lista.',
-  'verifyToken.okAction': 'Continuar para iniciar sesión',
-  'verifyToken.errorTitle': 'Enlace no válido',
-  'verifyToken.errorBody': 'Este enlace de verificación no es válido o ha caducado.',
-  'verifyToken.errorAction': 'Volver a iniciar sesión',
-
   'nav.logOut': 'Cerrar sesión',
   'nav.language': 'Idioma',
   'nav.online': 'En línea',
@@ -98,10 +85,12 @@ const es: Record<MessageKey, string> = {
   'rooms.name': 'Nombre de la sala',
   'rooms.public': 'Pública',
   'rooms.create': 'Crear',
+  'rooms.createError': 'No se pudo crear la sala. Revisa el nombre e inténtalo de nuevo.',
   'rooms.fallbackName': 'Sala',
 
   'search.noMatch': 'Ningún mensaje coincide con “{query}”.',
   'search.results': 'Resultados de búsqueda',
+  'search.busy': 'La búsqueda está ocupada o tardó demasiado. Prueba con una consulta más concreta.',
 
   'chat.selectRoom': 'Elige una sala para empezar a escribir.',
   'chat.backToRooms': 'Volver a las salas',
@@ -245,8 +234,6 @@ const es: Record<MessageKey, string> = {
   'title.register': 'Crear cuenta',
   'title.forgot': 'Restablecer contraseña',
   'title.reset': 'Contraseña nueva',
-  'title.verifyEmail': 'Revisa tu correo',
-  'title.verify': 'Verificar correo',
   'title.dashboard': 'Chats',
   'title.profile': 'Tu perfil',
   // Puntos de referencia del panel, paneles, pistas de formularios

@@ -30,8 +30,30 @@ type Config struct {
 	DBConnMaxIdleTime time.Duration
 }
 
-// IsProduction returns true if the app environment is set to "prod" or "production".
-func (c *Config) IsProduction() bool {
-	env := Getenv("APP_ENV", "")
-	return strings.ToLower(env) == "prod" || strings.ToLower(env) == "production"
+// appEnv is the normalised APP_ENV value.
+func appEnv() string { return strings.ToLower(strings.TrimSpace(Getenv("APP_ENV", ""))) }
+
+// IsDevelopment is true only when APP_ENV is explicitly dev, development, local or test.
+func (c *Config) IsDevelopment() bool {
+	switch appEnv() {
+	case "dev", "development", "local", "test":
+		return true
+	}
+	return false
+}
+
+// IsProduction is secure by default: everything except an explicit dev/development/local/test
+// APP_ENV counts as production (Secure refresh cookie, Gin release mode), so a deployment that
+// forgets the variable is not left with the weaker settings.
+func (c *Config) IsProduction() bool { return !c.IsDevelopment() }
+
+// EnvWarning describes a configuration situation worth a startup warning, or returns "".
+func (c *Config) EnvWarning() string {
+	switch env := appEnv(); {
+	case c.IsDevelopment():
+		return "APP_ENV=" + env + ": development mode: the refresh cookie is not marked Secure and Gin runs in debug mode; never use this in production"
+	case env == "":
+		return "APP_ENV is not set: assuming production (Secure refresh cookie, Gin release mode); set APP_ENV=dev to run over plain http locally"
+	}
+	return ""
 }

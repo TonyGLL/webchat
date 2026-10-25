@@ -31,6 +31,13 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input dtos.RegisterInput
 	if err := domain.ValidateUsername(input.Username); err != nil {
 		return nil, err
 	}
+	var err error
+	if input.Name, err = domain.NormalizeDisplayName(input.Name); err != nil {
+		return nil, err
+	}
+	if input.LastName, err = domain.NormalizeDisplayName(input.LastName); err != nil {
+		return nil, err
+	}
 	input.Email = domain.NormalizeEmail(input.Email)
 	if err := domain.ValidatePassword(input.Password, input.Username, input.Email); err != nil {
 		return nil, err

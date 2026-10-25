@@ -30,12 +30,16 @@ func RegisterModule(
 
 	// Initialize use cases
 	loginUseCase := usecases.NewLoginUseCase(authRepository, tokenRepository, passwordService, jwtService)
+	// The Redis token repository also implements the per-account login throttle.
+	if throttle, ok := tokenRepository.(domain.LoginThrottle); ok {
+		loginUseCase.WithThrottle(throttle)
+	}
 	registerUseCase := usecases.NewRegisterUseCase(authRepository, passwordService, jwtService)
 	sendVerifyEmailUseCase := usecases.NewSendVerifyEmailUseCase(authRepository, tokenRepository, jwtService, mailerService, store, frontendURL)
 	refreshTokenUseCase := usecases.NewRefreshTokenUseCase(authRepository, tokenRepository, jwtService)
 	verifyEmailUseCase := usecases.NewVerifyEmailUseCase(authRepository, tokenRepository, jwtService, mailerService)
 
-	logoutUseCase := usecases.NewLogoutUseCase(tokenRepository, jwtService)
+	logoutUseCase := usecases.NewLogoutUseCase(tokenRepository, jwtService, realtime)
 	requestPasswordResetUseCase := usecases.NewRequestPasswordResetUseCase(authRepository, tokenRepository, mailerService, frontendURL)
 	resetPasswordUseCase := usecases.NewResetPasswordUseCase(authRepository, tokenRepository, passwordService, realtime)
 

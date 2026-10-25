@@ -4,8 +4,11 @@ import { isSessionRejected } from './sessionRestore';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8081/api/v1';
 
+/** A stalled request must not hang forever (and keep a signed-out session's calls alive). */
+const REQUEST_TIMEOUT_MS = 20_000;
+
 /** Shared axios instance: attaches the access token and renews it once when it expires. */
-export const api = axios.create({ baseURL: API_URL, withCredentials: true });
+export const api = axios.create({ baseURL: API_URL, withCredentials: true, timeout: REQUEST_TIMEOUT_MS });
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
@@ -19,9 +22,12 @@ let refreshing: Promise<string> | null = null;
 
 /** Exchanges the httpOnly refresh cookie for a new access token. */
 export function refreshAccessToken(): Promise<string> {
+  const epoch = tokenStorage.epoch();
   refreshing ??= axios
-    .post<RefreshResponse>(`${API_URL}/auth/refresh-token`, null, { withCredentials: true })
+    .post<RefreshResponse>(`${API_URL}/auth/refresh-token`, null, { withCredentials: true, timeout: REQUEST_TIMEOUT_MS })
     .then(({ data }) => {
+      // A sign-out while this call was in flight must not bring the session back.
+      if (tokenStorage.epoch() !== epoch) throw new Error('Session ended while refreshing');
       tokenStorage.set({ accessToken: data.token });
       return data.token;
     })

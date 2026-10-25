@@ -107,6 +107,8 @@ erDiagram
 | `messages (room_id, pinned_at DESC) WHERE pinned_at IS NOT NULL` | lista de fijados |
 | `messages USING GIN (to_tsvector('simple', content))` | búsqueda |
 | `invites (room_id, expires_at)` | invitaciones vigentes |
+| `users (name, username) WHERE deleted = FALSE` | listado por defecto del directorio (consulta vacía), migración 16 |
+| `room_members (room_id, joined_at, user_id)` | orden de la lista de miembros, migración 16 |
 | `audit_log (room_id, created_at DESC)` | auditoría por sala |
 
 ## Historial de migraciones
@@ -123,5 +125,6 @@ erDiagram
 | 9 | Una denuncia por persona y mensaje |
 | 10 | Soporte para borrar la cuenta |
 | 11 | Invitaciones dirigidas a un usuario (`room_invitations`) |
+| 16 | Índices de rendimiento: orden del directorio y de la lista de miembros |
 
 Regla: nunca se edita una migración ya aplicada. Se añade un nuevo par numerado de archivos `.up.sql` y `.down.sql`.

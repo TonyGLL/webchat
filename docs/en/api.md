@@ -25,7 +25,7 @@ flowchart LR
 | Method | Path | Description |
 |---|---|---|
 | GET | `/health` | Liveness. Always `200 {"status":"ok"}` *(public)* |
-| GET | `/ready` | Readiness. Pings the database and Redis; `503` if one is down *(public)* |
+| GET | `/ready` | Readiness. Pings the database and Redis; `503` if one is down or shutdown has started *(public)* |
 
 ## Auth `/auth`
 
@@ -59,7 +59,9 @@ flowchart LR
 | GET | `/rooms/discover` | Every non-direct room; private ones are listed but need an invitation |
 | POST | `/rooms/invite-user/:room_id` | Invite a specific user (admin or above) |
 | GET | `/rooms/invitations` | My pending invitations |
-| POST | `/rooms/invitations/:id/accept` · `/decline` | Answer an invitation; accepting makes me a member |
+| POST | `/rooms/invitations/:id/accept` · `/decline` | Answer an invitation; accepting makes me a member (404 if it expired or its sender can no longer invite) |
+| GET | `/rooms/invitations/room/:room_id` | Pending invitations of a room (admin or above) |
+| DELETE | `/rooms/invitations/room/:room_id/:id` | Cancel a pending invitation (admin or above) |
 | POST | `/rooms/join/:room_id` | Join a public room (fails if banned) |
 | POST | `/rooms/direct/:user_id` | Open (or reuse) the one-to-one room with that user |
 | GET | `/rooms/members/:room_id` | Members with role and online status |
@@ -74,7 +76,7 @@ flowchart LR
 |---|---|---|
 | GET | `/messages/:roomId/messages?limit=&before=` | History, newest first, cursor-paginated |
 | GET | `/messages/:roomId/pinned` | Pinned messages of a room |
-| GET | `/messages/search?q=&room_id=` | Full-text, accent-insensitive search across the user's rooms (or one room) |
+| GET | `/messages/search?q=&room_id=` | Full-text, accent-insensitive search across the user's rooms (or one room). `503` + `Retry-After` when the search exceeds 2 s or the instance already runs 4 searches |
 | POST | `/messages` | Send: `room_id`, `content`, optional `reply_to_message_id` |
 | PATCH | `/messages/:id` | Edit (author only) |
 | DELETE | `/messages/:id` | Delete (author, or a moderator or above) |

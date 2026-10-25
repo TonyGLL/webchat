@@ -42,7 +42,7 @@ Cada página tiene un selector de idioma en su primera línea. Los documentos de
 
 | | |
 |---|---|
-| Backend | Go 1.26, Gin, PostgreSQL 16, Redis, Gorilla WebSocket, JWT |
+| Backend | Go 1.27, Gin, PostgreSQL 16, Redis, Gorilla WebSocket, JWT |
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, React Hook Form + Zod, Axios |
 | Herramientas | Docker Compose, Make, `air`, CI con GitHub Actions |
 

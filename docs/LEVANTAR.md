@@ -26,8 +26,8 @@ Convención de nombres: `<proyecto>-<servicio>` en minúsculas con guiones; vol�
 
 ## Requisitos
 
-- Go 1.26.10 o superior
-- Node 22+ y pnpm (la versión está fijada en `package.json`; `corepack enable` o `npm i -g pnpm`) para el frontend
+- Go 1.27.3 o superior
+- Node 24+ y pnpm (la versión está fijada en `package.json`; `corepack enable` o `npm i -g pnpm`) para el frontend
 - Docker y Docker Compose
 - Make
 - `air` (recarga automática del backend). `make watch` ofrece instalarlo; también: `go install github.com/air-verse/air@latest` (asegúrate de tener `~/go/bin` en el `PATH`).
@@ -97,7 +97,7 @@ Notas sobre cada variable:
 
 | Variable | Obligatoria | Detalle |
 |---|---|---|
-| `JWT_SECRET` | **Sí** | Mínimo 32 caracteres. Si falta o es corta, el servidor no arranca (H-001). Genera uno con `openssl rand -hex 32`. |
+| `JWT_SECRET` | **Sí** | Mínimo 32 caracteres aleatorios. Si falta, es corta, es un texto de ejemplo (`change-me`...), un patrón repetido o usa menos de 8 caracteres distintos, el servidor no arranca (H-001). Genera uno con `openssl rand -base64 48`. |
 | `DATABASE_URL` | Alternativa | Si la defines, se ignoran las `DB_*`. Formato: `postgres://usuario:clave@localhost:5433/webchat?sslmode=disable` |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME` | Sí (si no hay `DATABASE_URL`) | `DB_PASSWORD` según la contraseña del contenedor. |
 | `REDIS_URL` | Alternativa | Si la defines, se ignoran las `REDIS_*`. Formato: `redis://:clave@localhost:6380/0` |
@@ -108,7 +108,7 @@ Notas sobre cada variable:
 | `PORT` | No | Por defecto `8081`. |
 | `FRONTEND_URL` | No | URL pública del frontend para los enlaces de los correos. Por defecto `http://localhost:3100`. |
 | `SMTP_*` | Solo para restablecer contraseña | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD`. Sin ellos «¿Olvidaste tu contraseña?» no envía nada (el error solo queda en el log). Con Gmail necesitas una "contraseña de aplicación". Para probar en local sirve un servidor SMTP de pruebas como Mailpit. |
-| `APP_ENV` | No | `prod` o `production` activa el modo producción. |
+| `APP_ENV` | Recomendada | Seguro por defecto: solo `dev`, `development`, `local` o `test` desactivan el modo producción (cookie Secure, modo release). Pon `APP_ENV=dev` en local con http. Redis mínimo: 6.2. |
 
 ### 3.2 Arrancar
 
@@ -234,7 +234,7 @@ Para el backend y el frontend locales: `Ctrl+C` en cada terminal.
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| `JWT_SECRET must be set and at least 32 characters long` | Falta el secreto o es corto | Ponlo en `.env.local` (`openssl rand -hex 32`). |
+| `JWT_SECRET must be set...` / `looks like a placeholder` / `not random enough` | Falta el secreto, es corto o adivinable | Ponlo en `.env.local` (`openssl rand -base64 48`). |
 | `DATABASE_URL is not set and individual DB_...` | `.env.local` no existe o no se cargó | Ejecuta `make watch` desde `backend/` y revisa el nombre del archivo. |
 | `unable to connect to database` | Contenedor apagado, puerto o contraseña errónea | `docker compose ps`; usa el puerto **5433** en local. |
 | Error de Redis al arrancar | Puerto o contraseña erróneos | Usa el puerto **6380** en local y `REDIS_PASS` igual al del compose. |

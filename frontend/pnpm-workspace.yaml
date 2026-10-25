@@ -2,6 +2,23 @@
 allowBuilds:
   unrs-resolver: false
 
+# Supply-chain policy. pnpm re-checks every lockfile entry against it on each install, so it also
+# applies to `--frozen-lockfile` in CI and in the image.
+# A version must be at least one day old (pnpm 11+ default, made explicit so it also turns on strict mode).
+minimumReleaseAge: 1440
+# Fail when a package loses provenance / trusted publishing compared with an earlier release.
+trustPolicy: no-downgrade
+# These three are older release lines published after a newer line gained provenance (backports);
+# reviewed, not takeovers. Pinned to exact versions so a bump has to be reviewed again.
+trustPolicyExclude:
+  - eslint-import-resolver-typescript@3.10.1
+  - semver@6.3.1
+  - tailwind-merge@2.6.1
+# Only direct dependencies may come from git or tarball URLs.
+blockExoticSubdeps: true
+# Fail the install on a dependency build script nobody reviewed (allowBuilds lists the decisions).
+strictDepBuilds: true
+
 overrides:
   # postcss-selector-parser < 7.1.6 has a moderate advisory (build time, via tailwindcss).
-  postcss-selector-parser: ">=7.1.6"
+  postcss-selector-parser: "^7.1.6"

@@ -68,7 +68,7 @@ export default function Reaction({ messageId, reactions, onAddReaction, onRemove
             aria-pressed={mine}
             aria-label={t(reaction.count === 1 ? 'chat.reactionCount.one' : 'chat.reactionCount.other', { emoji: reaction.emoji, count: reaction.count })}
             className={cn(
-              'h-6 rounded-full border bg-card px-2 text-xs transition-colors hover:bg-accent',
+              'h-6 max-w-[8rem] truncate rounded-full border bg-card px-2 text-xs transition-colors hover:bg-accent',
               mine && 'border-primary bg-soft font-medium text-primary hover:bg-soft'
             )}
           >

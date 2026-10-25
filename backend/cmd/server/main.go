@@ -49,6 +49,9 @@ func main() {
 
 	setupLogging(cfg)
 	slog.Info("starting server")
+	if w := cfg.EnvWarning(); w != "" {
+		slog.Warn(w)
+	}
 
 	// --- Shared Dependencies ---
 	validate := validator.New()
@@ -145,6 +148,9 @@ func main() {
 		{Method: "PUT", Path: "/api/v1/messages/:id/pin", Limit: 60, Window: time.Minute},
 		{Method: "DELETE", Path: "/api/v1/messages/:id/pin", Limit: 60, Window: time.Minute},
 		{Method: "POST", Path: "/api/v1/rooms", Limit: 10, Window: 10 * time.Minute},
+		// Sent by the browser once per incoming message in the open room (the frontend throttles it),
+		// so the limit is far above normal use.
+		{Method: "POST", Path: "/api/v1/rooms/read/:room_id", Limit: 240, Window: time.Minute},
 		{Method: "POST", Path: "/api/v1/rooms/direct/:user_id", Limit: 30, Window: 10 * time.Minute},
 		{Method: "POST", Path: "/api/v1/rooms/join/:room_id", Limit: 30, Window: 10 * time.Minute},
 		{Method: "POST", Path: "/api/v1/rooms/invite-user/:room_id", Limit: 30, Window: 10 * time.Minute},
@@ -166,7 +172,7 @@ func main() {
 		websocket.ServeWs(wsHub, wsUpgrader, wsTickets, roomListerAdapter, presence, sessionGuard, c)
 	})
 
-	http.RegisterHealthRoutes(server.Router, map[string]http.Pinger{
+	markDraining := http.RegisterHealthRoutes(server.Router, map[string]http.Pinger{
 		"database": http.PingFunc(database.PingContext),
 		"redis":    http.PingFunc(func(ctx context.Context) error { return redisClient.Ping(ctx).Err() }),
 	})
@@ -185,7 +191,7 @@ func main() {
 
 	// --- Start Server ---
 	// On SIGINT/SIGTERM: tell websocket clients to reconnect (close 1012), then drain HTTP.
-	if err := server.Run(ctx, wsHub.Shutdown); err != nil {
+	if err := server.Run(ctx, markDraining, wsHub.Shutdown); err != nil {
 		slog.Error("server stopped with an error", "error", err)
 		return // deferred closes run; os.Exit/log.Fatal would skip them
 	}

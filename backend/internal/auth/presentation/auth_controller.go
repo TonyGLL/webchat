@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"backend/internal/auth/application/dtos"
 	"backend/internal/auth/application/usecases"
@@ -85,12 +86,19 @@ func (ctrl *AuthController) Login(ctx *gin.Context) {
 	}
 
 	if err := ctrl.Validate.Struct(input); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
+	input.IP = ctx.ClientIP()
 	response, err := ctrl.LoginUseCase.Execute(ctx.Request.Context(), input)
 	if err != nil {
+		var throttled *domain.ThrottledError
+		if errors.As(err, &throttled) {
+			ctx.Header("Retry-After", strconv.Itoa(int(throttled.RetryAfter.Seconds())+1))
+			ctx.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many failed attempts, try again shortly"})
+			return
+		}
 		if errors.Is(err, shared_domain.ErrInvalidCredentials) {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
@@ -149,7 +157,7 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 	}
 
 	if err := ctrl.Validate.Struct(input); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
@@ -159,7 +167,7 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "User with this email or username already exists"})
 			return
 		}
-		if errors.Is(err, domain.ErrInvalidUsername) {
+		if errors.Is(err, domain.ErrInvalidUsername) || errors.Is(err, domain.ErrReservedUsername) || errors.Is(err, domain.ErrInvalidDisplayName) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -179,17 +187,17 @@ func (ctrl *AuthController) Register(ctx *gin.Context) {
 func (ctrl *AuthController) SendVerifyEmail(ctx *gin.Context) {
 	var input dtos.SendVerifyEmailInputDTO
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
 	if err := ctx.ShouldBindUri(&input); err != nil {
-		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
 	if err := ctrl.Validate.Struct(input); err != nil {
-		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
@@ -202,10 +210,11 @@ func (ctrl *AuthController) SendVerifyEmail(ctx *gin.Context) {
 
 	if err := ctrl.SendVerifyEmailUseCase.Execute(ctx.Request.Context(), input); err != nil {
 		if errors.Is(err, shared_domain.ErrNotFound) {
-			ctx.JSON(http.StatusNotFound, shared_domain.ErrorResponse(err))
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, shared_domain.ErrorResponse(err))
+		log.Printf("failed to send verification email: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
 		return
 	}
 
@@ -215,21 +224,22 @@ func (ctrl *AuthController) SendVerifyEmail(ctx *gin.Context) {
 func (ctrl *AuthController) VerifyEmail(ctx *gin.Context) {
 	var input dtos.VerifyEmailInputDTO
 	if err := ctx.ShouldBindUri(&input); err != nil {
-		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
 	if err := ctrl.Validate.Struct(input); err != nil {
-		ctx.JSON(http.StatusBadRequest, shared_domain.ErrorResponse(err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
 	if err := ctrl.VerifyEmailUseCase.Execute(ctx.Request.Context(), input); err != nil {
 		if errors.Is(err, shared_domain.ErrInvalidToken) {
-			ctx.JSON(http.StatusUnauthorized, shared_domain.ErrorResponse(err))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "This link is invalid or has expired"})
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, shared_domain.ErrorResponse(err))
+		log.Printf("failed to verify email: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify email"})
 		return
 	}
 

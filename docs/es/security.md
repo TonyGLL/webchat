@@ -20,17 +20,20 @@ flowchart LR
 | Elemento | Comportamiento |
 |---|---|
 | Contraseñas | Hashes bcrypt en su propia tabla (`passwords`), nunca devueltos por la API |
-| Política de contraseñas | 8–72 caracteres (72 es el límite de bcrypt); rechaza una lista corta de contraseñas muy comunes y las que contienen el usuario o la parte local del email |
+| Política de contraseñas | 8–72 caracteres (72 es el límite de bcrypt); rechaza unas 2000 contraseñas muy comunes (lista embebida) y las que contienen el usuario o la parte local del email |
 | Access token | JWT de 1 hora, enviado como `Authorization: Bearer …` |
-| Refresh token | JWT de 7 días, **un solo uso** (sigue valiendo 30 s más para que pestañas simultáneas no choquen); su id se guarda en Redis; cookie httpOnly, `SameSite=Strict`, limitada a `/api/v1/auth` |
+| Refresh token | JWT de 7 días, **un solo uso** y rotado dentro de una *familia* (una por inicio de sesión). Una repetición dentro de la gracia de 30 s recibe el mismo sucesor (no nace una segunda cadena); un token ya rotado presentado pasada la gracia revoca toda la familia; la sesión termina como máximo 30 días después del inicio sea cual sea su actividad; su id se guarda en Redis (los tokens emitidos antes de las familias abren la suya en su primera renovación); cookie httpOnly, `SameSite=Strict`, limitada a `/api/v1/auth` |
 | Persistencia de sesión | cada renovación emite otros 7 días, así la sesión termina tras una semana **sin uso**; el navegador cierra sesión solo si el servidor rechaza el token, nunca por un error de red (D20) |
 | Tipos de token y sesiones vivas | cada JWT lleva `typ` (`access`/`refresh`/`verify`) y los consumidores exigen el suyo; solo HS256. Un guardián de sesión rechaza en cada petición los tokens emitidos antes de una revocación y los de usuarios desactivados (D23). Desactivar exige la contraseña y termina sesiones y sockets al instante |
-| Identidad | los nombres de usuario son `[A-Za-z0-9_.-]` (3–30); email y usuario son únicos sin distinguir mayúsculas; login y restablecimiento tardan lo mismo con cuentas desconocidas; bcrypt con coste 12 |
+| Identidad | los nombres de usuario son `[A-Za-z0-9_.-]` (3–30); email y usuario son únicos sin distinguir mayúsculas; login y restablecimiento tardan lo mismo con cuentas desconocidas; los nombres de usuario reservados (`admin`, `support`, `system`...) no se pueden registrar; los nombres se recortan, se normalizan a NFC y rechazan caracteres de control, bidi y de ancho cero; bcrypt con coste 12, y como mucho la mitad de las CPU calculan hashes a la vez (el resto espera hasta 5 s) para que una ráfaga de logins no deje sin recursos a la API |
 | Límites | cuerpos ≤ 1 MiB, timeouts del servidor, límites de tasa por IP en cada ruta que modifica estado, `TRUSTED_PROXIES` tras un balanceador (D27). Editar mensajes exige ser miembro y limita el contenido a 4000 caracteres; las reacciones tienen tope (10 distintas por persona, 30 por mensaje) |
+| Endurecimiento de la API | toda respuesta lleva `X-Content-Type-Options: nosniff` y `/api/...` responde `Cache-Control: no-store` (los cuerpos con tokens y el JSON autenticado nunca se cachean); los 500 y los cuerpos inválidos devuelven mensajes genéricos (el detalle solo va al log); el JSON de más de 1 KiB se comprime con gzip; el preflight de CORS se cachea 2 h; `/docs` carga su script de Scalar fijado con un hash de Subresource Integrity; las llamadas a Redis en la ruta de petición vencen en 0,5 s (fail open) |
+| Valores por defecto de producción | el flag `Secure` de la cookie de refresco y el modo release de Gin no dependen de una variable opcional: solo un `APP_ENV` explícito `dev`/`development`/`local`/`test` los relaja, y el servidor avisa en el log al arrancar salvo que `APP_ENV` sea `prod`/`production` |
 | Navegador | cabeceras de seguridad y CSP en la aplicación web (D25); los errores del cliente se registran sin cuerpos de petición ni credenciales |
-| Restablecer contraseña | `POST /auth/forgot-password` responde siempre igual, así que nunca revela quién tiene cuenta. El enlace del correo lleva un token aleatorio de 256 bits válido 30 minutos y de **un solo uso**; solo se guarda su hash SHA-256. Como máximo un correo por dirección y minuto, además de un límite por cliente. `POST /auth/reset-password` aplica la política de contraseñas del registro (una contraseña rechazada deja el enlace válido) y después **cierra todas las sesiones**: los refresh tokens emitidos antes se rechazan (los access tokens caducan en menos de una hora) (D21) |
-| Cierre de sesión | `POST /auth/logout` revoca el id de refresh y borra la cookie |
-| Secreto | el servidor se niega a arrancar sin un `JWT_SECRET` de al menos 32 caracteres |
+| Restablecer contraseña | `POST /auth/forgot-password` responde siempre igual, así que nunca revela quién tiene cuenta. El enlace del correo lleva un token aleatorio de 256 bits válido 30 minutos y de **un solo uso** (se canjea de forma atómica con `GETDEL`; un enlace nuevo sustituye al anterior); solo se guarda su hash SHA-256. El correo nunca incluye el nombre de la cuenta. Como máximo un correo por dirección y minuto, además de un límite por cliente. `POST /auth/reset-password` aplica la política de contraseñas del registro (una contraseña rechazada deja el enlace válido) y después **cierra todas las sesiones**: los refresh tokens emitidos antes se rechazan (los access tokens caducan en menos de una hora) (D21) |
+| Cierre de sesión | `POST /auth/logout` revoca el id de refresh, borra la cookie y corta los sockets abiertos del usuario (las otras pestañas se reconectan solas) |
+| Secreto | el servidor se niega a arrancar sin un `JWT_SECRET` de al menos 32 caracteres que no sea un texto de ejemplo (`change-me`, `your-secret`...), ni un patrón repetido, y que use al menos 8 caracteres distintos. Genéralo con `openssl rand -base64 48` |
+| Limitación de logins | los fallos de login frenan a la **cuenta**, no solo a la IP: tras 5 fallos desde una misma dirección, o 20 desde cualquiera, para el mismo usuario o email, los intentos reciben `429` + `Retry-After` con una espera que se duplica hasta 5 minutos. Nunca es un bloqueo permanente (un atacante lo usaría para dejar fuera a la gente) y un acierto lo borra; las cuentas inexistentes también cuentan. Los contadores están en Redis y la comprobación deja pasar los logins si Redis no está disponible |
 | Errores de login | el formulario muestra un único mensaje genérico, así no revela si un email existe |
 
 El razonamiento de cada elección está en [Decisiones de diseño](decisions.md) (D5–D7, D20, D21).
@@ -64,9 +67,11 @@ Un **moderador** global actúa como moderador en todas las salas; un **admin** g
 
 Como las reglas comparan rangos, un moderador nunca puede actuar sobre otro moderador, un admin o el propietario.
 
+Los vetos siguen la misma regla: un veto recuerda el rango de quien lo impuso, y levantarlo o reemplazarlo (por ejemplo acortar uno permanente) exige ser quien lo impuso o **tener un rango superior al suyo**. Un moderador no puede deshacer el veto de un admin ni del propietario; un admin sí puede deshacer el de un moderador. A los vetos anteriores a esta regla se les asignó el rango actual de quien los impuso (0 si ya no existe, así que cualquier moderador puede levantarlos).
+
 ## 4. Protección contra abuso
 
-Los límites son por IP de cliente y se guardan en Redis (`/api/v1`):
+Los límites son por IP de cliente y se guardan en Redis (`/api/v1`). Los clientes IPv6 se agrupan por su prefijo `/64`, así rotar direcciones dentro de una misma asignación no da un cupo nuevo. El contador es un pequeño script Lua (funciona en Redis 6.2+, no solo 7+):
 
 | Ruta | Límite |
 |---|---|
@@ -76,6 +81,7 @@ Los límites son por IP de cliente y se guardan en Redis (`/api/v1`):
 | `POST /auth/send-verify-email/:user_id` | 5 cada 10 minutos |
 | `POST /ws-ticket` | 30 por minuto |
 | `POST /messages` | 120 por minuto |
+| `POST /rooms/read/:room_id` | 240 por minuto |
 | `GET /messages/search` | 60 por minuto |
 | `GET /users/export`, `DELETE /users/me` | 5 por hora cada una |
 
@@ -84,13 +90,14 @@ Al superarlos la API responde `429` con la cabecera `Retry-After`. Si Redis no e
 ## 5. Moderación y auditoría
 
 - Los miembros denuncian mensajes (una denuncia por persona, nunca del propio). Los moderadores revisan la cola y pueden borrar el mensaje, marcar la denuncia como resuelta o ignorarla.
-- Los vetos son por sala, temporales o permanentes, e impiden volver a entrar por id o por invitación.
+- Los vetos son por sala, temporales o permanentes, e impiden volver a entrar por id o por invitación. Levantar o reemplazar uno exige tener un rango superior al de quien lo impuso (ver la matriz anterior).
+- Las invitaciones personales caducan a los 30 días, los admins pueden listar y cancelar las pendientes de una sala, y aceptar exige que quien la envió siga siendo admin o propietario de la sala (igual que los códigos de invitación).
 - Toda acción sensible se escribe en `audit_log` con quien actúa, el objetivo, la sala y los detalles. Solo los admins lo leen.
 
 ## 6. Privacidad
 
 - **Directorio y descubrimiento:** cualquier usuario con sesión puede listar a otros usuarios activos (nombre, usuario, estado de conexión) y el nombre, tema y número de miembros de cada sala. Leer o escribir en una sala sigue exigiendo ser miembro, así que una sala privada es visible pero está cerrada. Las invitaciones personales solo las puede responder el usuario invitado (cualquier otro recibe "no encontrada") y al aceptar se vuelven a comprobar los vetos.
-- `GET /users/export` descarga un JSON con el perfil, las salas, los mensajes y las reacciones del usuario.
+- `GET /users/export` descarga un JSON con el perfil, las salas, los mensajes y las reacciones del usuario, enviado fila a fila para que una cuenta grande no ocupe toda la memoria del servidor.
 - `DELETE /users/me` (confirmado con la contraseña) borra la cuenta: ver D13 en [Decisiones de diseño](decisions.md).
 
 ## 7. Límites conocidos

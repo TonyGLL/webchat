@@ -4,7 +4,6 @@ import (
 	"backend/internal/message/domain"
 	shared_domain "backend/internal/shared/domain"
 	"context"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -12,7 +11,7 @@ import (
 
 const (
 	maxEmojiBytes          = 32 // the reactions.emoji column is VARCHAR(32)
-	maxEmojiRunes          = 8  // enough for ZWJ sequences, rejects arbitrary text
+	maxEmojiRunes          = 32 // upper bound; isSingleEmoji is the real check (one grapheme cluster)
 	maxReactionsPerUser    = 10 // distinct emoji one user can put on a message
 	maxReactionKindsPerMsg = 30 // distinct emoji a message can carry
 )
@@ -22,7 +21,7 @@ type AddReactionDTO struct {
 }
 
 func validEmoji(emoji string) bool {
-	return strings.TrimSpace(emoji) != "" && len(emoji) <= maxEmojiBytes && utf8.RuneCountInString(emoji) <= maxEmojiRunes
+	return len(emoji) <= maxEmojiBytes && utf8.RuneCountInString(emoji) <= maxEmojiRunes && isSingleEmoji(emoji)
 }
 
 type AddReactionUseCase struct {

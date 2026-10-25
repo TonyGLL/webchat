@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,13 +21,20 @@ func (f PingFunc) Ping(ctx context.Context) error { return f(ctx) }
 
 // RegisterHealthRoutes adds:
 //   - GET /health: the process is up (liveness)
-//   - GET /ready: dependencies answer (readiness); 503 if any does not
-func RegisterHealthRoutes(router *gin.Engine, deps map[string]Pinger) {
+//   - GET /ready: dependencies answer (readiness); 503 if any does not, and also once the
+//     returned function (an onShutdown hook for Server.Run) has been called, so a load balancer
+//     stops sending traffic while the instance drains (BP-13)
+func RegisterHealthRoutes(router *gin.Engine, deps map[string]Pinger) func(context.Context) {
+	var draining atomic.Bool
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
 	router.GET("/ready", func(c *gin.Context) {
+		if draining.Load() {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "shutting down", "checks": gin.H{}})
+			return
+		}
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()
 
@@ -47,4 +55,6 @@ func RegisterHealthRoutes(router *gin.Engine, deps map[string]Pinger) {
 		}
 		c.JSON(status, gin.H{"status": label, "checks": checks})
 	})
+
+	return func(context.Context) { draining.Store(true) }
 }

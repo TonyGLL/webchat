@@ -42,6 +42,19 @@ Plantilla para añadir uno nuevo:
 
 ---
 
+### Auditoría de octubre de 2026 (pendiente)
+
+- **H-104 Redis de docker-compose sin autenticación (BS-1, alta):** `redis:alpine` ignora las variables de contraseña estilo Bitnami; hace falta `command: redis-server --requirepass ${REDIS_PASSWORD}` y healthcheck con auth (ver informe de la auditoría). Lo mismo para Postgres (`root/root`).
+- **H-105 `JWT_SECRET` y `APP_ENV` en los .env reales:** el servidor ahora rechaza secretos de marcador/baja entropía y trata `APP_ENV` ausente como producción; revisar `.env.dev`, `.env.prod` y añadir las variables nuevas a `backend/.env.example` (`DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME`, `TRUSTED_PROXIES`).
+- **H-106 CSP con nonce (FS-2):** `script-src 'unsafe-inline'` sigue activo; la solución es `proxy.ts` con nonce + `strict-dynamic`.
+- **H-107 Teléfono obligatorio sin uso (FS-7) y oráculo de existencia de email en el registro (BS-20).**
+- **H-108 Token de restablecimiento en la ruta de la URL (FS-11).**
+- **H-109 Agregar reacciones en el historial (BP-9) y fan-out de presencia/typing cuadrático (BP-6).**
+- **H-110 Paginación de miembros por keyset y no cargar todos los miembros al abrir sala (BP-3/FP-6).**
+- **H-111 Búsqueda: LATERAL híbrido y `tsvector` almacenado (BP-2 pasos 2-3).**
+- **H-112 Tailwind 4 y TypeScript 7 aplazados:** sin prueba de paridad visual / `typescript-eslint` aún no lo soporta.
+- **H-113 Límites por usuario en lecturas autenticadas (BS-15) y tope global de sockets (BS-14).**
+
 ## En progreso
 
 _(nada por ahora)_
@@ -52,6 +65,13 @@ _(nada por ahora)_
 
 | ID | Título | Fecha | Commit / PR |
 |----|--------|-------|-------------|
+| H-103 | Dependencias al día: Go 1.27.3, go-redis v9, Node 24, TypeScript 6, ESLint 10, lucide-react 1.x, imágenes y acciones fijadas por digest/SHA, política de cadena de suministro de pnpm (D28, D29) | 2026-10-24 | 29d8ff1 · ce0f171 |
+| H-102 | Frontend: zod fuera de las rutas no-auth, redirect de `/` sin JS, sharp fuera de la imagen, CSP `object-src 'none'` + COOP + reglas ESLint, logout local primero, dev ligado a 127.0.0.1 (FP-2/5/7/8/12, FS-2/3/4/8/9/10/13) | 2026-10-24 | 395102c |
+| H-101 | Frontend: carga en frío sin peticiones desperdiciadas, eventos sin cambio no re-renderizan, throttle de `markRead`, jitter de reconexión (FP-1/3/9/10/13, FS-1/5/6/12) | 2026-10-24 | 894da8b |
+| H-100 | Autorización: invitaciones caducan y exigen al invitador vigente, vetos de rango superior, throttle de login por cuenta, nombres reservados, entropía de `JWT_SECRET`, semáforo de bcrypt (BS-6/7/9/10/16/17) | 2026-10-24 | 6bb262d · 3cd925e |
+| H-099 | SQL: historial de mensajes 247 ms → 0,27 ms, búsqueda con timeout y tope, índice del directorio, marca de lectura, export en streaming, `/ready` en apagado (BP-1/2/3/4/5/13, BS-15) | 2026-10-24 | 9a6e546 · b0b43ad · 31f3d8d |
+| H-098 | Familias de refresh token con detección de reutilización y vida máxima de 30 días, reset atómico, un frame por evento WS, tope de 8 sockets por usuario (BS-4/5/12/13/14) | 2026-10-24 | 91bb016 |
+| H-097 | HTTP: limitador en Lua (Redis 6.2+), clave /64 en IPv6, Secure por defecto, `nosniff`/`no-store`, SRI en `/docs`, timeouts de Redis, caché del guard, `Max-Age` de CORS, gzip (BS-2/3/8/11/18/19, BP-7/8/10, FP-4) | 2026-10-24 | 8dffa45 |
 | H-025 | Estilo global inyectado desde el dashboard (y fondo `/whatsapp-bg.png` inexistente) | 2026-10-23 | 3422373 |
 | H-026 | Navegación móvil incompleta: ahora se alterna entre lista de salas y chat | 2026-10-23 | 3422373 |
 | H-096 | Accesibilidad del chat y los paneles: anuncio de mensajes nuevos, selector de emojis como diálogo, reacciones con estado y etiquetas, acciones con contexto, `ConfirmDialog` en lugar de `prompt`/`confirm`, pestañas de moderación completas, landmarks, ayudas y foco en formularios, tema opcional al crear sala (D26) | 2026-10-24 | 3091d86, 0ae4653 |

@@ -9,7 +9,7 @@ build:
 depends-on: build
 run:
 	@echo "Running in development mode..."
-	@CONFIG_FILE=.env.local go run cmd/server/main.go
+	@APP_ENV=dev CONFIG_FILE=.env.local go run cmd/server/main.go
 
 # Run tests
 test:
@@ -31,7 +31,7 @@ watch:
 	    go install github.com/air-verse/air@latest || exit 1; \
 	fi
 	@echo "Watching..."
-	@CONFIG_FILE=.env.local $(AIR)
+	@APP_ENV=dev CONFIG_FILE=.env.local $(AIR)
 
 database-up:
 	@echo "Starting PostgreSQL database..."

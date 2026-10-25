@@ -37,6 +37,8 @@ func RegisterModule(
 	inviteUserUseCase := application.NewInviteUserUseCase(invitationRepo, roomRepo, memberRepo, bans)
 	listInvitationsUseCase := application.NewListInvitationsUseCase(invitationRepo)
 	respondInvitationUseCase := application.NewRespondInvitationUseCase(invitationRepo, memberRepo, subscriber, bans)
+	listRoomInvitationsUseCase := application.NewListRoomInvitationsUseCase(invitationRepo, memberRepo)
+	cancelInvitationUseCase := application.NewCancelInvitationUseCase(invitationRepo, memberRepo)
 
 	// Initialize the controller, reusing the provided use case
 	roomController := presentation.NewRoomController(
@@ -53,6 +55,8 @@ func RegisterModule(
 		inviteUserUseCase,
 		listInvitationsUseCase,
 		respondInvitationUseCase,
+		listRoomInvitationsUseCase,
+		cancelInvitationUseCase,
 		validate,
 	)
 
@@ -65,6 +69,8 @@ func RegisterModule(
 		roomsRoutes.GET("/discover", roomController.DiscoverRooms)
 		roomsRoutes.POST("/invite-user/:room_id", roomController.InviteUser)
 		roomsRoutes.GET("/invitations", roomController.ListInvitations)
+		roomsRoutes.GET("/invitations/room/:room_id", roomController.ListRoomInvitations)
+		roomsRoutes.DELETE("/invitations/room/:room_id/:id", roomController.CancelInvitation)
 		roomsRoutes.POST("/invitations/:id/accept", roomController.AcceptInvitation)
 		roomsRoutes.POST("/invitations/:id/decline", roomController.DeclineInvitation)
 		roomsRoutes.POST("/direct/:user_id", roomController.OpenDirect)

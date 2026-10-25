@@ -70,35 +70,32 @@ func (r *PgMessageRepository) IsRoomMember(ctx context.Context, roomID uuid.UUID
 	return isMember, err
 }
 
+// historyQuery selects the page first and aggregates reactions per page row, so the cost is
+// O(page) and not O(messages in the room) (BP-1).
+const historyQuery = `
+	SELECT m.id, m.content, COALESCE(m.author_id, 0), m.room_id, m.reply_to_message_id,
+	       m.created_at, m.edited_at, m.deleted_at, m.pinned_at,
+	       COALESCE((
+	         SELECT json_agg(json_build_object(
+	                  'message_id', r.message_id,
+	                  'user_id', r.user_id,
+	                  'emoji', r.emoji,
+	                  'created_at', r.created_at))
+	         FROM reactions r WHERE r.message_id = m.id
+	       ), '[]') AS reactions
+	FROM (
+	  SELECT id, content, author_id, room_id, reply_to_message_id, created_at, edited_at, deleted_at, pinned_at
+	  FROM messages
+	  WHERE room_id = $1
+	    AND deleted_at IS NULL
+	    AND ($2::uuid IS NULL OR (created_at, id) < (SELECT created_at, id FROM messages WHERE id = $2))
+	  ORDER BY created_at DESC, id DESC
+	  LIMIT $3
+	) m
+	ORDER BY m.created_at DESC, m.id DESC`
+
 func (r *PgMessageRepository) FindByRoomID(ctx context.Context, roomID uuid.UUID, limit int, before *uuid.UUID) ([]*domain.Message, error) {
-	query := `
-		SELECT 
-			m.id, 
-			m.content, 
-			COALESCE(m.author_id, 0), 
-			m.room_id, 
-			m.reply_to_message_id, 
-			m.created_at, 
-			m.edited_at, 
-			m.deleted_at,
-			m.pinned_at,
-			COALESCE(json_agg(
-				json_build_object(
-					'message_id', r.message_id,
-					'user_id', r.user_id,
-					'emoji', r.emoji,
-					'created_at', r.created_at
-				)
-			) FILTER (WHERE r.message_id IS NOT NULL), '[]') AS reactions
-		FROM messages m
-		LEFT JOIN reactions r ON m.id = r.message_id
-		WHERE m.room_id = $1
-		  AND m.deleted_at IS NULL
-		  AND ($2::uuid IS NULL OR (m.created_at, m.id) < (SELECT created_at, id FROM messages WHERE id = $2))
-		GROUP BY m.id
-		ORDER BY m.created_at DESC, m.id DESC
-		LIMIT $3
-	`
+	query := historyQuery
 	rows, err := r.db.QueryContext(ctx, query, roomID, before, limit)
 	if err != nil {
 		return nil, err

@@ -32,6 +32,8 @@ type RoomController struct {
 	inviteUserUseCase        *application.InviteUserUseCase
 	listInvitationsUseCase   *application.ListInvitationsUseCase
 	respondInvitationUseCase *application.RespondInvitationUseCase
+	listRoomInvitationsUC    *application.ListRoomInvitationsUseCase
+	cancelInvitationUC       *application.CancelInvitationUseCase
 	validate                 *validator.Validate
 }
 
@@ -50,6 +52,8 @@ func NewRoomController(
 	inviteUserUseCase *application.InviteUserUseCase,
 	listInvitationsUseCase *application.ListInvitationsUseCase,
 	respondInvitationUseCase *application.RespondInvitationUseCase,
+	listRoomInvitationsUC *application.ListRoomInvitationsUseCase,
+	cancelInvitationUC *application.CancelInvitationUseCase,
 	validate *validator.Validate,
 ) *RoomController {
 	return &RoomController{
@@ -66,6 +70,8 @@ func NewRoomController(
 		inviteUserUseCase:        inviteUserUseCase,
 		listInvitationsUseCase:   listInvitationsUseCase,
 		respondInvitationUseCase: respondInvitationUseCase,
+		listRoomInvitationsUC:    listRoomInvitationsUC,
+		cancelInvitationUC:       cancelInvitationUC,
 		validate:                 validate,
 	}
 }
@@ -130,7 +136,7 @@ func (c *RoomController) CreateRoom(ctx *gin.Context) {
 		return
 	}
 
-	room, err := c.createRoomUseCase.Execute(ctx, dto, userID)
+	room, err := c.createRoomUseCase.Execute(ctx.Request.Context(), dto, userID)
 	if err != nil {
 		log.Printf("failed to create room: %v", err)
 		response.Error(ctx, http.StatusInternalServerError, "Failed to create room")
@@ -148,7 +154,7 @@ func (c *RoomController) GetUserRooms(ctx *gin.Context) {
 		return
 	}
 
-	rooms, err := c.listUserRoomsUseCase.Execute(ctx, userID)
+	rooms, err := c.listUserRoomsUseCase.Execute(ctx.Request.Context(), userID)
 	if err != nil {
 		log.Printf("failed to list rooms: %v", err)
 		response.Error(ctx, http.StatusInternalServerError, "Failed to list rooms")
@@ -170,7 +176,7 @@ func (c *RoomController) MarkRead(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
 		return
 	}
-	if err := c.markRoomReadUseCase.Execute(ctx, roomID, userID); err != nil {
+	if err := c.markRoomReadUseCase.Execute(ctx.Request.Context(), roomID, userID); err != nil {
 		if errors.Is(err, shared_domain.ErrForbidden) {
 			response.Error(ctx, http.StatusForbidden, "You are not a member of this room")
 			return
@@ -194,7 +200,7 @@ func (c *RoomController) OpenDirect(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "Invalid user ID")
 		return
 	}
-	room, err := c.openDirectUseCase.Execute(ctx, userID, otherID)
+	room, err := c.openDirectUseCase.Execute(ctx.Request.Context(), userID, otherID)
 	switch {
 	case err == nil:
 		response.JSON(ctx, http.StatusOK, room)
@@ -228,7 +234,7 @@ func (c *RoomController) ListMembers(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	members, err := c.listMembersUseCase.Execute(ctx, roomID, userID, limit, offset)
+	members, err := c.listMembersUseCase.Execute(ctx.Request.Context(), roomID, userID, limit, offset)
 	if err != nil {
 		if errors.Is(err, shared_domain.ErrForbidden) {
 			response.Error(ctx, http.StatusForbidden, "You are not a member of this room")
@@ -253,7 +259,7 @@ func (c *RoomController) LeaveRoom(ctx *gin.Context) {
 		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
 		return
 	}
-	if err := c.leaveRoomUseCase.Execute(ctx, roomID, userID); err != nil {
+	if err := c.leaveRoomUseCase.Execute(ctx.Request.Context(), roomID, userID); err != nil {
 		switch {
 		case errors.Is(err, shared_domain.ErrForbidden):
 			response.Error(ctx, http.StatusForbidden, "You are not a member of this room")
@@ -283,7 +289,7 @@ func (c *RoomController) JoinRoom(ctx *gin.Context) {
 		return
 	}
 
-	err = c.joinRoomUseCase.Execute(ctx, roomID, userID)
+	err = c.joinRoomUseCase.Execute(ctx.Request.Context(), roomID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, application.ErrRoomIsPrivate), errors.Is(err, application.ErrBannedFromRoom):
@@ -315,7 +321,7 @@ func (c *RoomController) AcceptInvite(ctx *gin.Context) {
 		return
 	}
 
-	invite, err := c.acceptInviteUseCase.Execute(ctx, dto, userID)
+	invite, err := c.acceptInviteUseCase.Execute(ctx.Request.Context(), dto, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, application.ErrBannedFromRoom):
@@ -356,7 +362,7 @@ func (c *RoomController) DiscoverRooms(ctx *gin.Context) {
 		after = &id
 	}
 
-	rooms, err := c.discoverRoomsUseCase.Execute(ctx, userID, limit, after)
+	rooms, err := c.discoverRoomsUseCase.Execute(ctx.Request.Context(), userID, limit, after)
 	if err != nil {
 		log.Printf("failed to discover rooms: %v", err)
 		response.Error(ctx, http.StatusInternalServerError, "Failed to discover rooms")
@@ -386,7 +392,7 @@ func (c *RoomController) InviteUser(ctx *gin.Context) {
 		return
 	}
 
-	invitation, err := c.inviteUserUseCase.Execute(ctx, roomID, userID, body.UserID)
+	invitation, err := c.inviteUserUseCase.Execute(ctx.Request.Context(), roomID, userID, body.UserID)
 	switch {
 	case err == nil:
 		response.JSON(ctx, http.StatusCreated, invitation)
@@ -413,7 +419,7 @@ func (c *RoomController) ListInvitations(ctx *gin.Context) {
 		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
-	invitations, err := c.listInvitationsUseCase.Execute(ctx, userID)
+	invitations, err := c.listInvitationsUseCase.Execute(ctx.Request.Context(), userID)
 	if err != nil {
 		log.Printf("failed to list invitations: %v", err)
 		response.Error(ctx, http.StatusInternalServerError, "Failed to list invitations")
@@ -433,7 +439,7 @@ func (c *RoomController) respondInvitation(ctx *gin.Context, accept bool) {
 		response.Error(ctx, http.StatusBadRequest, "Invalid invitation ID format")
 		return
 	}
-	err = c.respondInvitationUseCase.Execute(ctx, id, userID, accept)
+	err = c.respondInvitationUseCase.Execute(ctx.Request.Context(), id, userID, accept)
 	switch {
 	case err == nil:
 		response.JSON(ctx, http.StatusOK, gin.H{"message": "Invitation answered"})
@@ -452,3 +458,58 @@ func (c *RoomController) AcceptInvitation(ctx *gin.Context) { c.respondInvitatio
 
 // DeclineInvitation handles POST /api/v1/rooms/invitations/:id/decline
 func (c *RoomController) DeclineInvitation(ctx *gin.Context) { c.respondInvitation(ctx, false) }
+
+// ListRoomInvitations handles GET /api/v1/rooms/invitations/room/:room_id (admins and above)
+func (c *RoomController) ListRoomInvitations(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	roomID, err := uuid.Parse(ctx.Param("room_id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
+		return
+	}
+	invitations, err := c.listRoomInvitationsUC.Execute(ctx, roomID, userID)
+	switch {
+	case err == nil:
+		response.JSON(ctx, http.StatusOK, invitations)
+	case errors.Is(err, shared_domain.ErrForbidden):
+		response.Error(ctx, http.StatusForbidden, "You cannot manage invitations of this room")
+	default:
+		log.Printf("failed to list room invitations: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to list invitations")
+	}
+}
+
+// CancelInvitation handles DELETE /api/v1/rooms/invitations/room/:room_id/:id (admins and above)
+func (c *RoomController) CancelInvitation(ctx *gin.Context) {
+	userID, err := request.GetUserID(ctx)
+	if err != nil {
+		response.Error(ctx, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	roomID, err := uuid.Parse(ctx.Param("room_id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid room ID format")
+		return
+	}
+	id, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		response.Error(ctx, http.StatusBadRequest, "Invalid invitation ID format")
+		return
+	}
+	err = c.cancelInvitationUC.Execute(ctx, roomID, id, userID)
+	switch {
+	case err == nil:
+		ctx.Status(http.StatusNoContent)
+	case errors.Is(err, shared_domain.ErrForbidden):
+		response.Error(ctx, http.StatusForbidden, "You cannot manage invitations of this room")
+	case errors.Is(err, shared_domain.ErrNotFound):
+		response.Error(ctx, http.StatusNotFound, "Invitation not found")
+	default:
+		log.Printf("failed to cancel invitation: %v", err)
+		response.Error(ctx, http.StatusInternalServerError, "Failed to cancel invitation")
+	}
+}

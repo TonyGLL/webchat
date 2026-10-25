@@ -6,11 +6,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"backend/internal/shared/config"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 )
 
@@ -52,9 +54,35 @@ func (s *Server) setupMiddleware() {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
+		// Browsers cap this (Chrome 2 h, Firefox 24 h); it saves one OPTIONS round trip before
+		// every cross-origin call with a JSON body or an Authorization header.
+		MaxAge: corsMaxAge,
 	}))
+	// Compress API JSON (history pages, member lists, the directory). The websocket upgrade is
+	// skipped by the middleware itself and /ws by path; small bodies are not worth the CPU.
+	s.Router.Use(gzip.Gzip(gzip.DefaultCompression,
+		gzip.WithExcludedPaths([]string{"/api/v1/ws"}),
+		gzip.WithMinLength(1024),
+	))
+	s.Router.Use(APIHeaders())
 	// After CORS so a 413 still carries the CORS headers the browser needs to read it.
 	s.Router.Use(MaxBodySize(DefaultMaxBodyBytes))
+}
+
+const corsMaxAge = 2 * time.Hour
+
+// APIHeaders sets `X-Content-Type-Options: nosniff` on every response and
+// `Cache-Control: no-store` on the API (/api/...): token bodies and authenticated JSON must not
+// be kept by browser or proxy caches.
+func APIHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		h := c.Writer.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			h.Set("Cache-Control", "no-store")
+		}
+		c.Next()
+	}
 }
 
 // Limits on the underlying http.Server. Hijacked connections (the websocket at /ws) are not

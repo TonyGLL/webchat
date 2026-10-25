@@ -19,14 +19,21 @@ type Invitation struct {
 	InviterName string    `json:"inviter_name"`
 	InviteeID   int       `json:"invitee_id"`
 	CreatedAt   time.Time `json:"created_at"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	// InviteeName is filled only by ListByRoom (the admin view).
+	InviteeName string `json:"invitee_name,omitempty"`
 }
 
 type InvitationRepository interface {
 	// Create stores a pending invitation; ErrAlreadyInvited if one is already open, ErrUserNotFound if the invitee does not exist.
 	Create(ctx context.Context, roomID uuid.UUID, inviterID, inviteeID int) (*Invitation, error)
-	// ListPending returns the open invitations addressed to userID, newest first.
+	// ListByRoom returns the open (unexpired) invitations of a room, newest first.
+	ListByRoom(ctx context.Context, roomID uuid.UUID) ([]*Invitation, error)
+	// Cancel closes a pending invitation of the room; false if there was none.
+	Cancel(ctx context.Context, roomID, id uuid.UUID) (bool, error)
+	// ListPending returns the open (unexpired) invitations addressed to userID, newest first.
 	ListPending(ctx context.Context, userID int) ([]*Invitation, error)
-	// FindPending returns a pending invitation, or nil.
+	// FindPending returns a pending, unexpired invitation, or nil.
 	FindPending(ctx context.Context, id uuid.UUID) (*Invitation, error)
 	// Resolve closes a pending invitation as accepted or declined; false if it was no longer pending.
 	Resolve(ctx context.Context, id uuid.UUID, accepted bool) (bool, error)

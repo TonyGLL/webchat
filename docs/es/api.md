@@ -25,7 +25,7 @@ flowchart LR
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/health` | Liveness. Siempre `200 {"status":"ok"}` *(público)* |
-| GET | `/ready` | Readiness. Comprueba la base de datos y Redis; `503` si alguna falla *(público)* |
+| GET | `/ready` | Readiness. Comprueba la base de datos y Redis; `503` si alguna falla o si ya empezó el apagado *(público)* |
 
 ## Auth `/auth`
 
@@ -59,7 +59,9 @@ flowchart LR
 | GET | `/rooms/discover` | Todas las salas no directas; las privadas se listan pero requieren invitación |
 | POST | `/rooms/invite-user/:room_id` | Invitar a un usuario concreto (admin o superior) |
 | GET | `/rooms/invitations` | Mis invitaciones pendientes |
-| POST | `/rooms/invitations/:id/accept` · `/decline` | Responder una invitación; al aceptar paso a ser miembro |
+| POST | `/rooms/invitations/:id/accept` · `/decline` | Responder una invitación; al aceptar paso a ser miembro (404 si caducó o quien la envió ya no puede invitar) |
+| GET | `/rooms/invitations/room/:room_id` | Invitaciones pendientes de una sala (admin o superior) |
+| DELETE | `/rooms/invitations/room/:room_id/:id` | Cancelar una invitación pendiente (admin o superior) |
 | POST | `/rooms/join/:room_id` | Unirse a una sala pública (falla si está vetado) |
 | POST | `/rooms/direct/:user_id` | Abre (o reutiliza) la sala 1 a 1 con ese usuario |
 | GET | `/rooms/members/:room_id` | Miembros con rol y estado en línea |
@@ -74,7 +76,7 @@ flowchart LR
 |---|---|---|
 | GET | `/messages/:roomId/messages?limit=&before=` | Historial, del más nuevo al más antiguo, paginado por cursor |
 | GET | `/messages/:roomId/pinned` | Mensajes fijados de una sala |
-| GET | `/messages/search?q=&room_id=` | Búsqueda de texto completo, sin distinguir acentos, en las salas del usuario (o en una) |
+| GET | `/messages/search?q=&room_id=` | Búsqueda de texto completo, sin distinguir acentos, en las salas del usuario (o en una). `503` + `Retry-After` si la búsqueda pasa de 2 s o la instancia ya ejecuta 4 |
 | POST | `/messages` | Enviar: `room_id`, `content`, opcional `reply_to_message_id` |
 | PATCH | `/messages/:id` | Editar (solo el autor) |
 | DELETE | `/messages/:id` | Borrar (el autor, o un moderador o superior) |

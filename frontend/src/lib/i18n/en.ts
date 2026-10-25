@@ -64,19 +64,6 @@ const en = {
   'register.haveAccount': 'Already have an account?',
   'register.signIn': 'Sign in',
 
-  'verifyEmail.title': 'Check your inbox',
-  'verifyEmail.sent': 'We sent a verification link to {email}. It expires in 10 minutes.',
-  'verifyEmail.yourEmail': 'your email',
-  'verifyEmail.back': 'Back to sign in',
-
-  'verifyToken.verifying': 'Verifying your email…',
-  'verifyToken.okTitle': 'Email verified',
-  'verifyToken.okBody': 'Your account is ready.',
-  'verifyToken.okAction': 'Continue to sign in',
-  'verifyToken.errorTitle': 'Link not valid',
-  'verifyToken.errorBody': 'This verification link is invalid or has expired.',
-  'verifyToken.errorAction': 'Back to sign in',
-
   'nav.logOut': 'Log out',
   'nav.language': 'Language',
   'nav.online': 'Online',
@@ -96,10 +83,12 @@ const en = {
   'rooms.name': 'Room name',
   'rooms.public': 'Public',
   'rooms.create': 'Create',
+  'rooms.createError': 'Could not create the room. Check the name and try again.',
   'rooms.fallbackName': 'Room',
 
   'search.noMatch': 'No messages match “{query}”.',
   'search.results': 'Search results',
+  'search.busy': 'Search is busy or took too long. Try a more specific query.',
 
   'chat.selectRoom': 'Select a room to start messaging.',
   'chat.backToRooms': 'Back to rooms',
@@ -243,8 +232,6 @@ const en = {
   'title.register': 'Create account',
   'title.forgot': 'Reset password',
   'title.reset': 'New password',
-  'title.verifyEmail': 'Check your inbox',
-  'title.verify': 'Verify email',
   'title.dashboard': 'Chats',
   'title.profile': 'Your profile',
   // Dashboard landmarks, panels, form hints

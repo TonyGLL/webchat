@@ -15,6 +15,8 @@ type fakeRooms struct {
 	rooms map[uuid.UUID]*domain.Room
 	// users are the active users; when nil every id counts as an active user without an email.
 	users map[int]*domain.UserRef
+	// direct, when set, is the conversation FindOrCreateDirect returns.
+	direct *domain.Room
 }
 
 func (f *fakeRooms) Create(_ context.Context, r *domain.Room) (*domain.Room, error) { return r, nil }
@@ -22,6 +24,9 @@ func (f *fakeRooms) FindByID(_ context.Context, id uuid.UUID) (*domain.Room, err
 	return f.rooms[id], nil
 }
 func (f *fakeRooms) FindOrCreateDirect(context.Context, int, int) (*domain.Room, error) {
+	if f.direct != nil {
+		return f.direct, nil
+	}
 	return &domain.Room{ID: uuid.New(), IsDirect: true}, nil
 }
 func (f *fakeRooms) FindRoomsByUserID(context.Context, int) ([]*domain.Room, error) { return nil, nil }
@@ -223,8 +228,10 @@ func (s *spyDirectSubscriber) SubscribeUser(user int, _ string) {
 func (s *spyDirectSubscriber) UnsubscribeUser(int, string) {}
 
 func TestOpenDirect(t *testing.T) {
-	rooms := &fakeRooms{rooms: map[uuid.UUID]*domain.Room{}}
-	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{}}
+	// a freshly created direct room already holds both members (as the real repository does)
+	dm := &domain.Room{ID: uuid.New(), IsDirect: true}
+	rooms := &fakeRooms{rooms: map[uuid.UUID]*domain.Room{}, direct: dm}
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{dm.ID: {2: domain.RoleMember}}}
 	spy := &spyDirectSubscriber{}
 	uc := NewOpenDirectUseCase(rooms, members, spy)
 	ctx := context.Background()
@@ -242,6 +249,23 @@ func TestOpenDirect(t *testing.T) {
 	}
 	if len(spy.subscribed) != 2 {
 		t.Fatalf("both users must be subscribed to live events, got %v", spy.subscribed)
+	}
+}
+
+func TestOpenDirectDoesNotSubscribeSomeoneWhoLeft(t *testing.T) {
+	dm := &domain.Room{ID: uuid.New(), IsDirect: true}
+	rooms := &fakeRooms{direct: dm}
+	// user 2 left the conversation: only user 1 is still a member
+	members := &fakeMembers{members: map[uuid.UUID]map[int]domain.RoomRole{dm.ID: {1: domain.RoleMember}}}
+	spy := &spyDirectSubscriber{}
+	if _, err := NewOpenDirectUseCase(rooms, members, spy).Execute(context.Background(), 1, 2); err != nil {
+		t.Fatal(err)
+	}
+	if len(spy.subscribed) != 1 || spy.subscribed[0] != 1 {
+		t.Fatalf("only the caller may be subscribed, got %v", spy.subscribed)
+	}
+	if _, ok := members.members[dm.ID][2]; ok {
+		t.Fatal("the other person must not be re-added")
 	}
 }
 

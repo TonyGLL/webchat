@@ -3,6 +3,7 @@ package domain
 import (
 	auth_domain "backend/internal/auth/domain"
 	"context"
+	"io"
 )
 
 type UsersRepository interface {
@@ -10,7 +11,9 @@ type UsersRepository interface {
 	DeactivateUser(ctx context.Context, id int) error
 	// PasswordHash returns the stored password hash, or ErrNotFound.
 	PasswordHash(ctx context.Context, id int) (string, error)
-	ExportAccount(ctx context.Context, id int) (*AccountExport, error)
+	// ExportAccount streams the user's data as JSON (shape of AccountExport) into w. ErrNotFound
+	// is returned before anything is written.
+	ExportAccount(ctx context.Context, id int, w io.Writer) error
 	// DeleteAccount permanently removes the user. Rooms they own pass to the longest-standing
 	// admin (else member); rooms with nobody else are deleted; their messages stay, anonymised.
 	DeleteAccount(ctx context.Context, id int) error

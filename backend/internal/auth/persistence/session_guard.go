@@ -20,6 +20,9 @@ type ActiveChecker interface {
 const (
 	activeCacheTTL = 15 * time.Second
 	activeCacheMax = 10000
+	// Backend lookups run on every authenticated request and fail open, so they get short bounds.
+	revocationTimeout  = 250 * time.Millisecond
+	activeCheckTimeout = time.Second
 )
 
 type activeEntry struct {
@@ -35,8 +38,9 @@ type SessionGuard struct {
 	users  ActiveChecker
 	now    func() time.Time
 
-	mu    sync.Mutex
-	cache map[int]activeEntry
+	mu        sync.Mutex
+	cache     map[int]activeEntry
+	lastSweep time.Time
 }
 
 func NewSessionGuard(tokens domain.TokenRepository, users ActiveChecker) *SessionGuard {
@@ -44,10 +48,12 @@ func NewSessionGuard(tokens domain.TokenRepository, users ActiveChecker) *Sessio
 }
 
 func (g *SessionGuard) Valid(ctx context.Context, userID int, issuedAt time.Time) bool {
-	revokedAt, err := g.tokens.SessionsRevokedAt(ctx, userID)
+	rctx, cancel := context.WithTimeout(ctx, revocationTimeout)
+	revokedAt, err := g.tokens.SessionsRevokedAt(rctx, userID)
+	cancel()
 	if err != nil {
 		log.Printf("session guard: revocation lookup failed, allowing: %v", err)
-	} else if !revokedAt.IsZero() && issuedAt.Before(revokedAt) {
+	} else if !revokedAt.IsZero() && !issuedAt.After(revokedAt) {
 		return false
 	}
 	return g.isActive(ctx, userID)
@@ -62,16 +68,16 @@ func (g *SessionGuard) isActive(ctx context.Context, userID int) bool {
 		return entry.active
 	}
 
-	active, err := g.users.IsActive(ctx, userID)
+	actx, cancel := context.WithTimeout(ctx, activeCheckTimeout)
+	active, err := g.users.IsActive(actx, userID)
+	cancel()
 	if err != nil {
 		log.Printf("session guard: account lookup failed, allowing: %v", err)
 		return true
 	}
 
 	g.mu.Lock()
-	if len(g.cache) >= activeCacheMax {
-		g.cache = map[int]activeEntry{}
-	}
+	g.makeRoomLocked(now)
 	g.cache[userID] = activeEntry{active: active, expires: now.Add(activeCacheTTL)}
 	g.mu.Unlock()
 	return active
@@ -82,4 +88,28 @@ func (g *SessionGuard) Invalidate(userID int) {
 	g.mu.Lock()
 	delete(g.cache, userID)
 	g.mu.Unlock()
+}
+
+// makeRoomLocked keeps the cache below activeCacheMax without throwing everything away (a wipe
+// would send every request to the database at once when more than activeCacheMax users are
+// active): it drops the expired entries (at most once per TTL, the scan is O(n)) and, if the
+// cache is still full of live entries, one arbitrary entry (Go's map iteration order is random).
+func (g *SessionGuard) makeRoomLocked(now time.Time) {
+	if len(g.cache) < activeCacheMax {
+		return
+	}
+	if now.Sub(g.lastSweep) >= activeCacheTTL {
+		g.lastSweep = now
+		for id, e := range g.cache {
+			if !now.Before(e.expires) {
+				delete(g.cache, id)
+			}
+		}
+	}
+	for id := range g.cache {
+		if len(g.cache) < activeCacheMax {
+			return
+		}
+		delete(g.cache, id)
+	}
 }

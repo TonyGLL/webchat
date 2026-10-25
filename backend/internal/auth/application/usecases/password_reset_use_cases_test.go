@@ -213,3 +213,62 @@ func TestPasswordResetEndsExistingRefreshSessions(t *testing.T) {
 		t.Fatalf("a session opened before the reset must be refused, got %v", err)
 	}
 }
+
+func TestResetEmailDoesNotInterpolateTheName(t *testing.T) {
+	f := newResetFixture()
+	f.repo.users["ana@example.com"].Name = "Visit evil.example\nfor a prize"
+	_ = f.request.Execute(context.Background(), "ana@example.com")
+	if strings.Contains(f.mailer.sent[0].Body, "evil.example") {
+		t.Fatalf("the user's name must not reach the email: %q", f.mailer.sent[0].Body)
+	}
+}
+
+func TestResetPasswordRefusedPolicyDoesNotConsumeTheLinkButSuccessDoes(t *testing.T) {
+	f := newResetFixture()
+	_ = f.request.Execute(context.Background(), "ana@example.com")
+	token := tokenFromMail(t, f.mailer.sent[0])
+	if err := f.reset.Execute(context.Background(), token, "short"); err == nil {
+		t.Fatal("a weak password must be refused")
+	}
+	if _, ok := f.tokens.expires[hashResetToken(token)]; !ok {
+		t.Fatal("a refused password must not burn the link")
+	}
+}
+
+// Of two redemptions racing for the same link, the one that loses the atomic consume must not
+// change the password.
+func TestResetPasswordSecondRedemptionLosesTheConsume(t *testing.T) {
+	f := newResetFixture()
+	_ = f.request.Execute(context.Background(), "ana@example.com")
+	token := tokenFromMail(t, f.mailer.sent[0])
+	// Simulate the other request winning between our peek and our consume.
+	f.reset.tokenRepo = &consumedElsewhere{fakeTokens: f.tokens}
+	if err := f.reset.Execute(context.Background(), token, "a-brand-new-secret"); !errors.Is(err, shared_domain.ErrInvalidToken) {
+		t.Fatalf("got %v", err)
+	}
+	if _, changed := f.repo.password[7]; changed {
+		t.Fatal("the losing redemption must not touch the password")
+	}
+}
+
+type consumedElsewhere struct{ *fakeTokens }
+
+func (c *consumedElsewhere) ConsumeToken(context.Context, string, string) (int, error) {
+	return 0, shared_domain.ErrNotFound
+}
+
+func TestNewResetLinkInvalidatesThePreviousOne(t *testing.T) {
+	f := newResetFixture()
+	_ = f.request.Execute(context.Background(), "ana@example.com")
+	first := tokenFromMail(t, f.mailer.sent[0])
+	f.tokens.now = f.tokens.now.Add(passwordResetCooldown + time.Second)
+	_ = f.request.Execute(context.Background(), "ana@example.com")
+	second := tokenFromMail(t, f.mailer.sent[1])
+
+	if err := f.reset.Execute(context.Background(), first, "a-brand-new-secret"); !errors.Is(err, shared_domain.ErrInvalidToken) {
+		t.Fatalf("the older link must stop working, got %v", err)
+	}
+	if err := f.reset.Execute(context.Background(), second, "a-brand-new-secret"); err != nil {
+		t.Fatalf("the newest link must work: %v", err)
+	}
+}

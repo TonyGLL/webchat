@@ -18,8 +18,18 @@ var spec []byte
 // Spec returns the OpenAPI document.
 func Spec() []byte { return spec }
 
-// scalarVersion is pinned so the documentation page does not change under our feet.
-const scalarVersion = "1.75.0"
+// scalarVersion is pinned so the documentation page does not change under our feet, and the
+// script carries a Subresource Integrity hash so a compromised CDN cannot run code on the API
+// origin (where the refresh cookie is sent). The URL names the package's own dist file, not the
+// jsDelivr "default file" alias, because jsDelivr re-minifies the alias. When bumping the version
+// recompute the hash:
+//
+//	curl -sL https://cdn.jsdelivr.net/npm/@scalar/api-reference@VERSION/dist/browser/standalone.js \
+//	  | openssl dgst -sha384 -binary | openssl base64 -A
+const (
+	scalarVersion   = "1.75.0"
+	scalarIntegrity = "sha384-xgelKlDcc+BYp0O+ZYzFesLnWCgGpEbXVVZWNQT6WyZYygN01tbEMygnjPXb5OPI"
+)
 
 const referencePage = `<!doctype html>
 <html lang="en">
@@ -30,7 +40,7 @@ const referencePage = `<!doctype html>
   </head>
   <body>
     <script id="api-reference" data-url="/openapi.yaml"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@` + scalarVersion + `"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@` + scalarVersion + `/dist/browser/standalone.js" integrity="` + scalarIntegrity + `" crossorigin="anonymous"></script>
   </body>
 </html>
 `

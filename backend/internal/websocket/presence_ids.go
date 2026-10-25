@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // OnlineUserIDs returns up to max online user ids, lowest first within the window it reads.

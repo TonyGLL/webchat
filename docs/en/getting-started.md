@@ -4,7 +4,7 @@
 
 ## 1. Requirements
 
-Go 1.26.10+, Node 22+ and pnpm (the version is pinned in `package.json`; `corepack enable` or `npm i -g pnpm`), Docker with Compose, Make, `air` (live reload; `make watch` offers to install it) and `openssl`.
+Go 1.27.3+, Node 24+ and pnpm (the version is pinned in `package.json`; `corepack enable` or `npm i -g pnpm`), Docker with Compose, Make, `air` (live reload; `make watch` offers to install it) and `openssl`.
 
 ## 2. Ports
 
@@ -38,7 +38,7 @@ make watch                         # http://localhost:8081
 
 # 3. Frontend
 cd ../frontend && cp .env.example .env.local
-pnpm install && pnpm dev             # http://localhost:3100
+pnpm install && pnpm dev             # http://localhost:3100 (bound to 127.0.0.1; DEV_HOST=0.0.0.0 pnpm dev to test from a phone)
 ```
 
 ### Or with the root Makefile
@@ -61,10 +61,10 @@ The template `backend/.env.example` is the source of truth. The important ones:
 
 | Variable | Required | Notes |
 |---|---|---|
-| `JWT_SECRET` | **Yes** | At least 32 characters (`openssl rand -hex 32`). The server refuses to start without it |
+| `JWT_SECRET` | **Yes** | At least 32 random characters: `openssl rand -base64 48`. The server refuses to start without it, or with a placeholder, a repeating pattern or fewer than 8 different characters |
 | `DATABASE_URL` | One of the two | Takes precedence over `DB_*` |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_PASSWORD` | If no `DATABASE_URL` | Local Postgres is on port 5433 |
-| `REDIS_URL` | One of the two | Takes precedence over `REDIS_*` |
+| `REDIS_URL` | One of the two | Takes precedence over `REDIS_*`. **Redis 6.2 or later** (the rate limiter uses a Lua script, `GETDEL` needs 6.2); tested on 6.2 and 8 |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASS` | If no `REDIS_URL` | Local Redis is on port 6380 |
 | `CORS_ALLOWED_ORIGINS` | In practice yes | Comma separated; must include the frontend origin. Also used for the WebSocket `Origin` check |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD` | Only for password reset | Without them "Forgot your password?" sends nothing (the error is only logged). A test SMTP server such as Mailpit works locally |
@@ -72,7 +72,7 @@ The template `backend/.env.example` is the source of truth. The important ones:
 | `TRUSTED_PROXIES` | Behind a load balancer | Comma-separated IPs/CIDRs whose `X-Forwarded-For` is trusted; empty by default. Without it every user behind the proxy shares one rate-limit bucket |
 | `PORT` | No | Default 8081 |
 | `FRONTEND_URL` | No | Used in email links |
-| `APP_ENV` | No | `prod` / `production` enables production mode |
+| `APP_ENV` | Recommended | **Secure by default**: anything except an explicit `dev`, `development`, `local` or `test` counts as production (Secure refresh cookie, Gin release mode, JSON logs), so a deployment that forgets it is still safe. Set `APP_ENV=dev` to run over plain `http` locally (Safari does not store Secure cookies on `http://localhost`). The server logs a warning at startup when it is not explicitly `prod`/`production` |
 
 Frontend: a single variable, `NEXT_PUBLIC_API_URL` (default `http://localhost:8081/api/v1`).
 
@@ -129,7 +129,7 @@ make admin-revoke EMAIL=you@example.com
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `JWT_SECRET must be set and at least 32 characters long` | Missing or short secret | Set it in `.env.local` |
+| `JWT_SECRET must be set...`, `looks like a placeholder`, `not random enough` | Missing, short or guessable secret | Set a random one in `.env.local` (`openssl rand -base64 48`) |
 | `DATABASE_URL is not set…` | `.env.local` not loaded | Run `make watch` from `backend/` |
 | `unable to connect to database` | Container down, wrong port or password | `docker compose ps`; use port **5433** locally |
 | Redis error at startup | Wrong port or password | Use port **6380** locally |

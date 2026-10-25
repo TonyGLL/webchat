@@ -1,7 +1,7 @@
 'use client';
 
 import { Search } from 'lucide-react';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import Avatar from '@/components/Avatar';
 import { Input } from '@/components/ui/input';
 import { useDirectory } from '@/hooks/useDirectory';
@@ -23,7 +23,7 @@ export function PresenceDot({ online, className }: { online: boolean; className?
 }
 
 /** Everybody on the server with live presence, always visible: click a person to write to them. */
-export default function PeoplePanel({ onOpenDirect }: { onOpenDirect: (userId: number) => void }) {
+function PeoplePanel({ onOpenDirect }: { onOpenDirect: (userId: number) => void }) {
   const { t } = useT();
   const [query, setQuery] = useState('');
   const { people, loading } = useDirectory(query);
@@ -47,8 +47,12 @@ export default function PeoplePanel({ onOpenDirect }: { onOpenDirect: (userId: n
                   <Avatar name={fullName(p)} size="sm" />
                   <PresenceDot online={p.online} className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 border-2 border-card" />
                 </span>
-                <span className={cn('min-w-0 flex-1 truncate', !p.online && 'text-muted-foreground')}>{fullName(p)}</span>
-                <span className="truncate font-mono text-[11px] text-muted-foreground">@{p.username}</span>
+                <span className={cn('min-w-0 flex-1 truncate', !p.online && 'text-muted-foreground')}>
+                  <bdi>{fullName(p)}</bdi>
+                </span>
+                <span className="truncate font-mono text-[11px] text-muted-foreground">
+                  <bdi>@{p.username}</bdi>
+                </span>
               </button>
             </li>
           ))}
@@ -79,3 +83,5 @@ export default function PeoplePanel({ onOpenDirect }: { onOpenDirect: (userId: n
     </div>
   );
 }
+
+export default memo(PeoplePanel);

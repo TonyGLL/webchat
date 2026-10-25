@@ -1,9 +1,13 @@
 package persistence
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"time"
 
 	"backend/internal/auth/domain"
@@ -82,90 +86,102 @@ func (r *PgUsersRepository) PasswordHash(ctx context.Context, id int) (string, e
 	return hash, err
 }
 
-func (r *PgUsersRepository) ExportAccount(ctx context.Context, id int) (*users_domain.AccountExport, error) {
-	export := &users_domain.AccountExport{
-		ExportedAt: time.Now().UTC(),
-		Rooms:      []users_domain.ExportedRoom{}, Messages: []users_domain.ExportedMessage{},
-		Reactions: []users_domain.ExportedReaction{}, Reports: []users_domain.ExportedReport{},
-	}
-
-	p := &export.Profile
+// ExportAccount streams the user's data as one JSON document (same shape as
+// domain.AccountExport) straight to w, one row at a time, so memory stays flat however many
+// messages the user wrote (BP-13). ErrNotFound is returned before anything is written; an
+// error after that leaves a truncated, invalid JSON document and the caller can only log it.
+func (r *PgUsersRepository) ExportAccount(ctx context.Context, id int, w io.Writer) error {
+	var p users_domain.ExportedProfile
 	err := r.db.QueryRowContext(ctx, `SELECT id, name, last_name, username, email, phone, avatar_url, role, created_at, last_access FROM users WHERE id = $1 AND deleted = FALSE`, id).
 		Scan(&p.ID, &p.Name, &p.LastName, &p.Username, &p.Email, &p.Phone, &p.AvatarURL, &p.Role, &p.CreatedAt, &p.LastAccess)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, shared_domain.ErrNotFound
+		return shared_domain.ErrNotFound
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// each block: run the query, collect rows
-	rows, err := r.db.QueryContext(ctx, `
+	bw := bufio.NewWriterSize(w, 32<<10)
+	enc := json.NewEncoder(bw)
+	enc.SetEscapeHTML(false)
+
+	exportedAt, _ := json.Marshal(time.Now().UTC())
+	if _, err := fmt.Fprintf(bw, `{"exported_at":%s,"profile":`, exportedAt); err != nil {
+		return err
+	}
+	if err := enc.Encode(p); err != nil {
+		return err
+	}
+
+	// stream writes one JSON array: rows are scanned and encoded one by one.
+	stream := func(key, query string, scan func(*sql.Rows) (any, error)) error {
+		if _, err := fmt.Fprintf(bw, `,%q:[`, key); err != nil {
+			return err
+		}
+		rows, err := r.db.QueryContext(ctx, query, id)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for first := true; rows.Next(); first = false {
+			if !first {
+				if _, err := bw.WriteString(","); err != nil {
+					return err
+				}
+			}
+			v, err := scan(rows)
+			if err != nil {
+				return err
+			}
+			if err := enc.Encode(v); err != nil {
+				return err
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		_, err = bw.WriteString("]")
+		return err
+	}
+
+	if err := stream("rooms", `
 		SELECT r.id, CASE WHEN r.is_direct THEN 'Direct message' ELSE r.name END, r.is_direct, rm.role::text, rm.joined_at
-		FROM room_members rm JOIN rooms r ON r.id = rm.room_id WHERE rm.user_id = $1 ORDER BY rm.joined_at`, id)
-	if err != nil {
-		return nil, err
+		FROM room_members rm JOIN rooms r ON r.id = rm.room_id WHERE rm.user_id = $1 ORDER BY rm.joined_at`,
+		func(rows *sql.Rows) (any, error) {
+			var x users_domain.ExportedRoom
+			err := rows.Scan(&x.RoomID, &x.Name, &x.IsDirect, &x.Role, &x.JoinedAt)
+			return x, err
+		}); err != nil {
+		return err
 	}
-	for rows.Next() {
-		var x users_domain.ExportedRoom
-		if err := rows.Scan(&x.RoomID, &x.Name, &x.IsDirect, &x.Role, &x.JoinedAt); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		export.Rooms = append(export.Rooms, x)
+	if err := stream("messages", `SELECT id, room_id, content, created_at, edited_at, deleted_at FROM messages WHERE author_id = $1 ORDER BY created_at`,
+		func(rows *sql.Rows) (any, error) {
+			var x users_domain.ExportedMessage
+			err := rows.Scan(&x.ID, &x.RoomID, &x.Content, &x.CreatedAt, &x.EditedAt, &x.DeletedAt)
+			return x, err
+		}); err != nil {
+		return err
 	}
-	if err := closeRows(rows); err != nil {
-		return nil, err
+	if err := stream("reactions", `SELECT message_id, emoji, created_at FROM reactions WHERE user_id = $1 ORDER BY created_at`,
+		func(rows *sql.Rows) (any, error) {
+			var x users_domain.ExportedReaction
+			err := rows.Scan(&x.MessageID, &x.Emoji, &x.CreatedAt)
+			return x, err
+		}); err != nil {
+		return err
 	}
-
-	rows, err = r.db.QueryContext(ctx, `SELECT id, room_id, content, created_at, edited_at, deleted_at FROM messages WHERE author_id = $1 ORDER BY created_at`, id)
-	if err != nil {
-		return nil, err
+	if err := stream("reports_filed", `SELECT reported_message_id, reason, status::text, created_at FROM reports WHERE reported_by_id = $1 ORDER BY created_at`,
+		func(rows *sql.Rows) (any, error) {
+			var x users_domain.ExportedReport
+			err := rows.Scan(&x.MessageID, &x.Reason, &x.Status, &x.CreatedAt)
+			return x, err
+		}); err != nil {
+		return err
 	}
-	for rows.Next() {
-		var x users_domain.ExportedMessage
-		if err := rows.Scan(&x.ID, &x.RoomID, &x.Content, &x.CreatedAt, &x.EditedAt, &x.DeletedAt); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		export.Messages = append(export.Messages, x)
+	if _, err := bw.WriteString("}\n"); err != nil {
+		return err
 	}
-	if err := closeRows(rows); err != nil {
-		return nil, err
-	}
-
-	rows, err = r.db.QueryContext(ctx, `SELECT message_id, emoji, created_at FROM reactions WHERE user_id = $1 ORDER BY created_at`, id)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var x users_domain.ExportedReaction
-		if err := rows.Scan(&x.MessageID, &x.Emoji, &x.CreatedAt); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		export.Reactions = append(export.Reactions, x)
-	}
-	if err := closeRows(rows); err != nil {
-		return nil, err
-	}
-
-	rows, err = r.db.QueryContext(ctx, `SELECT reported_message_id, reason, status::text, created_at FROM reports WHERE reported_by_id = $1 ORDER BY created_at`, id)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var x users_domain.ExportedReport
-		if err := rows.Scan(&x.MessageID, &x.Reason, &x.Status, &x.CreatedAt); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		export.Reports = append(export.Reports, x)
-	}
-	if err := closeRows(rows); err != nil {
-		return nil, err
-	}
-	return export, nil
+	return bw.Flush()
 }
 
 func closeRows(rows *sql.Rows) error {

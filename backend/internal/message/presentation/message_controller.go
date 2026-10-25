@@ -245,6 +245,9 @@ func respondError(c *gin.Context, err error, fallback string) {
 		response.Error(c, http.StatusNotFound, "Message not found")
 	case errors.Is(err, shared_domain.ErrInvalidInput):
 		response.Error(c, http.StatusBadRequest, "Invalid input")
+	case errors.Is(err, domain.ErrSearchBusy), errors.Is(err, domain.ErrSearchTooBroad):
+		c.Header("Retry-After", "5")
+		response.Error(c, http.StatusServiceUnavailable, "Search is busy or too broad, narrow your search and try again")
 	default:
 		log.Printf("%s: %v", fallback, err)
 		response.Error(c, http.StatusInternalServerError, fallback)

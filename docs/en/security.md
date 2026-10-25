@@ -20,17 +20,20 @@ flowchart LR
 | Item | Behaviour |
 |---|---|
 | Passwords | bcrypt hashes in their own table (`passwords`), never returned by the API |
-| Password policy | 8–72 characters (72 is bcrypt's limit); rejects a short list of very common passwords and passwords containing the username or the email's local part |
+| Password policy | 8–72 characters (72 is bcrypt's limit); rejects about 2000 very common passwords (embedded list) and passwords containing the username or the email's local part |
 | Access token | JWT, 1 hour, sent as `Authorization: Bearer …` |
-| Refresh token | JWT, 7 days, **single use** (kept valid 30 s more so concurrent tabs do not collide); id stored in Redis; httpOnly, `SameSite=Strict` cookie scoped to `/api/v1/auth` |
+| Refresh token | JWT, 7 days, **single use** and rotated within a *family* (one per login). A replay inside the 30 s grace gets the same successor back (no second chain); an already-rotated token presented after the grace revokes the whole family; a session ends at most 30 days after login however active it is; id stored in Redis (tokens issued before families existed start theirs on their first renewal); httpOnly, `SameSite=Strict` cookie scoped to `/api/v1/auth` |
 | Session persistence | every renewal issues a fresh 7 days, so the session ends after a week **without use**; the browser signs out only when the server rejects the token, never on a network error (D20) |
 | Token types and live sessions | every JWT carries `typ` (`access`/`refresh`/`verify`) and consumers require their own; HS256 only. A session guard rejects tokens issued before a revocation and tokens of deactivated users on every request (D23). Deactivating needs the password and ends sessions and sockets immediately |
-| Identity | usernames are `[A-Za-z0-9_.-]` (3–30); email and username are unique case-insensitively; login and reset take the same time for unknown accounts; bcrypt cost 12 |
+| Identity | usernames are `[A-Za-z0-9_.-]` (3–30); email and username are unique case-insensitively; login and reset take the same time for unknown accounts; reserved usernames (`admin`, `support`, `system`...) cannot be registered; names are trimmed, normalised to NFC and reject control, bidi and zero-width characters; bcrypt cost 12, with at most about half the CPUs hashing at once (the rest queue for up to 5 s) so a burst of logins cannot starve the API |
+| Login throttling | failed logins slow the **account**, not only the IP: after 5 failures from one address, or 20 from anywhere, for the same username or email, attempts get `429` + `Retry-After` for a delay that doubles up to 5 minutes. Never a permanent lock (an attacker could use it to lock people out) and a success clears it; unknown accounts count too. Counters live in Redis and the check lets logins through if Redis is down |
 | Limits | request bodies ≤ 1 MiB, server timeouts, per-IP rate limits on every mutating route, `TRUSTED_PROXIES` behind a load balancer (D27). Message edits need membership and cap content at 4000 characters; reactions are capped (10 distinct per person, 30 per message) |
+| API hardening | every response carries `X-Content-Type-Options: nosniff`, and `/api/...` answers `Cache-Control: no-store` (token bodies and authenticated JSON are never cached); 500s and invalid bodies return generic messages (details only in the log); JSON over 1 KiB is gzip-compressed; CORS preflight is cacheable for 2 h; `/docs` loads its pinned Scalar script with a Subresource Integrity hash; Redis calls on the request path time out within 0.5 s (fail open) |
+| Production defaults | the refresh cookie `Secure` flag and Gin release mode do not depend on an optional variable: only an explicit `APP_ENV` of `dev`/`development`/`local`/`test` relaxes them, and the server logs a warning at startup unless `APP_ENV` is `prod`/`production` |
 | Browser | security headers and a CSP on the web app (D25); client errors are logged without request bodies or credentials |
-| Password reset | `POST /auth/forgot-password` always answers the same, so it never reveals who has an account. The emailed link carries a random 256-bit token valid 30 minutes and **single use**; only its SHA-256 hash is stored. At most one email per address per minute, plus a per-client rate limit. `POST /auth/reset-password` applies the registration password policy (a refused password leaves the link valid), then **ends every session**: refresh tokens issued before that moment are rejected (access tokens expire within the hour) (D21) |
-| Logout | `POST /auth/logout` revokes the refresh id and clears the cookie |
-| Secret | the server refuses to start without a `JWT_SECRET` of at least 32 characters |
+| Password reset | `POST /auth/forgot-password` always answers the same, so it never reveals who has an account. The emailed link carries a random 256-bit token valid 30 minutes and **single use** (redeemed atomically with `GETDEL`; a newer link replaces the older one); only its SHA-256 hash is stored. The email never includes the account name. At most one email per address per minute, plus a per-client rate limit. `POST /auth/reset-password` applies the registration password policy (a refused password leaves the link valid), then **ends every session**: refresh tokens issued before that moment are rejected (access tokens expire within the hour) (D21) |
+| Logout | `POST /auth/logout` revokes the refresh id, clears the cookie and cuts the user's open sockets (other tabs reconnect on their own) |
+| Secret | the server refuses to start without a `JWT_SECRET` of at least 32 characters that is not a placeholder (`change-me`, `your-secret`...), not a repeating pattern and uses at least 8 different characters. Generate it with `openssl rand -base64 48` |
 | Login errors | the login form shows one generic message, so it does not reveal whether an email exists |
 
 The reasoning behind each choice is in [Design decisions](decisions.md) (D5–D7, D20, D21).
@@ -64,9 +67,11 @@ A global **moderator** acts as a moderator in every room; a global **admin** out
 
 Because rules compare ranks, a moderator can never act on another moderator, an admin, or the owner.
 
+Bans follow the same rule: a ban remembers the rank of whoever issued it, and lifting or replacing it (for example shortening a permanent ban) needs to be its issuer or to **outrank that rank**. A moderator cannot undo an admin's or the owner's ban; an admin can undo a moderator's. Bans from before this rule were assigned their issuer's current rank (0 if the issuer is gone, so any moderator can lift those).
+
 ## 4. Abuse protection
 
-Rate limits are per client IP, kept in Redis (`/api/v1`):
+Rate limits are per client IP, kept in Redis (`/api/v1`). IPv6 clients are grouped by their `/64` prefix, so rotating addresses inside one allocation does not give a fresh allowance. The counter is a small Lua script (works on Redis 6.2+, not only 7+):
 
 | Route | Limit |
 |---|---|
@@ -76,6 +81,7 @@ Rate limits are per client IP, kept in Redis (`/api/v1`):
 | `POST /auth/send-verify-email/:user_id` | 5 per 10 minutes |
 | `POST /ws-ticket` | 30 per minute |
 | `POST /messages` | 120 per minute |
+| `POST /rooms/read/:room_id` | 240 per minute |
 | `GET /messages/search` | 60 per minute |
 | `GET /users/export`, `DELETE /users/me` | 5 per hour each |
 
@@ -84,13 +90,14 @@ When exceeded the API answers `429` with a `Retry-After` header. If Redis is una
 ## 5. Moderation and audit
 
 - Members report messages (one report per person, never your own). Moderators review the queue and can delete the message, mark the report resolved or ignore it.
-- Bans are per room, temporary or permanent, and prevent re-joining by id or invitation.
+- Bans are per room, temporary or permanent, and prevent re-joining by id or invitation. Lifting or replacing one needs to outrank its issuer (see the matrix above).
+- Personal invitations expire after 30 days, admins can list and cancel a room's pending invitations, and accepting requires the person who sent it to still be an admin or owner of the room (like invitation codes).
 - Every sensitive action is written to `audit_log` with actor, target, room and details. Only admins read it.
 
 ## 6. Privacy
 
 - **Directory and discovery:** any signed-in user can list other active users (name, username, online status) and every room's name, topic and member count. Reading or writing in a room still needs membership, so a private room is visible but closed. Personal invitations can only be answered by the invited user (anyone else gets "not found"), and accepting re-checks bans.
-- `GET /users/export` downloads a JSON file with the user's profile, rooms, messages and reactions.
+- `GET /users/export` downloads a JSON file with the user's profile, rooms, messages and reactions, streamed row by row so a large account never sits fully in server memory.
 - `DELETE /users/me` (confirmed with the password) deletes the account: see D13 in [Design decisions](decisions.md).
 
 ## 7. Known limits
