@@ -108,7 +108,7 @@ Notas sobre cada variable:
 | `PORT` | No | Por defecto `8081`. |
 | `FRONTEND_URL` | No | URL pública del frontend para los enlaces de los correos. Por defecto `http://localhost:3100`. |
 | `SMTP_*` | Solo para restablecer contraseña | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD`. Sin ellos «¿Olvidaste tu contraseña?» no envía nada (el error solo queda en el log). Con Gmail necesitas una "contraseña de aplicación". Para probar en local sirve un servidor SMTP de pruebas como Mailpit. |
-| `APP_ENV` | No | `prod` o `production` activa el modo producción. |
+| `APP_ENV` | Recomendada | Seguro por defecto: solo `dev`, `development`, `local` o `test` desactivan el modo producción (cookie Secure, modo release). Pon `APP_ENV=dev` en local con http. Redis mínimo: 6.2. |
 
 ### 3.2 Arrancar
 

@@ -27,6 +27,8 @@ flowchart LR
 | Tipos de token y sesiones vivas | cada JWT lleva `typ` (`access`/`refresh`/`verify`) y los consumidores exigen el suyo; solo HS256. Un guardián de sesión rechaza en cada petición los tokens emitidos antes de una revocación y los de usuarios desactivados (D23). Desactivar exige la contraseña y termina sesiones y sockets al instante |
 | Identidad | los nombres de usuario son `[A-Za-z0-9_.-]` (3–30); email y usuario son únicos sin distinguir mayúsculas; login y restablecimiento tardan lo mismo con cuentas desconocidas; bcrypt con coste 12 |
 | Límites | cuerpos ≤ 1 MiB, timeouts del servidor, límites de tasa por IP en cada ruta que modifica estado, `TRUSTED_PROXIES` tras un balanceador (D27). Editar mensajes exige ser miembro y limita el contenido a 4000 caracteres; las reacciones tienen tope (10 distintas por persona, 30 por mensaje) |
+| Endurecimiento de la API | toda respuesta lleva `X-Content-Type-Options: nosniff` y `/api/...` responde `Cache-Control: no-store` (los cuerpos con tokens y el JSON autenticado nunca se cachean); los 500 y los cuerpos inválidos devuelven mensajes genéricos (el detalle solo va al log); el JSON de más de 1 KiB se comprime con gzip; el preflight de CORS se cachea 2 h; `/docs` carga su script de Scalar fijado con un hash de Subresource Integrity; las llamadas a Redis en la ruta de petición vencen en 0,5 s (fail open) |
+| Valores por defecto de producción | el flag `Secure` de la cookie de refresco y el modo release de Gin no dependen de una variable opcional: solo un `APP_ENV` explícito `dev`/`development`/`local`/`test` los relaja, y el servidor avisa en el log al arrancar salvo que `APP_ENV` sea `prod`/`production` |
 | Navegador | cabeceras de seguridad y CSP en la aplicación web (D25); los errores del cliente se registran sin cuerpos de petición ni credenciales |
 | Restablecer contraseña | `POST /auth/forgot-password` responde siempre igual, así que nunca revela quién tiene cuenta. El enlace del correo lleva un token aleatorio de 256 bits válido 30 minutos y de **un solo uso**; solo se guarda su hash SHA-256. Como máximo un correo por dirección y minuto, además de un límite por cliente. `POST /auth/reset-password` aplica la política de contraseñas del registro (una contraseña rechazada deja el enlace válido) y después **cierra todas las sesiones**: los refresh tokens emitidos antes se rechazan (los access tokens caducan en menos de una hora) (D21) |
 | Cierre de sesión | `POST /auth/logout` revoca el id de refresh y borra la cookie |
@@ -66,7 +68,7 @@ Como las reglas comparan rangos, un moderador nunca puede actuar sobre otro mode
 
 ## 4. Protección contra abuso
 
-Los límites son por IP de cliente y se guardan en Redis (`/api/v1`):
+Los límites son por IP de cliente y se guardan en Redis (`/api/v1`). Los clientes IPv6 se agrupan por su prefijo `/64`, así rotar direcciones dentro de una misma asignación no da un cupo nuevo. El contador es un pequeño script Lua (funciona en Redis 6.2+, no solo 7+):
 
 | Ruta | Límite |
 |---|---|
@@ -76,6 +78,7 @@ Los límites son por IP de cliente y se guardan en Redis (`/api/v1`):
 | `POST /auth/send-verify-email/:user_id` | 5 cada 10 minutos |
 | `POST /ws-ticket` | 30 por minuto |
 | `POST /messages` | 120 por minuto |
+| `POST /rooms/read/:room_id` | 240 por minuto |
 | `GET /messages/search` | 60 por minuto |
 | `GET /users/export`, `DELETE /users/me` | 5 por hora cada una |
 

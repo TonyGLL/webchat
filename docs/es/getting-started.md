@@ -64,7 +64,7 @@ La plantilla `backend/.env.example` es la fuente de verdad. Las importantes:
 | `JWT_SECRET` | **Sí** | Al menos 32 caracteres (`openssl rand -hex 32`). El servidor no arranca sin ella |
 | `DATABASE_URL` | Una de las dos | Tiene prioridad sobre `DB_*` |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_PASSWORD` | Si no hay `DATABASE_URL` | El Postgres local está en el puerto 5433 |
-| `REDIS_URL` | Una de las dos | Tiene prioridad sobre `REDIS_*` |
+| `REDIS_URL` | Una de las dos | Tiene prioridad sobre `REDIS_*`. **Redis 6.2 o superior** (el limitador usa un script Lua, `GETDEL` requiere 6.2); probado en 6.2 y 8 |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASS` | Si no hay `REDIS_URL` | El Redis local está en el puerto 6380 |
 | `CORS_ALLOWED_ORIGINS` | En la práctica sí | Separada por comas; debe incluir el origen del frontend. También se usa para validar el `Origin` del WebSocket |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD` | Solo para restablecer contraseña | Sin ellas «¿Olvidaste tu contraseña?» no envía nada (el error solo queda en el log). En local sirve un servidor SMTP de pruebas como Mailpit |
@@ -72,7 +72,7 @@ La plantilla `backend/.env.example` es la fuente de verdad. Las importantes:
 | `TRUSTED_PROXIES` | Tras un balanceador | IPs/CIDRs separados por comas cuyo `X-Forwarded-For` se acepta; vacío por defecto. Sin ella todos los usuarios tras el proxy comparten un cupo de límite de tasa |
 | `PORT` | No | Por defecto 8081 |
 | `FRONTEND_URL` | No | Se usa en los enlaces de los correos |
-| `APP_ENV` | No | `prod` / `production` activa el modo producción |
+| `APP_ENV` | Recomendada | **Seguro por defecto**: todo lo que no sea explícitamente `dev`, `development`, `local` o `test` cuenta como producción (cookie de refresco Secure, modo release de Gin, logs JSON), así un despliegue que la olvide sigue siendo seguro. Pon `APP_ENV=dev` para trabajar en local con `http` plano (Safari no guarda cookies Secure en `http://localhost`). El servidor avisa en el log al arrancar si no es explícitamente `prod`/`production` |
 
 Frontend: una sola variable, `NEXT_PUBLIC_API_URL` (por defecto `http://localhost:8081/api/v1`).
 

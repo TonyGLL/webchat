@@ -3,10 +3,16 @@ package request
 import (
 	"backend/internal/shared/http"
 	"errors"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+)
+
+// The bind errors are deliberately generic: validator and encoding/json messages name Go struct
+// fields and types, which clients must not see. The detail is not logged either (it may echo input).
+var (
+	errInvalidBody   = errors.New("invalid request body")
+	errInvalidParams = errors.New("invalid request parameters")
 )
 
 // GetUserID retrieves the user ID from the Gin context.
@@ -27,11 +33,11 @@ func GetUserID(c *gin.Context) (int, error) {
 // BindJSON binds the request body to a DTO and validates it.
 func BindJSON(ctx *gin.Context, dto interface{}, validate *validator.Validate) error {
 	if err := ctx.ShouldBindJSON(dto); err != nil {
-		return fmt.Errorf("invalid request body: %w", err)
+		return errInvalidBody
 	}
 
 	if err := validate.Struct(dto); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+		return errInvalidBody
 	}
 
 	return nil
@@ -39,11 +45,11 @@ func BindJSON(ctx *gin.Context, dto interface{}, validate *validator.Validate) e
 
 func BindURI(ctx *gin.Context, dto interface{}, validate *validator.Validate) error {
 	if err := ctx.ShouldBindUri(dto); err != nil {
-		return fmt.Errorf("invalid URI parameters: %w", err)
+		return errInvalidParams
 	}
 
 	if err := validate.Struct(dto); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+		return errInvalidBody
 	}
 
 	return nil

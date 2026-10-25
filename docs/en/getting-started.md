@@ -64,7 +64,7 @@ The template `backend/.env.example` is the source of truth. The important ones:
 | `JWT_SECRET` | **Yes** | At least 32 characters (`openssl rand -hex 32`). The server refuses to start without it |
 | `DATABASE_URL` | One of the two | Takes precedence over `DB_*` |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_PASSWORD` | If no `DATABASE_URL` | Local Postgres is on port 5433 |
-| `REDIS_URL` | One of the two | Takes precedence over `REDIS_*` |
+| `REDIS_URL` | One of the two | Takes precedence over `REDIS_*`. **Redis 6.2 or later** (the rate limiter uses a Lua script, `GETDEL` needs 6.2); tested on 6.2 and 8 |
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASS` | If no `REDIS_URL` | Local Redis is on port 6380 |
 | `CORS_ALLOWED_ORIGINS` | In practice yes | Comma separated; must include the frontend origin. Also used for the WebSocket `Origin` check |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_PASSWORD` | Only for password reset | Without them "Forgot your password?" sends nothing (the error is only logged). A test SMTP server such as Mailpit works locally |
@@ -72,7 +72,7 @@ The template `backend/.env.example` is the source of truth. The important ones:
 | `TRUSTED_PROXIES` | Behind a load balancer | Comma-separated IPs/CIDRs whose `X-Forwarded-For` is trusted; empty by default. Without it every user behind the proxy shares one rate-limit bucket |
 | `PORT` | No | Default 8081 |
 | `FRONTEND_URL` | No | Used in email links |
-| `APP_ENV` | No | `prod` / `production` enables production mode |
+| `APP_ENV` | Recommended | **Secure by default**: anything except an explicit `dev`, `development`, `local` or `test` counts as production (Secure refresh cookie, Gin release mode, JSON logs), so a deployment that forgets it is still safe. Set `APP_ENV=dev` to run over plain `http` locally (Safari does not store Secure cookies on `http://localhost`). The server logs a warning at startup when it is not explicitly `prod`/`production` |
 
 Frontend: a single variable, `NEXT_PUBLIC_API_URL` (default `http://localhost:8081/api/v1`).
 

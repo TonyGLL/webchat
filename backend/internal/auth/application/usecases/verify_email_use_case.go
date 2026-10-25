@@ -4,7 +4,9 @@ import (
 	"backend/internal/auth/application/dtos"
 	"backend/internal/auth/domain"
 	shared_app "backend/internal/shared/application"
+	shared_domain "backend/internal/shared/domain"
 	"context"
+	"errors"
 )
 
 type VerifyEmailUseCase struct {
@@ -30,6 +32,9 @@ func NewVerifyEmailUseCase(
 func (uc *VerifyEmailUseCase) Execute(ctx context.Context, input dtos.VerifyEmailInputDTO) error {
 	userID, err := uc.tokenRepo.GetToken(ctx, "verify_email_token", input.Token)
 	if err != nil {
+		if errors.Is(err, shared_domain.ErrNotFound) {
+			return shared_domain.ErrInvalidToken
+		}
 		return err
 	}
 

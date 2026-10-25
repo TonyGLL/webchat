@@ -26,7 +26,14 @@ info:
     Failures answer with `{ "error": "message" }`. A rate-limited request answers `429` with a
     `Retry-After` header (seconds). Besides authentication, limits apply per client IP to message
     edits and deletes, pins, reactions, reports, room creation, joining, direct messages,
-    invitations, room discovery, the people directory and `/ws-ticket`.
+    invitations, room discovery, the people directory and `/ws-ticket`. IPv6 clients are limited
+    per `/64` prefix. Unexpected failures answer `500` with a generic message (the detail is only
+    logged), and a malformed or invalid body answers `400` with a generic message, never the
+    validator's text.
+
+    API responses (`/api/...`) carry `Cache-Control: no-store` and every response
+    `X-Content-Type-Options: nosniff`; JSON bodies over 1 KiB are gzip-compressed when the client
+    sends `Accept-Encoding: gzip`.
 
     A request body larger than 1 MiB answers `413` (`{ "error": "Request body too large" }`) when
     its declared length is over the limit; a chunked body over the limit fails to parse and
@@ -314,9 +321,8 @@ paths:
           schema: { type: string }
       responses:
         "200": { $ref: "#/components/responses/MessageOk" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401":
-          description: The token is invalid or expired.
+        "400":
+          description: The token is unknown, invalid or expired.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
@@ -685,6 +691,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   /rooms/invite/{room_id}:
     post:
