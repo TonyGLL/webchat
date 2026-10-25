@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import PrivateRoute from '@/components/PrivateRoute';
 import { useRoom } from '@/hooks/useRoom';
@@ -17,6 +17,7 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useMessageAlerts } from '@/hooks/useMessageAlerts';
 import { useUser } from '@/hooks/useUser';
+import { useStableCallback } from '@/hooks/useStableCallback';
 import dynamic from 'next/dynamic';
 import UserProfile from '@/components/UserProfile';
 import SearchResults from '@/components/SearchResults';
@@ -29,23 +30,41 @@ import { useT } from '@/lib/i18n/useT';
 // Only shown on a user's first visit (or when reopened): keep it out of the first-load bundle.
 const OnboardingDialog = dynamic(() => import('@/components/OnboardingDialog'), { ssr: false });
 
+/** Signed-in screen. Its hooks fetch on mount, so it only mounts once `PrivateRoute` has a session. */
 export default function DashboardPage() {
+  return (
+    <PrivateRoute>
+      <Dashboard />
+    </PrivateRoute>
+  );
+}
+
+function Dashboard() {
   const { t } = useT();
   const { profile } = useUser();
   // One people panel (and so one directory fetch loop): in the right column from `lg` up, in the sidebar below.
   const wide = useMediaQuery('(min-width: 1024px)');
   const tour = useOnboarding(profile?.id);
   const [chosenRoom, setSelectedRoom] = useState<string | null>(null);
-  const { rooms, loading, createRoom, leaveRoom, openDirect, joinRoom, refreshRooms } = useRoom(chosenRoom);
-  const { rooms: discoverable, hasMore: discoverHasMore, loadingMore: discoverLoadingMore, loadMore: loadMoreDiscover, refresh: refreshDiscover } = useDiscoverRooms(rooms.length);
+  const { rooms, loading, membershipVersion, createRoom, leaveRoom, openDirect, joinRoom, refreshRooms } = useRoom(chosenRoom);
+  const { rooms: discoverable, hasMore: discoverHasMore, loadingMore: discoverLoadingMore, loadMore: loadMoreDiscover } = useDiscoverRooms(membershipVersion);
   const { invitations, error: invitationError, respond } = useInvitations(async (roomId) => {
     await refreshRooms();
     setSelectedRoom(roomId);
   });
-  const openPerson = async (userId: number) => setSelectedRoom(await openDirect(userId));
   // A room we were removed from (or left elsewhere) disappears from the list: close its chat.
   const selectedRoom = loading || rooms.some((r) => r.id === chosenRoom) ? chosenRoom : null;
   const room = rooms.find((r) => r.id === selectedRoom);
+
+  // Stable identities let the memoized panels skip renders caused by unrelated state (search keystrokes, polls).
+  const openPerson = useStableCallback(async (userId: number) => setSelectedRoom(await openDirect(userId)));
+  const closeRoom = useStableCallback(() => setSelectedRoom(null));
+  const leaveOpenRoom = useStableCallback(async () => {
+    if (!selectedRoom) return;
+    await leaveRoom(selectedRoom);
+    setSelectedRoom(null);
+  });
+  const createRoomAction = useMemo(() => <CreateRoomForm createRoom={createRoom} />, [createRoom]);
   useMessageAlerts(rooms, selectedRoom, setSelectedRoom);
 
   // Below md only one pane shows; with no room open the list pane has to be the page's main landmark.
@@ -79,7 +98,7 @@ export default function DashboardPage() {
 
   // On small screens only one pane is visible: the room list, or the open chat.
   return (
-    <PrivateRoute>
+    <>
       {tour.open && <OnboardingDialog name={profile?.name ?? profile?.username ?? ''} onFinish={tour.finish} />}
       <div className="flex h-dvh bg-background">
         <h1 className="sr-only">{t('dashboard.heading')}</h1>
@@ -131,17 +150,14 @@ export default function DashboardPage() {
                   rooms={rooms}
                   onSelectRoom={setSelectedRoom}
                   selectedRoom={selectedRoom}
-                  action={<CreateRoomForm createRoom={createRoom} />}
+                  action={createRoomAction}
                 />
                 <DiscoverRooms
                   rooms={discoverable}
                   hasMore={discoverHasMore}
                   loadingMore={discoverLoadingMore}
                   onLoadMore={loadMoreDiscover}
-                  onJoin={async (id) => {
-                    setSelectedRoom(await joinRoom(id));
-                    refreshDiscover();
-                  }}
+                  onJoin={async (id) => setSelectedRoom(await joinRoom(id))}
                 />
                 {/* Small screens have no side column: people live here instead. */}
                 {!wide && (
@@ -160,14 +176,10 @@ export default function DashboardPage() {
             roomId={selectedRoom}
             roomName={room?.name}
             isDirect={room?.is_direct}
-            onOpenDirect={async (userId) => setSelectedRoom(await openDirect(userId))}
+            onOpenDirect={openPerson}
             myRole={room?.my_role}
-            onBack={() => setSelectedRoom(null)}
-            onLeave={async () => {
-              if (!selectedRoom) return;
-              await leaveRoom(selectedRoom);
-              setSelectedRoom(null);
-            }}
+            onBack={closeRoom}
+            onLeave={leaveOpenRoom}
           />
         </main>
         {/* Always visible on wide screens, whichever room (or none) is open. */}
@@ -177,6 +189,6 @@ export default function DashboardPage() {
           </aside>
         )}
       </div>
-    </PrivateRoute>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { memo, useState, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { ArrowLeft, LogOut, UserPlus, Shield, Users, MessageSquare, Pin, Reply, X } from 'lucide-react';
 import { IGetRoomMessages } from '@/services/messageService';
@@ -71,7 +71,7 @@ interface MessageViewProps {
   onLeave: () => Promise<void>;
 }
 
-export default function MessageView({ roomId, roomName, myRole, isDirect = false, onOpenDirect, onBack, onLeave }: MessageViewProps) {
+function MessageView({ roomId, roomName, myRole, isDirect = false, onOpenDirect, onBack, onLeave }: MessageViewProps) {
   const { t } = useT();
   const {
     messages,
@@ -139,15 +139,19 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
   const handleScroll = () => {
     if (scrollRef.current) nearBottomRef.current = isNearBottom(scrollRef.current);
   };
-  useEffect(() => {
+  // Layout effect: the restore must happen before paint, or one frame shows the prepended rows at the top.
+  useLayoutEffect(() => {
     const container = scrollRef.current;
-    const newest = ordered[ordered.length - 1];
-    const newestId = pending[0]?.tempId ?? newest?.id ?? null;
-
     if (heightBeforeLoadRef.current !== null && container) {
       container.scrollTop = container.scrollHeight - heightBeforeLoadRef.current;
       heightBeforeLoadRef.current = null;
-    } else if (newestId !== newestIdRef.current) {
+    }
+  }, [ordered]);
+  useEffect(() => {
+    const newest = ordered[ordered.length - 1];
+    const newestId = pending[0]?.tempId ?? newest?.id ?? null;
+
+    if (newestId !== newestIdRef.current) {
       const behavior = followBehavior({
         firstLoad: newestIdRef.current === null,
         own: pending.length > 0 || newest?.author_id === profile?.id,
@@ -183,6 +187,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
     const member = memberById.get(id);
     return member ? fullName(member) : t('common.userNumber', { id });
   };
+  const authorUsername = (id: number) => (id === profile?.id ? profile.username : memberById.get(id)?.username);
   // In a direct conversation the other member is who the header is about.
   const peer = isDirect ? members.find((m) => m.user_id !== profile?.id) : undefined;
   // Screen-reader announcements for messages from other people that arrive while the room is open.
@@ -275,7 +280,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                 aria-label={m.online ? t('chat.online') : t('chat.offline')}
               />
               <span className={cn('min-w-0 flex-1 truncate', !m.online && 'text-muted-foreground')}>
-                {fullName(m)} <span className="text-xs text-muted-foreground">@{m.username}</span>
+                <bdi>{fullName(m)}</bdi> <bdi className="text-xs text-muted-foreground">@{m.username}</bdi>
               </span>
               {assignable.length === 0 || !others ? <RoleLabel role={m.role} /> : null}
             </div>
@@ -507,6 +512,7 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
                     key={msg.id}
                     msg={msg}
                     author={authorName(msg.author_id)}
+                    username={authorUsername(msg.author_id)}
                     role={memberById.get(msg.author_id)?.role}
                     replyPreview={
                       msg.reply_to_message_id ? (replied ? `${authorName(replied.author_id)}: ${replied.content}` : t('chat.originalMessage')) : null
@@ -591,3 +597,5 @@ export default function MessageView({ roomId, roomName, myRole, isDirect = false
     </div>
   );
 }
+
+export default memo(MessageView);

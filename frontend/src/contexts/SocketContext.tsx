@@ -3,7 +3,7 @@
 import { createContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { api, API_URL } from '@/lib/api';
-import { backoffDelay } from '@/lib/backoff';
+import { reconnectDelay } from '@/lib/backoff';
 import { createSocketEventBus, SocketEventBus } from '@/lib/socketEvents';
 
 interface IRawSocketContext {
@@ -34,9 +34,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let attempt = 0;
 
-    const scheduleReconnect = () => {
+    const scheduleReconnect = (code?: number) => {
       if (cancelled) return;
-      retryTimer = setTimeout(connect, backoffDelay(attempt++));
+      retryTimer = setTimeout(connect, reconnectDelay(attempt++, code));
     };
 
     const connect = () => {
@@ -53,13 +53,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             setSocket(ws);
           };
           ws.onmessage = (event) => events.emit(event.data);
-          ws.onclose = () => {
+          ws.onclose = (event) => {
             if (current === ws) setSocket(null);
-            scheduleReconnect();
+            scheduleReconnect(event.code);
           };
           ws.onerror = () => ws.close();
         })
-        .catch(scheduleReconnect);
+        .catch(() => scheduleReconnect());
     };
 
     connect();

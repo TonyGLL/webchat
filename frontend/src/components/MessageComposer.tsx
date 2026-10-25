@@ -5,6 +5,9 @@ import { Input } from '@/components/ui/input';
 import { useT } from '@/lib/i18n/useT';
 import EmojiPicker from './LazyEmojiPicker';
 
+/** Same limit as the backend (`max=4000` on create and edit). */
+export const MAX_MESSAGE_LENGTH = 4000;
+
 interface MessageComposerProps {
   /** Called with the raw text when the user sends a non-empty message. */
   onSend: (content: string) => void;
@@ -36,6 +39,7 @@ function MessageComposer({ onSend, onTyping }: MessageComposerProps) {
               setContent(e.target.value);
               if (e.target.value) onTyping();
             }}
+            maxLength={MAX_MESSAGE_LENGTH}
             placeholder={t('chat.writeMessage')}
             aria-label={t('chat.message')}
             className="h-auto flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -51,7 +55,7 @@ function MessageComposer({ onSend, onTyping }: MessageComposerProps) {
       {showEmoji && (
         <EmojiPicker
           onSelect={(emoji) => {
-            setContent((c) => c + emoji);
+            setContent((c) => (c.length + emoji.length > MAX_MESSAGE_LENGTH ? c : c + emoji));
             setShowEmoji(false);
           }}
           onClose={() => setShowEmoji(false)}

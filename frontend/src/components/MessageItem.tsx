@@ -1,7 +1,5 @@
 import { memo } from 'react';
 import { Flag, Pin, PinOff, Reply, Trash2 } from 'lucide-react';
-import dayjs from 'dayjs';
-import isToday from 'dayjs/plugin/isToday';
 import { IGetRoomMessages } from '@/services/messageService';
 import { RoomRole } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
@@ -9,18 +7,28 @@ import { intlLocale, Locale } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/useT';
 import Avatar from './Avatar';
 import Reaction from './Reaction';
-dayjs.extend(isToday);
 
-export const formatTimestamp = (date: string | Date, locale: Locale) => {
-  const options: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: 'numeric' };
-
-  if (!dayjs(date).isToday()) {
-    options.day = 'numeric';
-    options.month = 'short';
-    options.year = 'numeric';
+// One formatter per locale and shape: building an Intl.DateTimeFormat per row is the costly part.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+const formatter = (locale: Locale, shape: 'time' | 'dateTime' | 'full') => {
+  const key = `${locale}:${shape}`;
+  let f = formatters.get(key);
+  if (!f) {
+    const options: Intl.DateTimeFormatOptions =
+      shape === 'time'
+        ? { hour: 'numeric', minute: 'numeric' }
+        : shape === 'dateTime'
+          ? { hour: 'numeric', minute: 'numeric', day: 'numeric', month: 'short', year: 'numeric' }
+          : { dateStyle: 'full', timeStyle: 'short' };
+    formatters.set(key, (f = new Intl.DateTimeFormat(intlLocale(locale), options)));
   }
+  return f;
+};
 
-  return new Date(date).toLocaleTimeString(intlLocale(locale), options);
+/** Time only for today's messages, with the date for older ones. */
+export const formatTimestamp = (date: string | Date, locale: Locale) => {
+  const d = new Date(date);
+  return formatter(locale, d.toDateString() === new Date().toDateString() ? 'time' : 'dateTime').format(d);
 };
 
 export function RoleLabel({ role }: { role?: RoomRole }) {
@@ -40,6 +48,8 @@ interface MessageItemProps {
   msg: IGetRoomMessages;
   /** Display name of the author. */
   author: string;
+  /** Their @username: display names are free text and not unique, so it is shown beside them. */
+  username?: string;
   role?: RoomRole;
   /** "Name: text" of the message this one replies to, or the "original message" fallback; null when it is not a reply. */
   replyPreview: string | null;
@@ -61,6 +71,7 @@ interface MessageItemProps {
 function MessageItem({
   msg,
   author,
+  username,
   role,
   replyPreview,
   isCurrentUser,
@@ -105,15 +116,22 @@ function MessageItem({
                 aria-label={t('chat.messageUser', { name: author })}
                 className="text-sm font-semibold hover:text-primary hover:underline"
               >
-                {author}
+                <bdi>{author}</bdi>
               </button>
             ) : (
-              <span className="text-sm font-semibold">{author}</span>
+              <span className="text-sm font-semibold">
+                <bdi>{author}</bdi>
+              </span>
+            )}
+            {username && (
+              <span className="font-mono text-[11px] text-muted-foreground">
+                <bdi>@{username}</bdi>
+              </span>
             )}
             <RoleLabel role={role} />
             <time
               dateTime={new Date(msg.created_at).toISOString()}
-              title={new Date(msg.created_at).toLocaleString(intlLocale(locale), { dateStyle: 'full', timeStyle: 'short' })}
+              title={formatter(locale, 'full').format(new Date(msg.created_at))}
               className="font-mono text-[11px] text-muted-foreground"
             >
               {formatTimestamp(msg.created_at, locale)}
@@ -154,10 +172,12 @@ function MessageItem({
           {replyPreview !== null && (
             <p className="mt-1.5 truncate rounded-md border-l-2 border-primary/40 bg-background/70 px-2.5 py-1 text-[13px] text-muted-foreground">
               <span className="sr-only">{t('chat.inReplyTo')} </span>
-              {replyPreview}
+              <bdi>{replyPreview}</bdi>
             </p>
           )}
-          <p className="mt-1 whitespace-pre-wrap break-words text-sm">{msg.content}</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <bdi>{msg.content}</bdi>
+          </p>
         </div>
         {currentUserId !== undefined && (
           <div className="mt-1.5">

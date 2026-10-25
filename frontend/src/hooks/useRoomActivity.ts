@@ -3,6 +3,7 @@ import { roomService, RoomMember } from '@/services/roomService';
 import { moderationService } from '@/services/moderationService';
 import { RoomRole } from '@/lib/permissions';
 import { useSocket } from './useSocket';
+import { useOnReconnect } from './useOnReconnect';
 import { useSocketEvent } from './useSocketEvents';
 import { useUser } from './useUser';
 import { logError } from '@/lib/logError';
@@ -35,7 +36,8 @@ export const useRoomActivity = (roomId: string | null) => {
   // sent while it was down are lost.
   useEffect(() => {
     fetchMembers();
-  }, [fetchMembers, socket]);
+  }, [fetchMembers]);
+  useOnReconnect(fetchMembers);
 
   useEffect(() => {
     const pending = timers.current;
@@ -47,17 +49,23 @@ export const useRoomActivity = (roomId: string | null) => {
   }, [roomId]);
 
   useSocketEvent('presence', ({ user_id, online }) => {
-    setMembers((prev) => prev.map((m) => (m.user_id === user_id ? { ...m, online } : m)));
+    setMembers((prev) =>
+      prev.some((m) => m.user_id === user_id && m.online !== online) ? prev.map((m) => (m.user_id === user_id ? { ...m, online } : m)) : prev
+    );
   });
 
   useSocketEvent('role_changed', (payload) => {
     if (payload.room_id !== roomId) return;
-    setMembers((prev) => prev.map((m) => (m.user_id === payload.user_id ? { ...m, role: payload.role } : m)));
+    setMembers((prev) =>
+      prev.some((m) => m.user_id === payload.user_id && m.role !== payload.role)
+        ? prev.map((m) => (m.user_id === payload.user_id ? { ...m, role: payload.role } : m))
+        : prev
+    );
   });
 
   useSocketEvent('member_removed', (payload) => {
     if (payload.room_id !== roomId) return;
-    setMembers((prev) => prev.filter((m) => m.user_id !== payload.user_id));
+    setMembers((prev) => (prev.some((m) => m.user_id === payload.user_id) ? prev.filter((m) => m.user_id !== payload.user_id) : prev));
   });
 
   useSocketEvent('typing', (payload) => {

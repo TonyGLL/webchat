@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { IGetRoomMessages, messageService } from '@/services/messageService';
-import { useSocket } from './useSocket';
+import { useOnReconnect } from './useOnReconnect';
 import { useSocketEvent } from './useSocketEvents';
 import { logError } from '@/lib/logError';
 
 const PAGE_SIZE = 50;
+/** Pin events carry no room id, so every viewer would refetch for each one: coalesce them. */
+const PINNED_REFETCH_MS = 1500;
+
+const samePinned = (a: IGetRoomMessages[], b: IGetRoomMessages[]) =>
+  a.length === b.length && a.every((m, i) => m.id === b[i].id && m.content === b[i].content && m.edited_at === b[i].edited_at);
 
 /** A message the user sent that the server has not confirmed yet. */
 export interface PendingMessage {
@@ -16,7 +21,6 @@ export interface PendingMessage {
 }
 
 export const useMessages = (roomId: string | null) => {
-  const socket = useSocket();
   const [messages, setMessages] = useState<IGetRoomMessages[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -44,7 +48,9 @@ export const useMessages = (roomId: string | null) => {
   // Keep the pin state shown on messages already loaded in sync.
   const markPinned = useCallback((messageId: string, isPinned: boolean) => {
     setMessages((prev) =>
-      prev.map((m) => (m.id === messageId ? { ...m, pinned_at: isPinned ? new Date().toISOString() : null } : m))
+      prev.some((m) => m.id === messageId)
+        ? prev.map((m) => (m.id === messageId ? { ...m, pinned_at: isPinned ? new Date().toISOString() : null } : m))
+        : prev
     );
   }, []);
 
@@ -54,7 +60,8 @@ export const useMessages = (roomId: string | null) => {
       return;
     }
     try {
-      setPinned(await messageService.getPinned(roomId));
+      const next = await messageService.getPinned(roomId);
+      setPinned((prev) => (samePinned(prev, next) ? prev : next));
     } catch (error) {
       logError('Failed to fetch pinned messages', error);
     }
@@ -69,20 +76,26 @@ export const useMessages = (roomId: string | null) => {
   }, [fetchMessages]);
 
   // Events sent while the connection was down are lost: reload the latest page after a reconnect.
-  const wasConnected = useRef(false);
-  const hadDrop = useRef(false);
-  useEffect(() => {
-    if (socket) {
-      if (hadDrop.current) {
-        hadDrop.current = false;
-        fetchMessages();
-        fetchPinned();
-      }
-      wasConnected.current = true;
-    } else if (wasConnected.current) {
-      hadDrop.current = true;
-    }
-  }, [socket, fetchMessages, fetchPinned]);
+  useOnReconnect(() => {
+    fetchMessages();
+    fetchPinned();
+  });
+
+  const pinTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(
+    () => () => {
+      clearTimeout(pinTimer.current);
+      pinTimer.current = undefined;
+    },
+    [fetchPinned]
+  );
+  const refetchPinnedSoon = () => {
+    if (pinTimer.current !== undefined) return;
+    pinTimer.current = setTimeout(() => {
+      pinTimer.current = undefined;
+      fetchPinned();
+    }, PINNED_REFETCH_MS);
+  };
 
   useSocketEvent('new_message', (message) => {
     if (message.room_id === roomId) {
@@ -92,23 +105,25 @@ export const useMessages = (roomId: string | null) => {
 
   useSocketEvent('pin_message', ({ message_id, pinned: isPinned }) => {
     markPinned(message_id, isPinned);
-    fetchPinned();
+    refetchPinnedSoon();
   });
 
   useSocketEvent('delete_message', ({ message_id }) => {
-    setMessages((prev) => prev.filter((msg) => msg.id !== message_id));
-    setPinned((prev) => prev.filter((msg) => msg.id !== message_id));
+    setMessages((prev) => (prev.some((msg) => msg.id === message_id) ? prev.filter((msg) => msg.id !== message_id) : prev));
+    setPinned((prev) => (prev.some((msg) => msg.id === message_id) ? prev.filter((msg) => msg.id !== message_id) : prev));
   });
 
   useSocketEvent('update_message', ({ message_id, content }) => {
     setMessages((prev) =>
-      prev.map((msg) => (msg.id === message_id ? { ...msg, content, edited_at: new Date().toISOString() } : msg))
+      prev.some((msg) => msg.id === message_id)
+        ? prev.map((msg) => (msg.id === message_id ? { ...msg, content, edited_at: new Date().toISOString() } : msg))
+        : prev
     );
   });
 
   useSocketEvent('reaction_added', (reaction) => {
     setMessages((prev) =>
-      prev.map((msg) => {
+      !prev.some((msg) => msg.id === reaction.message_id) ? prev : prev.map((msg) => {
         if (msg.id !== reaction.message_id) return msg;
         const exists = msg.reactions?.some((r) => r.user_id === reaction.user_id && r.emoji === reaction.emoji);
         return exists ? msg : { ...msg, reactions: [...(msg.reactions ?? []), reaction] };
@@ -118,7 +133,7 @@ export const useMessages = (roomId: string | null) => {
 
   useSocketEvent('reaction_removed', (reaction) => {
     setMessages((prev) =>
-      prev.map((msg) =>
+      !prev.some((msg) => msg.id === reaction.message_id) ? prev : prev.map((msg) =>
         msg.id === reaction.message_id
           ? { ...msg, reactions: msg.reactions?.filter((r) => !(r.emoji === reaction.emoji && r.user_id === reaction.user_id)) }
           : msg
