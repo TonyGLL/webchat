@@ -44,7 +44,6 @@ Plantilla para añadir uno nuevo:
 
 ### Auditoría de octubre de 2026 (pendiente)
 
-- **H-104 Redis de docker-compose sin autenticación (BS-1, alta):** `redis:alpine` ignora las variables de contraseña estilo Bitnami; hace falta `command: redis-server --requirepass ${REDIS_PASSWORD}` y healthcheck con auth (ver informe de la auditoría). Lo mismo para Postgres (`root/root`).
 - **H-105 `JWT_SECRET` y `APP_ENV` en los .env reales:** el servidor ahora rechaza secretos de marcador/baja entropía y trata `APP_ENV` ausente como producción; revisar `.env.dev`, `.env.prod` y añadir las variables nuevas a `backend/.env.example` (`DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME`, `TRUSTED_PROXIES`).
 - **H-106 CSP con nonce (FS-2):** `script-src 'unsafe-inline'` sigue activo; la solución es `proxy.ts` con nonce + `strict-dynamic`.
 - **H-107 Teléfono obligatorio sin uso (FS-7) y oráculo de existencia de email en el registro (BS-20).**
@@ -65,6 +64,7 @@ _(nada por ahora)_
 
 | ID | Título | Fecha | Commit / PR |
 |----|--------|-------|-------------|
+| H-104 | Redis de docker-compose sin autenticación: la imagen oficial ignoraba las variables estilo Bitnami; ahora `redis-server --requirepass` con healthcheck autenticado (BS-1). Postgres sigue con `root/root` (H-051) | 2026-10-24 | 8008422 |
 | H-103 | Dependencias al día: Go 1.27.3, go-redis v9, Node 24, TypeScript 6, ESLint 10, lucide-react 1.x, imágenes y acciones fijadas por digest/SHA, política de cadena de suministro de pnpm (D28, D29) | 2026-10-24 | 29d8ff1 · ce0f171 |
 | H-102 | Frontend: zod fuera de las rutas no-auth, redirect de `/` sin JS, sharp fuera de la imagen, CSP `object-src 'none'` + COOP + reglas ESLint, logout local primero, dev ligado a 127.0.0.1 (FP-2/5/7/8/12, FS-2/3/4/8/9/10/13) | 2026-10-24 | 395102c |
 | H-101 | Frontend: carga en frío sin peticiones desperdiciadas, eventos sin cambio no re-renderizan, throttle de `markRead`, jitter de reconexión (FP-1/3/9/10/13, FS-1/5/6/12) | 2026-10-24 | 894da8b |
