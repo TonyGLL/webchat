@@ -30,9 +30,10 @@ flowchart LR
 
 ```bash
 # 1. Base de datos y caché
-cd backend && docker compose up -d db redis
+docker compose up -d db redis
 
 # 2. Backend: copia la plantilla, rellena cada <...> y luego
+cd backend
 cp .env.example .env.local
 make watch                         # http://localhost:8081
 
@@ -53,7 +54,7 @@ make help      # lista todos los objetivos
 
 Otros objetivos: `make check` (lo que revisa el CI: vet, gofmt, tsc, lint, tests y builds), `make test-integration` (tests del backend contra Postgres y Redis desechables), `make infra-up` / `infra-down`, `make up-dev` / `make down`, `make admin-grant EMAIL=… ROLE=admin`. Delegan en `backend/Makefile` y en pnpm, así que los comandos anteriores siguen funcionando.
 
-Las contraseñas de la base de datos están definidas en `backend/docker-compose.yml`; cópialas a `.env.local`. **Nunca subas archivos de entorno reales**: solo las plantillas `.env.example` se versionan.
+Las contraseñas de la base de datos están definidas en `docker-compose.yml`; cópialas a `.env.local`. **Nunca subas archivos de entorno reales**: solo las plantillas `.env.example` se versionan.
 
 ## 4. Variables de entorno (backend)
 
@@ -81,7 +82,7 @@ Qué archivo carga cada cosa:
 | Archivo | Lo usa |
 |---|---|
 | `backend/.env.local` | `make run`, `make watch` (backend en tu máquina) |
-| `backend/.env.dev` | `make up-dev` (backend en Docker) |
+| `backend/.env.dev` | `make up-dev` (backend en Docker; la web se construye con `NEXT_PUBLIC_API_URL`) |
 | `backend/.env.prod` | `make up-prod` |
 | `frontend/.env.local` | `pnpm dev` |
 
@@ -121,8 +122,8 @@ make admin-revoke EMAIL=tu@correo.com
 | raíz | `make dev` · `make check` · `make test-integration` · `make help` | todo desde un solo sitio |
 | `backend/` | `make watch` / `make run` | ejecutar con / sin recarga automática |
 | `backend/` | `make test` | `go test -v ./...` |
-| `backend/` | `make up-dev` / `make down` | todo el stack en Docker / detenerlo |
-| `backend/` | `docker compose down -v` | detener **y borrar todos los datos** |
+| raíz | `make up-dev` / `make down` | todo el stack en Docker (db, redis, api, web) / detenerlo |
+| raíz | `docker compose down -v` | detener **y borrar todos los datos** |
 | `frontend/` | `pnpm dev` · `pnpm run build` · `pnpm run lint` · `pnpm run test` | tareas del frontend |
 
 ## 8. Solución de problemas

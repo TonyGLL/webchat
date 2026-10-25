@@ -49,14 +49,14 @@ Cada página tiene un selector de idioma en su primera línea. Los documentos de
 ## Inicio rápido
 
 ```bash
-cd backend && docker compose up -d db redis
-cp .env.example .env.local        # rellena los valores y luego:
+docker compose up -d db redis     # el docker-compose.yml está en la raíz del repositorio
+cd backend && cp .env.example .env.local        # rellena los valores y luego:
 make watch                        # http://localhost:8081
 cd ../frontend && cp .env.example .env.local
 pnpm install && pnpm dev            # http://localhost:3100
 ```
 
-Cuando existan los dos `.env.local`, `make setup` y luego `make dev` desde la raíz del repositorio hacen todo esto de una vez (`make help` lista todos los objetivos).
+Cuando existan los dos `.env.local`, `make setup` y luego `make dev` desde la raíz del repositorio hacen todo esto de una vez (`make help` lista todos los objetivos). Para correr todo en contenedores (Postgres, Redis, API y web) usa `make up-dev` y `make down`: un solo `docker-compose.yml` en la raíz.
 
 | Servicio | Puerto (localhost) |
 |---|---|

@@ -49,14 +49,14 @@ Every page has a language switch on its first line. Team working documents (road
 ## Quick start
 
 ```bash
-cd backend && docker compose up -d db redis
-cp .env.example .env.local        # fill in the values, then:
+docker compose up -d db redis     # docker-compose.yml lives at the repository root
+cd backend && cp .env.example .env.local   # fill in the values, then:
 make watch                        # http://localhost:8081
 cd ../frontend && cp .env.example .env.local
 pnpm install && pnpm dev            # http://localhost:3100
 ```
 
-Once both `.env.local` files exist, `make setup` and then `make dev` from the repository root do all of this in one step (`make help` lists every target).
+Once both `.env.local` files exist, `make setup` and then `make dev` from the repository root do all of this in one step (`make help` lists every target). To run everything in containers instead (Postgres, Redis, API and web), use `make up-dev` and `make down`: one `docker-compose.yml` at the root.
 
 | Service | Port (localhost) |
 |---|---|

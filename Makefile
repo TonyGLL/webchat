@@ -1,4 +1,4 @@
-# Root Makefile: run everything from here, no need to cd into backend/ or frontend/.
+# Root Makefile: run everything from here (Docker included: docker-compose.yml is at the root), no need to cd into backend/ or frontend/.
 # `make` or `make help` lists the targets. It delegates to backend/Makefile (Go, Docker
 # compose) and to pnpm (frontend), so their own commands keep working too.
 
@@ -21,7 +21,7 @@ IT_PG_PORT    ?= 55432
 IT_REDIS_PORT ?= 56379
 
 .PHONY: help setup infra-up infra-down infra-ps infra-logs dev backend-run backend-watch \
-        wait-backend frontend-dev frontend-dev-after-backend build test test-integration lint fmt check up-dev up-prod down \
+        wait-backend frontend-dev frontend-dev-after-backend build test test-integration lint fmt check up-dev up-prod down logs images \
         admin-list admin-grant admin-revoke clean
 
 help: ## Show this help
@@ -36,16 +36,16 @@ setup: ## Install frontend dependencies and download Go modules
 ##@ Local development (backend and frontend on your machine, Postgres and Redis in Docker)
 
 infra-up: ## Start Postgres and Redis (docker compose)
-	cd $(BACKEND) && docker compose up -d db redis
+	docker compose up -d db redis
 
 infra-down: ## Stop Postgres and Redis (data is kept)
-	cd $(BACKEND) && docker compose stop db redis
+	docker compose stop db redis
 
 infra-ps: ## Show the state of the containers
-	cd $(BACKEND) && docker compose ps
+	docker compose ps
 
 infra-logs: ## Follow the Postgres and Redis logs
-	cd $(BACKEND) && docker compose logs -f db redis
+	docker compose logs -f db redis
 
 dev: infra-up ## Start everything: Postgres + Redis, backend with live reload, then the frontend once the backend is up
 	@$(MAKE) --no-print-directory -j2 backend-watch frontend-dev-after-backend
@@ -104,16 +104,22 @@ fmt: ## Format the Go code
 
 check: lint test build ## Everything CI checks, except the integration tests
 
-##@ Docker (full stack, backend in a container)
+##@ Docker (docker-compose.yml at the root: Postgres, Redis, backend and frontend in containers)
 
-up-dev: ## Start the whole dev stack in Docker (backend/.env.dev)
-	$(MAKE) -C $(BACKEND) up-dev
+up-dev: ## Start the whole stack in Docker (backend/.env.dev), building the images
+	CONFIG_FILE=.env.dev docker compose up --build -d
 
-up-prod: ## Start the production stack in Docker (backend/.env.prod)
-	$(MAKE) -C $(BACKEND) up-prod
+up-prod: ## Start the production stack in Docker (backend/.env.prod, set NEXT_PUBLIC_API_URL to the public https API URL)
+	CONFIG_FILE=.env.prod docker compose up --build -d
 
-down: ## Stop the docker compose stack
-	$(MAKE) -C $(BACKEND) down
+down: ## Stop the docker compose stack (volumes are kept; `docker compose down -v` also deletes the data)
+	docker compose down
+
+logs: ## Follow the logs of every container of the stack
+	docker compose logs -f
+
+images: ## Build the api and web images without starting anything
+	docker compose build
 
 ##@ Administration (global roles are only granted from the server)
 

@@ -14,18 +14,18 @@ Monorepo with two independent apps: `backend/` (Go + Gin, PostgreSQL, Redis, Gor
 
 ## Commands
 
-Root `Makefile` (run from the repo root; `make help` lists targets): `make setup`, `make dev` (Postgres+Redis in Docker, backend with `air`, frontend), `make check` (vet, gofmt, tsc, lint, tests, builds), `make test-integration` (throwaway Postgres/Redis on ports 55432/56379), `make admin-grant`; it delegates to `backend/Makefile` and pnpm.
+Root `Makefile` (run from the repo root; `make help` lists targets; Docker included): `make setup`, `make dev` (Postgres+Redis in Docker, backend with `air`, frontend), `make check` (vet, gofmt, tsc, lint, tests, builds), `make test-integration` (throwaway Postgres/Redis on ports 55432/56379), `make admin-grant`; it delegates to `backend/Makefile` and pnpm.
 
 Backend (run from `backend/`):
 - `make watch` — run with `air` live reload (loads `CONFIG_FILE=.env.local`)
 - `make run` — `go run cmd/server/main.go` with `CONFIG_FILE=.env.local`
 - `make build` / `make test` (`go test -v ./...`); single test: `go test -v ./internal/<pkg> -run TestName`
-- `make database-up` — start only the `db` service; `make up-dev` / `make up-prod` / `make down` — full docker compose stack (`.env.dev` / `.env.prod`)
+- `make database-up` / `make up-dev` / `make up-prod` / `make down` delegate to the root Makefile (docker compose stack, `.env.dev` / `.env.prod`)
 - Env files: committed templates are `backend/.env.example` and `frontend/.env.example`; real files are `.env.local` (run on host), `.env.dev` (Docker dev), `.env.prod`, all git-ignored and never to be read (see hard rule). Keep `backend/.env.example` in sync when adding config variables.
 - Docker naming standard: `<project>-<service>` in kebab-case (e.g. `webchat-api`, `webchat-db`, `webchat-redis`); volumes `webchat-<service>-data`; compose project `name: webchat`. Compose service keys stay short (`app`, `db`, `redis`).
 - Ports (chosen to avoid clashing with other local projects): frontend 3100, backend 8081, Postgres 5433, Redis 6380 (host side; all published on 127.0.0.1). Keep `PORT`, `CORS_ALLOWED_ORIGINS` and `NEXT_PUBLIC_API_URL` in the env files consistent with these.
 - CI (`.github/workflows/ci.yml`) also runs the migration test against a real Postgres (`TEST_DATABASE_URL`, empty DB only), builds both Docker images (no publishing to any registry); `security.yml` runs `govulncheck` and `pnpm audit` weekly; Dependabot is on. Deployment is not part of the pipeline (see `docs/*/ci-cd.md`, D19). Go is 1.27 (`go.mod`, patch level included; a minor bump also changes the `golang` tag+digest in `backend/Dockerfile`: D28); Redis client is `redis/go-redis/v9` (`NewClient` must keep `ContextTimeoutEnabled`); actions are pinned by SHA and Dockerfile bases by tag+digest, Postgres 16 / Redis 8 by major tag; the real SQL driver is `lib/pq` (`sql.Open("postgres")`).
-- The compose file is `backend/docker-compose.yml` (the root README mentions a root-level one, which does not exist).
+- The compose file is `docker-compose.yml` at the repository root (db, redis, api and web; build contexts `./backend` and `./frontend`, Dockerfiles stay in their directories). Docker commands run from the root (`make infra-up`, `make up-dev`, `make down`, `make logs`, `make images`); the backend Makefile only delegates. Compose substitutions (`REDIS_PASSWORD`, `NEXT_PUBLIC_API_URL`) come from the shell or a root `.env`, never from `backend/.env.*`.
 
 Frontend (run from `frontend/`, uses pnpm, version pinned in `package.json`, lockfile `pnpm-lock.yaml`): `pnpm install`, `pnpm dev`, `pnpm run build`, `pnpm run lint`, `pnpm run test`.
 

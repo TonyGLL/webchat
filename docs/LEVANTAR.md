@@ -5,7 +5,7 @@ Guía completa para correr el proyecto en tu máquina sin ayuda externa. Si algo
 ## Resumen rápido
 
 ```
-1. Docker:      cd backend && docker compose up -d db redis
+1. Docker:      docker compose up -d db redis        (desde la raíz del repo)
 2. Tablas:      (automático al arrancar el backend)
 3. Backend:     crear backend/.env.local  →  make watch      (http://localhost:8081)
 4. Frontend:    crear frontend/.env.local →  pnpm dev        (http://localhost:3100)
@@ -36,14 +36,14 @@ Convención de nombres: `<proyecto>-<servicio>` en minúsculas con guiones; vol�
 ## Paso 1: Base de datos y Redis
 
 ```bash
-cd backend
+# desde la raíz del repositorio
 docker compose up -d db redis
 docker compose ps
 ```
 
 Debes ver `webchat-db` y `webchat-redis` en estado `running`.
 
-Las contraseñas de Postgres y Redis están definidas en `backend/docker-compose.yml` (variables `POSTGRES_PASSWORD` y `REDIS_PASSWORD`). Las necesitarás en el paso 3. Ábrelo tú y cópialas; esta guía no las repite.
+Las contraseñas de Postgres y Redis están definidas en `docker-compose.yml` de la raíz (variables `POSTGRES_PASSWORD` y `REDIS_PASSWORD`). Las necesitarás en el paso 3. Ábrelo tú y cópialas; esta guía no las repite.
 
 ## Paso 2: Tablas de la base de datos (automático)
 
@@ -63,7 +63,7 @@ Deben aparecer `users`, `passwords`, `rooms`, `room_members`, `messages`, `react
 Para empezar desde cero (borra **todos** los datos):
 
 ```bash
-cd backend
+# desde la raíz del repositorio
 docker compose down -v
 docker compose up -d db redis
 # y volver a arrancar el backend: recrea las tablas
@@ -223,7 +223,7 @@ Detalle de la matriz de permisos en `backend/README.md` (sección Roles y permis
 ## Apagar todo
 
 ```bash
-cd backend
+# desde la raíz del repositorio (o `make down`)
 docker compose down         # conserva los datos (volúmenes)
 docker compose down -v      # borra también los datos
 ```
@@ -251,7 +251,7 @@ Ver [HALLAZGOS.md](HALLAZGOS.md) (sección Pendientes). Cuando se resuelvan, act
 
 | Qué | Dónde |
 |---|---|
-| Orquestación Docker (db, redis, api) | `backend/docker-compose.yml` |
+| Orquestación Docker (db, redis, api, web) | `docker-compose.yml` (raíz) |
 | Comandos del backend | `backend/Makefile` |
 | Migraciones SQL | `backend/migrations/` |
 | Lectura de variables de entorno | `backend/internal/shared/config/config.go` |

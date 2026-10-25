@@ -1,9 +1,11 @@
+# The whole stack from the repository root: `make up-dev` / `make up-prod` (full stack),
+# `make infra-up` (only Postgres and Redis, backend and frontend run on the host).
 name: webchat
 
 services:
   app:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     image: webchat/api:0.0.5
     restart: unless-stopped
@@ -11,13 +13,29 @@ services:
     ports:
       - "127.0.0.1:8081:8081"
     volumes:
-      - .:/app
+      - ./backend:/app
     depends_on:
       - db
       - redis
     environment:
-      - CONFIG_FILE=${CONFIG_FILE}
+      - CONFIG_FILE=${CONFIG_FILE:-}
       - PORT=8081
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Inlined into the browser bundle at build time: the URL the BROWSER uses to reach the API
+        # (a production build refuses a non-https remote URL).
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8081/api/v1}
+    image: webchat/web:0.0.5
+    restart: unless-stopped
+    container_name: webchat-web
+    ports:
+      - "127.0.0.1:3100:3100"
+    depends_on:
+      - app
 
   db:
     image: postgres:16-alpine  # keep the major: a new one is a data migration

@@ -40,10 +40,10 @@ updates:
       docker-frontend:
         patterns: ["*"]
 
-  # backend/docker-compose.yml (the docker ecosystem does not read compose files). Postgres and
+  # docker-compose.yml at the root (the docker ecosystem does not read compose files). Postgres and
   # Redis majors are data migrations: never proposed automatically.
   - package-ecosystem: docker-compose
-    directory: /backend
+    directory: /
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }
     ignore:

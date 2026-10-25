@@ -26,7 +26,7 @@ jobs:
       run:
         working-directory: backend
     # Real services, so the migration test exercises the same engines as production. Keep the
-    # majors in step with backend/docker-compose.yml and `make test-integration`.
+    # majors in step with docker-compose.yml and `make test-integration`.
     services:
       postgres:
         image: postgres:16-alpine

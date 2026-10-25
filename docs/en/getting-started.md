@@ -30,9 +30,10 @@ flowchart LR
 
 ```bash
 # 1. Database and cache
-cd backend && docker compose up -d db redis
+docker compose up -d db redis
 
 # 2. Backend: copy the template, fill every <...>, then
+cd backend
 cp .env.example .env.local
 make watch                         # http://localhost:8081
 
@@ -53,7 +54,7 @@ make help      # list every target
 
 Other targets: `make check` (what CI checks: vet, gofmt, tsc, lint, tests, builds), `make test-integration` (backend tests against throwaway Postgres and Redis), `make infra-up` / `infra-down`, `make up-dev` / `make down`, `make admin-grant EMAIL=… ROLE=admin`. They delegate to `backend/Makefile` and pnpm, so the old commands keep working.
 
-The database passwords are defined in `backend/docker-compose.yml`; copy them into `.env.local`. **Never commit real env files**: only the `.env.example` templates are versioned.
+The database passwords are defined in `docker-compose.yml`; copy them into `.env.local`. **Never commit real env files**: only the `.env.example` templates are versioned.
 
 ## 4. Environment variables (backend)
 
@@ -81,7 +82,7 @@ Which file is loaded by what:
 | File | Used by |
 |---|---|
 | `backend/.env.local` | `make run`, `make watch` (backend on your machine) |
-| `backend/.env.dev` | `make up-dev` (backend in Docker) |
+| `backend/.env.dev` | `make up-dev` (whole stack in Docker; the web image is built with `NEXT_PUBLIC_API_URL`) |
 | `backend/.env.prod` | `make up-prod` |
 | `frontend/.env.local` | `pnpm dev` |
 
@@ -121,8 +122,8 @@ make admin-revoke EMAIL=you@example.com
 | root | `make dev` · `make check` · `make test-integration` · `make help` | everything from one place |
 | `backend/` | `make watch` / `make run` | run with / without live reload |
 | `backend/` | `make test` | `go test -v ./...` |
-| `backend/` | `make up-dev` / `make down` | whole stack in Docker / stop it |
-| `backend/` | `docker compose down -v` | stop **and delete all data** |
+| root | `make up-dev` / `make down` | whole stack in Docker (db, redis, api, web) / stop it |
+| root | `docker compose down -v` | stop **and delete all data** |
 | `frontend/` | `pnpm dev` · `pnpm run build` · `pnpm run lint` · `pnpm run test` | frontend tasks |
 
 ## 8. Troubleshooting

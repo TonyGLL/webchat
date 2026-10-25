@@ -33,22 +33,19 @@ watch:
 	@echo "Watching..."
 	@APP_ENV=dev CONFIG_FILE=.env.local $(AIR)
 
+# Docker lives at the repository root (docker-compose.yml); these targets just delegate.
 database-up:
-	@echo "Starting PostgreSQL database..."
-	@CONFIG_FILE=.env.dev docker compose up -d db
+	@$(MAKE) --no-print-directory -C .. infra-up
 
-# Docker-compose commands
 up-dev:
-	@echo "Starting development environment..."
-	@CONFIG_FILE=.env.dev docker compose up --build -d
+	@$(MAKE) --no-print-directory -C .. up-dev
 
 up-prod:
-	@echo "Starting production environment..."
-	@CONFIG_FILE=.env.prod docker compose up --build -d
+	@$(MAKE) --no-print-directory -C .. up-prod
 
 down:
-	@echo "Stopping docker compose environment..."
-	@docker compose down
+	@$(MAKE) --no-print-directory -C .. down
+
 # Global roles (never granted through the API). Examples:
 #   make admin-list
 #   make admin-grant EMAIL=someone@example.com ROLE=admin     (admin | moderator)
