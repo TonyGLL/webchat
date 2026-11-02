@@ -22,3 +22,7 @@ strictDepBuilds: true
 overrides:
   # postcss-selector-parser < 7.1.6 has a moderate advisory (build time, via tailwindcss).
   postcss-selector-parser: "^7.1.6"
+  # minimatch < 11.0.1 has a moderate ReDoS advisory (lint time, via eslint). Only the 10.x line is
+  # raised: its `{ minimatch }` API is unchanged in 11. The 3.x line (eslint-plugin-*) has no patch
+  # and its default-function export breaks on 11, so it stays until those plugins move on.
+  "minimatch@^10": "^11.0.1"
