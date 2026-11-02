@@ -27,6 +27,12 @@ Plantilla para añadir uno nuevo:
 - **Nota:** la verificación de email está pausada (decisión del 2026-10-23); retomar junto con este hallazgo.
 - **Actualización (auditoría de octubre de 2026):** la ruta ya exige autenticación, coincidencia con el dueño y límite de 5 por 10 min (commit 004edb4); lo que queda es reanudar la verificación y, con ella, el oráculo de existencia de email en el registro (H-107).
 
+### H-115 `minimatch` 3.x con aviso moderado en `pnpm audit` (GHSA-g3hv-75wg-m249)
+- **Severidad:** 🟢 · **Fase:** 1 · **Área:** frontend / dependencias · **Verificación:** Confirmado (`pnpm audit` lo reporta; no rompe CI porque el workflow usa `--audit-level=high`)
+- **Descripción:** `minimatch` < 11.0.1 permite denegación de servicio por amplificación de globparts. Solo está parcheado en la 11.x; la línea 3.x (3.1.5, la última) no tiene parche. Solo se usa en tiempo de lint, a través de los plugins de eslint (`eslint-config-next` → `eslint-plugin-*`).
+- **Ubicación:** `frontend/pnpm-lock.yaml`; override de la línea 10.x en `frontend/pnpm-workspace.yaml` (PR #42, que también subió `follow-redirects` a 1.16.2).
+- **Propuesta:** no forzar la 11 sobre la 3.x (su export por defecto es una función y los plugins se rompen). Revisar cuando `eslint-config-next` / `eslint-plugin-*` migren a una `minimatch` moderna y, entonces, retirar el override de `pnpm-workspace.yaml` si ya no hace falta.
+
 ### Calidad y pruebas
 
 ### Datos y rendimiento
